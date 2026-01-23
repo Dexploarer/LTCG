@@ -7,13 +7,13 @@
  * Expert-level design with real-time Convex data and interactive charts.
  */
 
+import { ChartCard, MetricGrid, MetricTile } from "@/components/analytics";
+import { PageWrapper } from "@/components/layout";
+import { Button } from "@/components/ui/button";
 import { api } from "@convex/_generated/api";
 import { AreaChart, Badge, Card, DonutChart, Flex, Text, Title } from "@tremor/react";
 import { useQuery } from "convex/react";
 import Link from "next/link";
-import { ChartCard, MetricGrid, MetricTile } from "@/components/analytics";
-import { PageWrapper } from "@/components/layout";
-import { Button } from "@/components/ui/button";
 
 // =============================================================================
 // Types
@@ -114,7 +114,7 @@ export default function AnalyticsPage() {
   const systemHealth = [
     { name: "Database", status: "operational" },
     { name: "API", status: "operational" },
-    { name: "Matchmaking", status: (stats?.playersInQueue ?? 0 > 0) ? "active" : "idle" },
+    { name: "Matchmaking", status: (stats?.playersInQueue ?? 0) > 0 ? "active" : "idle" },
     { name: "Season", status: stats?.activeSeason ? "active" : "inactive" },
   ];
 

@@ -6,12 +6,12 @@
  * Detailed explanation of rate limiting tiers and headers.
  */
 
-import { BarChart, Card, Text, Title } from "@tremor/react";
-import Link from "next/link";
 import { CodeBlock, InfoBox } from "@/components/docs";
 import { PageWrapper } from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { BarChart, Card, Text, Title } from "@tremor/react";
+import Link from "next/link";
 
 // =============================================================================
 // Component

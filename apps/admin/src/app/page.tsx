@@ -6,14 +6,14 @@
  * Main dashboard showing system stats, recent activity, and alerts.
  */
 
-import { api } from "@convex/_generated/api";
-import { BarList, Card, DonutChart, Flex, Text, Title } from "@tremor/react";
-import { useQuery } from "convex/react";
-import Link from "next/link";
 import { StatCard, StatGrid } from "@/components/data";
 import { PageWrapper } from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { api } from "@convex/_generated/api";
+import { BarList, Card, DonutChart, Flex, Text, Title } from "@tremor/react";
+import { useQuery } from "convex/react";
+import Link from "next/link";
 
 // =============================================================================
 // Component

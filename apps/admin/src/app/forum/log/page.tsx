@@ -6,11 +6,6 @@
  * Full audit trail of all forum moderation actions.
  */
 
-import { api } from "@convex/_generated/api";
-import { BarList, Card, Text, Title } from "@tremor/react";
-import { useQuery } from "convex/react";
-import Link from "next/link";
-import { useState } from "react";
 import { DataTable, StatCard, StatGrid } from "@/components/data";
 import { PageWrapper } from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +18,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { ColumnDef } from "@/types";
+import { api } from "@convex/_generated/api";
+import { BarList, Card, Text, Title } from "@tremor/react";
+import { useQuery } from "convex/react";
+import Link from "next/link";
+import { useState } from "react";
 
 // =============================================================================
 // Types

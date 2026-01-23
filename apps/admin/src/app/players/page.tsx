@@ -6,11 +6,6 @@
  * Lists all players with search, filtering, and quick moderation actions.
  */
 
-import { api } from "@convex/_generated/api";
-import type { Id } from "@convex/_generated/dataModel";
-import { useQuery } from "convex/react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { DataTable } from "@/components/data";
 import { PageWrapper } from "@/components/layout";
 import { PlayerTypeBadge, RatingBadge } from "@/components/players";
@@ -23,6 +18,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { ColumnDef, PlayerType } from "@/types";
+import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
+import { useQuery } from "convex/react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 // =============================================================================
 // Types

@@ -6,12 +6,6 @@
  * Create, edit, and manage forum categories.
  */
 
-import { api } from "@convex/_generated/api";
-import type { Id } from "@convex/_generated/dataModel";
-import { Card, Text, Title } from "@tremor/react";
-import { useMutation, useQuery } from "convex/react";
-import Link from "next/link";
-import { useState } from "react";
 import { PageWrapper } from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +22,12 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useAdmin } from "@/contexts/AdminContext";
+import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
+import { Card, Text, Title } from "@tremor/react";
+import { useMutation, useQuery } from "convex/react";
+import Link from "next/link";
+import { useState } from "react";
 
 // =============================================================================
 // Types
@@ -413,7 +413,7 @@ function CategoryForm({ formData, updateFormField, isCreate }: CategoryFormProps
           <Input
             type="number"
             value={formData.sortOrder}
-            onChange={(e) => updateFormField("sortOrder", parseInt(e.target.value, 10) || 0)}
+            onChange={(e) => updateFormField("sortOrder", Number.parseInt(e.target.value, 10) || 0)}
           />
         </div>
         <div className="space-y-2">
@@ -421,7 +421,9 @@ function CategoryForm({ formData, updateFormField, isCreate }: CategoryFormProps
           <Input
             type="number"
             value={formData.minLevelToPost}
-            onChange={(e) => updateFormField("minLevelToPost", parseInt(e.target.value, 10) || 1)}
+            onChange={(e) =>
+              updateFormField("minLevelToPost", Number.parseInt(e.target.value, 10) || 1)
+            }
           />
         </div>
         <div className="space-y-2">
@@ -429,7 +431,9 @@ function CategoryForm({ formData, updateFormField, isCreate }: CategoryFormProps
           <Input
             type="number"
             value={formData.minLevelToReply}
-            onChange={(e) => updateFormField("minLevelToReply", parseInt(e.target.value, 10) || 1)}
+            onChange={(e) =>
+              updateFormField("minLevelToReply", Number.parseInt(e.target.value, 10) || 1)
+            }
           />
         </div>
       </div>

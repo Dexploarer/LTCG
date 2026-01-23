@@ -7,9 +7,9 @@
  * Uses Tremor for rich metric visualization.
  */
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { BadgeDelta, Card, Flex, Metric, Text } from "@tremor/react";
 import type { ReactNode } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
 
 // =============================================================================
 // Types

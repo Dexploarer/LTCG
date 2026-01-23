@@ -6,16 +6,16 @@
  * Reusable forms for batch operations.
  */
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { Text } from "@tremor/react";
 import { useMutation } from "convex/react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { PlayerSelector } from "./PlayerSelector";
 
 // =============================================================================
@@ -59,7 +59,7 @@ export function GrantGoldForm({ onSuccess }: BatchOperationFormProps) {
       toast.error("Please select at least one player");
       return;
     }
-    if (!amount || parseInt(amount, 10) <= 0) {
+    if (!amount || Number.parseInt(amount, 10) <= 0) {
       toast.error("Please enter a valid amount");
       return;
     }
@@ -72,7 +72,7 @@ export function GrantGoldForm({ onSuccess }: BatchOperationFormProps) {
     try {
       const result = await batchGrantGold({
         playerIds: selectedPlayers,
-        amount: parseInt(amount, 10),
+        amount: Number.parseInt(amount, 10),
         reason: reason.trim(),
       });
       toast.success(`Granted ${amount} gold to ${result.granted} players`);
@@ -151,7 +151,7 @@ export function GrantPremiumForm({ onSuccess }: BatchOperationFormProps) {
       toast.error("Please select at least one player");
       return;
     }
-    if (!amount || parseInt(amount, 10) <= 0) {
+    if (!amount || Number.parseInt(amount, 10) <= 0) {
       toast.error("Please enter a valid amount");
       return;
     }
@@ -164,7 +164,7 @@ export function GrantPremiumForm({ onSuccess }: BatchOperationFormProps) {
     try {
       const result = await batchGrantPremium({
         playerIds: selectedPlayers,
-        amount: parseInt(amount, 10),
+        amount: Number.parseInt(amount, 10),
         reason: reason.trim(),
       });
       toast.success(`Granted ${amount} premium to ${result.granted} players`);
@@ -328,7 +328,7 @@ export function GrantPacksForm({ onSuccess }: BatchOperationFormProps) {
       toast.error("Please enter a pack definition ID");
       return;
     }
-    if (!quantity || parseInt(quantity, 10) <= 0) {
+    if (!quantity || Number.parseInt(quantity, 10) <= 0) {
       toast.error("Please enter a valid quantity");
       return;
     }
@@ -342,7 +342,7 @@ export function GrantPacksForm({ onSuccess }: BatchOperationFormProps) {
       const result = await batchGrantPacks({
         playerIds: selectedPlayers,
         packDefinitionId: packDefinitionId.trim(),
-        quantity: parseInt(quantity, 10),
+        quantity: Number.parseInt(quantity, 10),
         reason: reason.trim(),
       });
       toast.success(`Granted ${quantity} packs to ${result.granted} players`);
@@ -528,7 +528,7 @@ export function GrantCardsForm({ onSuccess }: BatchOperationFormProps) {
                   min="1"
                   value={grant.quantity}
                   onChange={(e) =>
-                    updateCardGrant(index, "quantity", parseInt(e.target.value, 10) || 1)
+                    updateCardGrant(index, "quantity", Number.parseInt(e.target.value, 10) || 1)
                   }
                 />
               </div>
@@ -557,7 +557,12 @@ export function GrantCardsForm({ onSuccess }: BatchOperationFormProps) {
         />
       </div>
 
-      <Button type="button" onClick={handleSubmit} disabled={isSubmitting || !playerId.trim()} className="w-full">
+      <Button
+        type="button"
+        onClick={handleSubmit}
+        disabled={isSubmitting || !playerId.trim()}
+        className="w-full"
+      >
         {isSubmitting ? "Processing..." : "Grant Cards"}
       </Button>
     </div>
@@ -673,7 +678,7 @@ export function RemoveCardsForm({ onSuccess }: BatchOperationFormProps) {
                   min="1"
                   value={removal.quantity}
                   onChange={(e) =>
-                    updateCardRemoval(index, "quantity", parseInt(e.target.value, 10) || 1)
+                    updateCardRemoval(index, "quantity", Number.parseInt(e.target.value, 10) || 1)
                   }
                 />
               </div>
@@ -826,7 +831,7 @@ export function BatchGrantCardsForm({ onSuccess }: BatchOperationFormProps) {
                   min="1"
                   value={grant.quantity}
                   onChange={(e) =>
-                    updateCardGrant(index, "quantity", parseInt(e.target.value, 10) || 1)
+                    updateCardGrant(index, "quantity", Number.parseInt(e.target.value, 10) || 1)
                   }
                 />
               </div>

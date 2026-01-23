@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
   BookOpen,
@@ -65,24 +65,6 @@ const _DECK_MIN_SIZE = 30;
 const DECK_MAX_SIZE = 30;
 const MAX_COPIES_PER_CARD = 3;
 const MAX_LEGENDARY_COPIES = 1;
-
-// Mock saved decks
-const MOCK_DECKS: Deck[] = [
-  {
-    id: "deck-1",
-    name: "Fire Aggro",
-    cards: [],
-    createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
-    updatedAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
-  },
-  {
-    id: "deck-2",
-    name: "Water Control",
-    cards: [],
-    createdAt: Date.now() - 14 * 24 * 60 * 60 * 1000,
-    updatedAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
-  },
-];
 
 const RARITY_ORDER: Record<Rarity, number> = {
   legendary: 5,
@@ -304,6 +286,22 @@ export default function BinderPage() {
   const { token } = useAuth();
   const currentUser = useQuery(api.users.currentUser, token ? { token } : "skip");
 
+  // Queries
+  const userCards = useQuery(api.cards.getUserCards, token ? { token } : "skip");
+  const userDecks = useQuery(api.decks.getUserDecks, token ? { token } : "skip");
+  const selectedDeckData = useQuery(
+    api.decks.getDeckWithCards,
+    token && selectedDeckId ? { token, deckId: selectedDeckId as any } : "skip"
+  );
+
+  // Mutations
+  const createDeck = useMutation(api.decks.createDeck);
+  const saveDeck = useMutation(api.decks.saveDeck);
+  const renameDeck = useMutation(api.decks.renameDeck);
+  const deleteDeck = useMutation(api.decks.deleteDeck);
+  const setActiveDeck = useMutation(api.decks.setActiveDeck);
+  const toggleFavorite = useMutation(api.cards.toggleFavorite);
+
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRarity, setSelectedRarity] = useState<Rarity | "all">("all");
@@ -314,18 +312,44 @@ export default function BinderPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [previewCard, setPreviewCard] = useState<CardData | null>(null);
-  const [cards, setCards] = useState<CardData[]>(MOCK_CARDS);
 
   // Deck Builder State
   const [activeTab, setActiveTab] = useState<BinderTab>("collection");
-  const [decks, setDecks] = useState<Deck[]>(MOCK_DECKS);
-  const [selectedDeck, setSelectedDeck] = useState<Deck | null>(null);
+  const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
   const [currentDeckCards, setCurrentDeckCards] = useState<DeckCard[]>([]);
   const [isEditingDeckName, setIsEditingDeckName] = useState(false);
   const [editingDeckName, setEditingDeckName] = useState("");
   const [_showDeckPanel, setShowDeckPanel] = useState(false);
   const [isCreatingDeck, setIsCreatingDeck] = useState(false);
   const [newDeckName, setNewDeckName] = useState("");
+  const [isSavingDeck, setIsSavingDeck] = useState(false);
+
+  // Convert API data to CardData format
+  const cards: CardData[] = useMemo(() => {
+    if (!userCards) return MOCK_CARDS;
+    return userCards.map((card) => ({
+      id: card.id, // PlayerCard ID for favorites
+      cardDefinitionId: card.cardDefinitionId, // CardDefinition ID for deck operations
+      name: card.name,
+      rarity: card.rarity as Rarity,
+      element: card.archetype as Element,
+      cardType: card.cardType as CardType,
+      attack: card.attack,
+      defense: card.defense,
+      cost: card.cost,
+      ability: card.ability,
+      flavorText: card.flavorText,
+      imageUrl: card.imageUrl,
+      owned: card.owned,
+      isFavorite: card.isFavorite,
+    }));
+  }, [userCards]);
+
+  // Get selected deck details
+  const selectedDeck = useMemo(() => {
+    if (!selectedDeckId || !userDecks) return null;
+    return userDecks.find((d) => d.id === selectedDeckId) || null;
+  }, [selectedDeckId, userDecks]);
 
   // Reset scroll position on mount
   useEffect(() => {
@@ -457,12 +481,16 @@ export default function BinderPage() {
     selectedType !== "all" ||
     showFavoritesOnly;
 
-  const handleToggleFavorite = (cardId: string) => {
-    setCards((prev) =>
-      prev.map((card) => (card.id === cardId ? { ...card, isFavorite: !card.isFavorite } : card))
-    );
-    if (previewCard?.id === cardId) {
-      setPreviewCard((prev) => (prev ? { ...prev, isFavorite: !prev.isFavorite } : null));
+  const handleToggleFavorite = async (cardId: string) => {
+    if (!token) return;
+    try {
+      await toggleFavorite({ token, playerCardId: cardId });
+      // Optimistic UI update
+      if (previewCard?.id === cardId) {
+        setPreviewCard((prev) => (prev ? { ...prev, isFavorite: !prev.isFavorite } : null));
+      }
+    } catch (error) {
+      console.error("Failed to toggle favorite:", error);
     }
   };
 
@@ -544,58 +572,137 @@ export default function BinderPage() {
     });
   };
 
-  const handleCreateDeck = () => {
-    if (!newDeckName.trim()) return;
-    const newDeck: Deck = {
-      id: `deck-${Date.now()}`,
-      name: newDeckName.trim(),
-      cards: [],
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    setDecks((prev) => [...prev, newDeck]);
-    setSelectedDeck(newDeck);
-    setCurrentDeckCards([]);
-    setNewDeckName("");
-    setIsCreatingDeck(false);
-    setShowDeckPanel(true);
-  };
-
-  const handleSelectDeck = (deck: Deck) => {
-    setSelectedDeck(deck);
-    setCurrentDeckCards(deck.cards);
-    setShowDeckPanel(true);
-  };
-
-  const handleSaveDeck = () => {
-    if (!selectedDeck) return;
-    setDecks((prev) =>
-      prev.map((d) =>
-        d.id === selectedDeck.id ? { ...d, cards: currentDeckCards, updatedAt: Date.now() } : d
-      )
-    );
-  };
-
-  const handleDeleteDeck = (deckId: string) => {
-    setDecks((prev) => prev.filter((d) => d.id !== deckId));
-    if (selectedDeck?.id === deckId) {
-      setSelectedDeck(null);
+  const handleCreateDeck = async () => {
+    if (!newDeckName.trim() || !token) return;
+    try {
+      const result = await createDeck({ token, name: newDeckName.trim() });
+      setSelectedDeckId(result.deckId);
       setCurrentDeckCards([]);
-      setShowDeckPanel(false);
+      setNewDeckName("");
+      setIsCreatingDeck(false);
+      setShowDeckPanel(true);
+    } catch (error) {
+      console.error("Failed to create deck:", error);
+      alert("Failed to create deck. Please try again.");
     }
   };
 
-  const handleRenameDeck = () => {
-    if (!selectedDeck || !editingDeckName.trim()) return;
-    setDecks((prev) =>
-      prev.map((d) => (d.id === selectedDeck.id ? { ...d, name: editingDeckName.trim() } : d))
-    );
-    setSelectedDeck((prev) => (prev ? { ...prev, name: editingDeckName.trim() } : null));
-    setIsEditingDeckName(false);
+  const handleSelectDeck = (deckId: string) => {
+    setSelectedDeckId(deckId);
+    setShowDeckPanel(true);
+  };
+
+  // Load deck cards when selectedDeckData changes
+  useEffect(() => {
+    if (selectedDeckData && selectedDeckData.cards) {
+      // Convert API format to component format
+      const loadedCards: DeckCard[] = selectedDeckData.cards.map((apiCard: any) => ({
+        card: {
+          id: apiCard.cardDefinitionId,
+          cardDefinitionId: apiCard.cardDefinitionId,
+          name: apiCard.name,
+          rarity: apiCard.rarity as Rarity,
+          element: apiCard.archetype as Element,
+          cardType: apiCard.cardType as CardType,
+          attack: apiCard.attack,
+          defense: apiCard.defense,
+          cost: apiCard.cost,
+          ability: apiCard.ability,
+          flavorText: apiCard.flavorText,
+          imageUrl: apiCard.imageUrl,
+          owned: 0, // We don't track owned count in deck cards
+          isFavorite: false,
+        },
+        count: apiCard.quantity,
+      }));
+      setCurrentDeckCards(loadedCards);
+    } else if (selectedDeckId && !selectedDeckData) {
+      // Deck is selected but data not loaded yet, keep current cards
+      // or clear if it's a newly created deck
+      if (currentDeckCards.length === 0) {
+        // Keep empty for new decks
+      }
+    }
+  }, [selectedDeckData, selectedDeckId]);
+
+  const handleSaveDeck = async () => {
+    if (!selectedDeckId || !token) return;
+
+    // Validate deck size
+    const totalCards = currentDeckCards.reduce((sum, dc) => sum + dc.count, 0);
+    if (totalCards !== DECK_MAX_SIZE) {
+      alert(`Deck must have exactly ${DECK_MAX_SIZE} cards. Currently has ${totalCards}.`);
+      return;
+    }
+
+    setIsSavingDeck(true);
+    try {
+      // Convert currentDeckCards to the format expected by the API
+      const cardsToSave = currentDeckCards.map((dc) => ({
+        cardDefinitionId: (dc.card.cardDefinitionId || dc.card.id) as any, // API expects Id<"cardDefinitions">
+        quantity: dc.count,
+      }));
+
+      await saveDeck({
+        token,
+        deckId: selectedDeckId as any,
+        cards: cardsToSave,
+      });
+
+      alert("Deck saved successfully!");
+    } catch (error: any) {
+      console.error("Failed to save deck:", error);
+      alert(error.message || "Failed to save deck. Please try again.");
+    } finally {
+      setIsSavingDeck(false);
+    }
+  };
+
+  const handleDeleteDeck = async (deckId: string) => {
+    if (!token) return;
+    if (!confirm("Are you sure you want to delete this deck?")) return;
+
+    try {
+      await deleteDeck({ token, deckId: deckId as any });
+      if (selectedDeckId === deckId) {
+        setSelectedDeckId(null);
+        setCurrentDeckCards([]);
+        setShowDeckPanel(false);
+      }
+    } catch (error) {
+      console.error("Failed to delete deck:", error);
+      alert("Failed to delete deck. Please try again.");
+    }
+  };
+
+  const handleRenameDeck = async () => {
+    if (!selectedDeckId || !editingDeckName.trim() || !token) return;
+    try {
+      await renameDeck({
+        token,
+        deckId: selectedDeckId as any,
+        newName: editingDeckName.trim(),
+      });
+      setIsEditingDeckName(false);
+    } catch (error) {
+      console.error("Failed to rename deck:", error);
+      alert("Failed to rename deck. Please try again.");
+    }
   };
 
   const handleClearDeck = () => {
     setCurrentDeckCards([]);
+  };
+
+  const handleSetActiveDeck = async (deckId: string) => {
+    if (!token) return;
+    try {
+      await setActiveDeck({ token, deckId: deckId as any });
+      // Success feedback could be added here (toast notification)
+    } catch (error: any) {
+      console.error("Failed to set active deck:", error);
+      alert(error.message || "Failed to set active deck. Please try again.");
+    }
   };
 
   if (!currentUser) {
@@ -696,14 +803,14 @@ export default function BinderPage() {
           >
             <Layers className="w-4 h-4" />
             Deck Builder
-            {decks.length > 0 && (
+            {userDecks && userDecks.length > 0 && (
               <span
                 className={cn(
                   "px-2 py-0.5 rounded-full text-xs",
                   activeTab === "deckbuilder" ? "bg-black/20" : "bg-white/10"
                 )}
               >
-                {decks.length}
+                {userDecks.length}
               </span>
             )}
           </button>
@@ -1092,43 +1199,90 @@ export default function BinderPage() {
                     )}
 
                     {/* Deck List */}
-                    {decks.length === 0 ? (
+                    {!userDecks || userDecks.length === 0 ? (
                       <div className="text-center py-12">
                         <FolderOpen className="w-16 h-16 mx-auto mb-4 text-[#a89f94]/40" />
                         <p className="text-[#a89f94]">No decks yet. Create your first deck!</p>
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        {decks.map((deck) => (
-                          <button
-                            type="button"
-                            key={deck.id}
-                            className="w-full flex items-center gap-4 p-4 rounded-xl bg-black/30 border border-[#3d2b1f] hover:border-[#d4af37]/50 transition-colors cursor-pointer group text-left"
-                            onClick={() => handleSelectDeck(deck)}
-                          >
-                            <div className="w-12 h-12 rounded-lg bg-[#d4af37]/20 flex items-center justify-center">
-                              <Layers className="w-6 h-6 text-[#d4af37]" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-bold text-[#e8e0d5]">{deck.name}</p>
-                              <p className="text-xs text-[#a89f94]">
-                                {deck.cards.reduce((sum, dc) => sum + dc.count, 0)}/{DECK_MAX_SIZE}{" "}
-                                cards
-                              </p>
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteDeck(deck.id);
-                              }}
-                              className="text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                        {userDecks.map((deck) => {
+                          const isActive = currentUser?.activeDeckId === deck.id;
+                          const isValidDeck = deck.cardCount === DECK_MAX_SIZE;
+                          return (
+                            <button
+                              type="button"
+                              key={deck.id}
+                              className={cn(
+                                "w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer group text-left",
+                                isActive
+                                  ? "bg-[#d4af37]/10 border-[#d4af37] ring-2 ring-[#d4af37]/20"
+                                  : "bg-black/30 border-[#3d2b1f] hover:border-[#d4af37]/50"
+                              )}
+                              onClick={() => handleSelectDeck(deck.id)}
                             >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </button>
-                        ))}
+                              <div
+                                className={cn(
+                                  "w-12 h-12 rounded-lg flex items-center justify-center",
+                                  isActive ? "bg-[#d4af37]/30" : "bg-[#d4af37]/20"
+                                )}
+                              >
+                                {isActive ? (
+                                  <Star className="w-6 h-6 text-[#d4af37] fill-[#d4af37]" />
+                                ) : (
+                                  <Layers className="w-6 h-6 text-[#d4af37]" />
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <p
+                                    className={cn(
+                                      "font-bold",
+                                      isActive ? "text-[#d4af37]" : "text-[#e8e0d5]"
+                                    )}
+                                  >
+                                    {deck.name}
+                                  </p>
+                                  {isActive && (
+                                    <span className="px-2 py-0.5 rounded-full bg-[#d4af37]/20 text-[#d4af37] text-[9px] font-black uppercase tracking-wider">
+                                      Active
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-[#a89f94]">
+                                  {deck.cardCount}/{DECK_MAX_SIZE} cards
+                                  {!isValidDeck && " - Incomplete"}
+                                </p>
+                              </div>
+                              <div className="flex gap-2">
+                                {!isActive && isValidDeck && (
+                                  <Button
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleSetActiveDeck(deck.id);
+                                    }}
+                                    className="bg-[#d4af37]/20 hover:bg-[#d4af37] text-[#d4af37] hover:text-[#1a1614] border border-[#d4af37]/30 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <Star className="w-3 h-3 mr-1" />
+                                    Set Active
+                                  </Button>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteDeck(deck.id);
+                                  }}
+                                  className="text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -1144,7 +1298,7 @@ export default function BinderPage() {
                           size="sm"
                           variant="ghost"
                           onClick={() => {
-                            setSelectedDeck(null);
+                            setSelectedDeckId(null);
                             setCurrentDeckCards([]);
                           }}
                           className="text-[#a89f94] hover:text-[#e8e0d5]"
@@ -1200,10 +1354,20 @@ export default function BinderPage() {
                         <Button
                           size="sm"
                           onClick={handleSaveDeck}
+                          disabled={isSavingDeck}
                           className="bg-[#d4af37] hover:bg-[#f9e29f] text-[#1a1614]"
                         >
-                          <Save className="w-4 h-4 mr-1" />
-                          Save
+                          {isSavingDeck ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="w-4 h-4 mr-1" />
+                              Save
+                            </>
+                          )}
                         </Button>
                       </div>
                     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -136,25 +136,35 @@ export default function WalletPage() {
 
   const [filter, setFilter] = useState<"all" | "gold" | "gems">("all");
 
-  // Mock balances
-  const goldBalance = 5000;
-  const gemBalance = 500;
-
-  const filteredTransactions = MOCK_TRANSACTIONS.filter(
-    (t) => filter === "all" || t.currency === filter
+  // Backend data
+  const playerBalance = useQuery(api.economy.getPlayerBalance, token ? { token } : "skip");
+  const transactionHistory = useQuery(
+    api.economy.getTransactionHistory,
+    token
+      ? {
+          token,
+          page: 1,
+          currencyType: filter !== "all" ? filter : undefined,
+        }
+      : "skip"
   );
 
-  const totalEarned = MOCK_TRANSACTIONS.filter((t) => t.amount > 0 && t.currency === "gold").reduce(
-    (sum, t) => sum + t.amount,
-    0
-  );
+  const goldBalance = playerBalance?.gold ?? 0;
+  const gemBalance = playerBalance?.gems ?? 0;
 
-  const totalSpent = Math.abs(
-    MOCK_TRANSACTIONS.filter((t) => t.amount < 0 && t.currency === "gold").reduce(
-      (sum, t) => sum + t.amount,
-      0
-    )
-  );
+  const filteredTransactions =
+    transactionHistory?.transactions.map((t: any): Transaction => ({
+      id: t._id,
+      type: t.transactionType,
+      description: t.description,
+      amount: t.amount,
+      currency: t.currencyType,
+      timestamp: t.createdAt,
+      status: "completed" as const,
+    })) ?? [];
+
+  const totalEarned = playerBalance?.lifetimeStats.goldEarned ?? 0;
+  const totalSpent = playerBalance?.lifetimeStats.goldSpent ?? 0;
 
   if (!currentUser) {
     return (

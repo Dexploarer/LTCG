@@ -6,8 +6,6 @@
  * Main navigation sidebar with role-based menu items.
  */
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
   Sidebar,
   SidebarContent,
@@ -21,6 +19,8 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { useAdmin } from "@/contexts/AdminContext";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 // =============================================================================
 // Navigation Items

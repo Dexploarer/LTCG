@@ -7,12 +7,12 @@
  * Handles loading state, authentication, and unauthorized access.
  */
 
-import type { ReactNode } from "react";
 import { AdminLoginForm } from "@/components/auth/AdminLoginForm";
 import { Card } from "@/components/ui/card";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAdmin } from "@/contexts/AdminContext";
+import type { ReactNode } from "react";
 import { AdminHeader } from "./AdminHeader";
 import { AdminSidebar } from "./AdminSidebar";
 

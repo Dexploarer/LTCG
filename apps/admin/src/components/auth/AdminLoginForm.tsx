@@ -6,13 +6,13 @@
  * Simple email/password login form for admin dashboard.
  */
 
-import { useAuthActions } from "@convex-dev/auth/react";
-import { Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
+import { useState } from "react";
 
 export function AdminLoginForm() {
   const { signIn } = useAuthActions();

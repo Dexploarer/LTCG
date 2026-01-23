@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // Simple password hashing (use bcrypt in production via action)
 function simpleHash(password: string): string {
@@ -54,6 +55,15 @@ export const signUp = mutation({
       username: args.username.toLowerCase(),
       passwordHash: simpleHash(args.password),
       createdAt: Date.now(),
+    });
+
+    // Initialize player currency with welcome bonus
+    await ctx.scheduler.runAfter(0, internal.economy.initializePlayerCurrency, {
+      userId,
+      welcomeBonus: {
+        gold: 1000,
+        gems: 100,
+      },
     });
 
     // Create session

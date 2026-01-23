@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   Box,
   Clock,
@@ -246,75 +246,163 @@ export default function ShopPage() {
   const [bidAmount, setBidAmount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Mock balances
-  const goldBalance = 5000;
-  const gemBalance = 500;
+  // Backend data
+  const shopProducts = useQuery(api.shop.getShopProducts, {});
+  const playerBalance = useQuery(api.economy.getPlayerBalance, token ? { token } : "skip");
+  const marketplaceListings = useQuery(
+    api.marketplace.getMarketplaceListings,
+    token
+      ? {
+          rarity: rarityFilter !== "all" ? rarityFilter : undefined,
+          listingType: typeFilter !== "all" ? typeFilter : undefined,
+          sortBy: sortBy as any,
+          page: 1,
+        }
+      : "skip"
+  );
+
+  // Mutations
+  const purchasePack = useMutation(api.shop.purchasePack);
+  const purchaseBox = useMutation(api.shop.purchaseBox);
+  const purchaseCurrencyBundle = useMutation(api.shop.purchaseCurrencyBundle);
+  const buyNow = useMutation(api.marketplace.buyNow);
+  const placeBidMutation = useMutation(api.marketplace.placeBid);
+
+  const goldBalance = playerBalance?.gold ?? 0;
+  const gemBalance = playerBalance?.gems ?? 0;
 
   // Filter marketplace listings
   const filteredListings = useMemo(() => {
-    let listings = MOCK_LISTINGS;
+    let listings = marketplaceListings?.listings ?? [];
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      listings = listings.filter((listing) => listing.cardName.toLowerCase().includes(query));
-    }
-
-    if (rarityFilter !== "all") {
-      listings = listings.filter((listing) => listing.cardRarity === rarityFilter);
-    }
-
-    if (typeFilter !== "all") {
-      listings = listings.filter((listing) => listing.listingType === typeFilter);
-    }
-
-    switch (sortBy) {
-      case "price_asc":
-        listings = [...listings].sort(
-          (a, b) => (a.currentBid || a.price) - (b.currentBid || b.price)
-        );
-        break;
-      case "price_desc":
-        listings = [...listings].sort(
-          (a, b) => (b.currentBid || b.price) - (a.currentBid || a.price)
-        );
-        break;
-      case "newest":
-        listings = [...listings].sort((a, b) => b.createdAt - a.createdAt);
-        break;
+      listings = listings.filter((listing: any) =>
+        listing.cardName.toLowerCase().includes(query)
+      );
     }
 
     return listings;
-  }, [searchQuery, rarityFilter, typeFilter, sortBy]);
+  }, [searchQuery, marketplaceListings]);
+
+  // Transform backend data to frontend format
+  const transformedShopItems = useMemo(() => {
+    if (!shopProducts) return [];
+    return shopProducts.map((product: any): ShopItem => ({
+      id: product.productId,
+      name: product.name,
+      description: product.description,
+      type: product.productType,
+      goldPrice: product.goldPrice,
+      gemPrice: product.gemPrice,
+      contents: product.packConfig
+        ? `${product.packConfig.cardCount} Cards`
+        : product.boxConfig
+          ? `${product.boxConfig.packCount} Packs`
+          : undefined,
+      quantity: product.currencyConfig?.amount,
+      ...product, // Include original for mutations
+    }));
+  }, [shopProducts]);
 
   // Group shop items by type
-  const packItems = MOCK_SHOP_ITEMS.filter((item) => item.type === "pack");
-  const boxItems = MOCK_SHOP_ITEMS.filter((item) => item.type === "box");
-  const currencyItems = MOCK_SHOP_ITEMS.filter((item) => item.type === "currency");
+  const packItems = useMemo(
+    () => transformedShopItems.filter((item) => item.type === "pack"),
+    [transformedShopItems]
+  );
+  const boxItems = useMemo(
+    () => transformedShopItems.filter((item) => item.type === "box"),
+    [transformedShopItems]
+  );
+  const currencyItems = useMemo(
+    () => transformedShopItems.filter((item) => item.type === "currency"),
+    [transformedShopItems]
+  );
 
-  const handleShopPurchase = useCallback(async (_item: ShopItem, _useGems: boolean) => {
-    setIsProcessing(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setIsProcessing(false);
-    setSelectedShopItem(null);
-  }, []);
+  const handleShopPurchase = useCallback(
+    async (item: any, useGems: boolean) => {
+      if (!token) return;
+      setIsProcessing(true);
+      try {
+        if (item.productType === "pack") {
+          const result = await purchasePack({
+            token,
+            productId: item.productId,
+            useGems,
+          });
+          alert(
+            `Opened ${result.productName}! Received ${result.cardsReceived.length} cards.`
+          );
+        } else if (item.productType === "box") {
+          const result = await purchaseBox({
+            token,
+            productId: item.productId,
+            useGems,
+          });
+          alert(
+            `Opened ${result.productName}! Received ${result.cardsReceived.length} cards from ${result.packsOpened} packs.`
+          );
+        } else if (item.productType === "currency") {
+          const result = await purchaseCurrencyBundle({
+            token,
+            productId: item.productId,
+          });
+          alert(
+            `Purchased ${result.productName}! Received ${result.goldReceived} Gold.`
+          );
+        }
+        setSelectedShopItem(null);
+      } catch (error: any) {
+        alert(`Purchase failed: ${error.message}`);
+      } finally {
+        setIsProcessing(false);
+      }
+    },
+    [token, purchasePack, purchaseBox, purchaseCurrencyBundle]
+  );
 
-  const handleMarketPurchase = useCallback(async (_listing: MarketListing) => {
-    setIsProcessing(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setIsProcessing(false);
-    setSelectedListing(null);
-  }, []);
+  const handleMarketPurchase = useCallback(
+    async (listing: any) => {
+      if (!token) return;
+      setIsProcessing(true);
+      try {
+        const result = await buyNow({
+          token,
+          listingId: listing._id,
+        });
+        alert(
+          `Purchased ${listing.cardName} for ${result.price} Gold (+ ${result.platformFee} platform fee)!`
+        );
+        setSelectedListing(null);
+      } catch (error: any) {
+        alert(`Purchase failed: ${error.message}`);
+      } finally {
+        setIsProcessing(false);
+      }
+    },
+    [token, buyNow]
+  );
 
   const handlePlaceBid = useCallback(
-    async (_listing: MarketListing) => {
-      if (!bidAmount) return;
+    async (listing: any) => {
+      if (!bidAmount || !token) return;
       setIsProcessing(true);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setIsProcessing(false);
-      setBidAmount("");
-      setSelectedListing(null);
+      try {
+        const result = await placeBidMutation({
+          token,
+          listingId: listing._id,
+          bidAmount: parseInt(bidAmount),
+        });
+        alert(`Bid placed: ${result.bidAmount} Gold!`);
+        setBidAmount("");
+        setSelectedListing(null);
+      } catch (error: any) {
+        alert(`Bid failed: ${error.message}`);
+      } finally {
+        setIsProcessing(false);
+      }
     },
-    [bidAmount]
+    [bidAmount, token, placeBidMutation]
   );
 
   const formatTimeRemaining = (endsAt: number) => {

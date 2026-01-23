@@ -6,12 +6,6 @@
  * Super admin only - manage admin roles and permissions.
  */
 
-import { api } from "@convex/_generated/api";
-import type { Id } from "@convex/_generated/dataModel";
-import { Badge, Card, Text, Title } from "@tremor/react";
-import { useMutation, useQuery } from "convex/react";
-import { useState } from "react";
-import { toast } from "sonner";
 import { DataTable } from "@/components/data";
 import { PageWrapper } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -36,6 +30,12 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useAdmin } from "@/contexts/AdminContext";
 import type { AdminRoleData, ColumnDef } from "@/types";
+import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
+import { Badge, Card, Text, Title } from "@tremor/react";
+import { useMutation, useQuery } from "convex/react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 // =============================================================================
 // Types

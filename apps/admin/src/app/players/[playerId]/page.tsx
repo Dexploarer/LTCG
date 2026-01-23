@@ -6,13 +6,6 @@
  * Full player profile with stats, moderation history, and action buttons.
  */
 
-import { api } from "@convex/_generated/api";
-import type { Id } from "@convex/_generated/dataModel";
-import { Card, Flex, Text, Title } from "@tremor/react";
-import { useMutation, useQuery } from "convex/react";
-import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
-import { toast } from "sonner";
 import { PageWrapper } from "@/components/layout";
 import {
   ModerationActions,
@@ -36,6 +29,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { RoleGuard } from "@/contexts/AdminContext";
+import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
+import { Card, Flex, Text, Title } from "@tremor/react";
+import { useMutation, useQuery } from "convex/react";
+import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { toast } from "sonner";
 
 // =============================================================================
 // Types
@@ -170,7 +170,7 @@ export default function PlayerDetailPage() {
   return (
     <PageWrapper
       title={isLoading ? "Loading..." : profile.name}
-      description={isLoading ? "" : `Player profile and moderation tools`}
+      description={isLoading ? "" : "Player profile and moderation tools"}
       actions={
         <Button variant="outline" onClick={() => router.back()}>
           ← Back to Players
@@ -413,35 +413,33 @@ export default function PlayerDetailPage() {
                 <Skeleton className="h-48 w-full mt-4" />
               ) : engagement.dailyData.length > 0 ? (
                 <div className="mt-4 space-y-2 max-h-64 overflow-y-auto">
-                  {engagement.dailyData
-                    .slice(0, 14)
-                    .map(
-                      (day: {
-                        date: string;
-                        sessions: number;
-                        sessionTime: number;
-                        gamesPlayed: number;
-                        gamesWon: number;
-                      }) => (
-                        <div
-                          key={day.date}
-                          className="flex items-center justify-between p-2 bg-muted/30 rounded text-sm"
-                        >
-                          <Text className="font-medium">
-                            {new Date(day.date).toLocaleDateString("en-US", {
-                              weekday: "short",
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </Text>
-                          <div className="flex gap-4 text-muted-foreground">
-                            <span>{day.sessions} sessions</span>
-                            <span>{Math.round(day.sessionTime / 60000)}m</span>
-                            <span>{day.gamesPlayed} games</span>
-                          </div>
+                  {engagement.dailyData.slice(0, 14).map(
+                    (day: {
+                      date: string;
+                      sessions: number;
+                      sessionTime: number;
+                      gamesPlayed: number;
+                      gamesWon: number;
+                    }) => (
+                      <div
+                        key={day.date}
+                        className="flex items-center justify-between p-2 bg-muted/30 rounded text-sm"
+                      >
+                        <Text className="font-medium">
+                          {new Date(day.date).toLocaleDateString("en-US", {
+                            weekday: "short",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </Text>
+                        <div className="flex gap-4 text-muted-foreground">
+                          <span>{day.sessions} sessions</span>
+                          <span>{Math.round(day.sessionTime / 60000)}m</span>
+                          <span>{day.gamesPlayed} games</span>
                         </div>
-                      )
-                    )}
+                      </div>
+                    )
+                  )}
                 </div>
               ) : (
                 <div className="mt-4 py-8 text-center text-muted-foreground">

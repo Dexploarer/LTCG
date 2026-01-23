@@ -11,6 +11,7 @@ export type CardType = "creature" | "spell" | "trap" | "equipment";
 
 export interface CardData {
   id: string;
+  cardDefinitionId?: string; // For deck operations
   name: string;
   rarity: Rarity;
   element: Element;

@@ -7,11 +7,6 @@
  * Uses real Convex data from cardMeta analytics.
  */
 
-import { api } from "@convex/_generated/api";
-import { Badge, BarChart, Card, Flex, Text, Title } from "@tremor/react";
-import { useQuery } from "convex/react";
-import Link from "next/link";
-import { useState } from "react";
 import { ChartCard, LeaderboardGrid, MetricGrid, MetricTile } from "@/components/analytics";
 import { PageWrapper } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -22,6 +17,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { api } from "@convex/_generated/api";
+import { Badge, BarChart, Card, Flex, Text, Title } from "@tremor/react";
+import { useQuery } from "convex/react";
+import Link from "next/link";
+import { useState } from "react";
 
 // =============================================================================
 // Types

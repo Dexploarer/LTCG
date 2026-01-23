@@ -7,13 +7,6 @@
  * active suspensions, and warning management.
  */
 
-import { api } from "@convex/_generated/api";
-import type { Id } from "@convex/_generated/dataModel";
-import { Card, Text, Title } from "@tremor/react";
-import { useQuery } from "convex/react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useMemo } from "react";
 import { DataTable, StatCard, StatGrid } from "@/components/data";
 import { PageWrapper } from "@/components/layout";
 import { ModerationActions, ModerationStatusBadge } from "@/components/players";
@@ -21,6 +14,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { BannedPlayer, ColumnDef } from "@/types";
+import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
+import { Card, Text, Title } from "@tremor/react";
+import { useQuery } from "convex/react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 
 // =============================================================================
 // Types

@@ -7,12 +7,6 @@
  * Uses real Convex data for system metrics.
  */
 
-import { api } from "@convex/_generated/api";
-import { AreaChart, Badge, BarList, Card, Flex, Text, Title } from "@tremor/react";
-import { useQuery } from "convex/react";
-import Link from "next/link";
-import { useState } from "react";
-import { toast } from "sonner";
 import { ChartCard, MetricGrid, MetricTile } from "@/components/analytics";
 import { PageWrapper } from "@/components/layout";
 import {
@@ -27,6 +21,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { RoleGuard } from "@/contexts/AdminContext";
+import { api } from "@convex/_generated/api";
+import { AreaChart, Badge, BarList, Card, Flex, Text, Title } from "@tremor/react";
+import { useQuery } from "convex/react";
+import Link from "next/link";
+import { useState } from "react";
+import { toast } from "sonner";
 
 // =============================================================================
 // Types

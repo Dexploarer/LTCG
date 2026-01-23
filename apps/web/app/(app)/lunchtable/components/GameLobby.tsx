@@ -1,5 +1,7 @@
 "use client";
 
+import { api } from "@convex/_generated/api";
+import { useMutation, useQuery } from "convex/react";
 import {
   ChevronRight,
   Clock,
@@ -17,6 +19,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/components/ConvexAuthProvider";
 import { cn } from "@/lib/utils";
 import { CreateGameModal } from "./CreateGameModal";
 import { JoinConfirmDialog } from "./JoinConfirmDialog";
@@ -164,39 +167,110 @@ function formatWaitTime(timestamp: number): string {
 }
 
 export function GameLobby() {
+  const { token } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>("join");
   const [modeFilter, setModeFilter] = useState<GameMode>("all");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [joiningGame, setJoiningGame] = useState<GameLobbyEntry | null>(null);
 
-  // Filter games by mode
-  const waitingGames = MOCK_WAITING_GAMES.filter(
-    (g) => modeFilter === "all" || g.mode === modeFilter
+  // Queries
+  const lobbiesData = useQuery(
+    api.games.listWaitingLobbies,
+    token
+      ? {
+          mode: modeFilter === "all" ? undefined : modeFilter,
+          userRating: 1000, // Default rating for now
+        }
+      : "skip"
   );
-  const activeGames = MOCK_ACTIVE_GAMES.filter(
-    (g) => modeFilter === "all" || g.mode === modeFilter
+
+  const myActiveLobby = useQuery(
+    api.games.getActiveLobby,
+    token ? { token } : "skip"
   );
+
+  // Mutations
+  const createLobby = useMutation(api.games.createLobby);
+  const joinLobby = useMutation(api.games.joinLobby);
+  const cancelLobby = useMutation(api.games.cancelLobby);
+
+  // Convert API data to component format
+  const waitingGames: GameLobbyEntry[] =
+    lobbiesData?.map((lobby) => ({
+      id: lobby.id,
+      hostName: lobby.hostUsername,
+      hostRank: lobby.hostRank,
+      deckArchetype: lobby.deckArchetype as "fire" | "water" | "earth" | "wind",
+      mode: lobby.mode as "casual" | "ranked",
+      createdAt: lobby.createdAt,
+      status: "waiting" as const,
+    })) || [];
+
+  // For now, active games list is empty (will be implemented when we have active game tracking)
+  const activeGames: GameLobbyEntry[] = [];
+
+  const handleCreateGame = async (data: { mode: "casual" | "ranked"; isPrivate?: boolean }) => {
+    if (!token) {
+      alert("You must be logged in to create a game");
+      return;
+    }
+
+    try {
+      const result = await createLobby({
+        token,
+        mode: data.mode,
+        isPrivate: data.isPrivate || false,
+      });
+
+      if (result.joinCode) {
+        alert(`Private lobby created! Join code: ${result.joinCode}\nShare this code with your opponent.`);
+      }
+
+      setIsCreateModalOpen(false);
+    } catch (error: any) {
+      console.error("Failed to create lobby:", error);
+      alert(error.message || "Failed to create lobby. Please try again.");
+    }
+  };
+
+  const handleCancelMyLobby = async () => {
+    if (!token || !myActiveLobby) return;
+
+    try {
+      await cancelLobby({ token });
+    } catch (error: any) {
+      console.error("Failed to cancel lobby:", error);
+      alert(error.message || "Failed to cancel lobby.");
+    }
+  };
 
   const handleQuickMatch = () => {
     setIsSearching(true);
-    // Simulate search
+    // TODO: Implement quick match/matchmaking
     setTimeout(() => setIsSearching(false), 3000);
-  };
-
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 1000);
   };
 
   const handleJoinGame = (game: GameLobbyEntry) => {
     setJoiningGame(game);
   };
 
-  const confirmJoin = () => {
-    // TODO: Actually join the game
-    setJoiningGame(null);
+  const confirmJoin = async () => {
+    if (!token || !joiningGame) return;
+
+    try {
+      const result = await joinLobby({
+        token,
+        lobbyId: joiningGame.id as any,
+      });
+
+      alert(`Joined game! Game ID: ${result.gameId}\nOpponent: ${result.opponentUsername}`);
+      setJoiningGame(null);
+    } catch (error: any) {
+      console.error("Failed to join game:", error);
+      alert(error.message || "Failed to join game. Please try again.");
+      setJoiningGame(null);
+    }
   };
 
   return (
@@ -214,40 +288,59 @@ export function GameLobby() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* My Active Lobby Status */}
+          {myActiveLobby && myActiveLobby.status === "waiting" && (
+            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#d4af37]/20 border border-[#d4af37]/30 text-[#d4af37]">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-sm font-bold">Waiting for opponent...</span>
+              <button
+                type="button"
+                onClick={handleCancelMyLobby}
+                className="ml-2 px-3 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs font-bold uppercase transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
           {/* Quick Match Button */}
-          <button
-            type="button"
-            onClick={handleQuickMatch}
-            disabled={isSearching}
-            className={cn(
-              "h-12 px-5 rounded-lg font-bold uppercase tracking-wide text-sm flex items-center gap-2 transition-all",
-              isSearching
-                ? "bg-purple-600/50 text-white/70 cursor-wait"
-                : "bg-linear-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white shadow-lg hover:shadow-xl"
-            )}
-          >
-            {isSearching ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Searching...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4" />
-                Quick Match
-              </>
-            )}
-          </button>
+          {!myActiveLobby && (
+            <button
+              type="button"
+              onClick={handleQuickMatch}
+              disabled={isSearching}
+              className={cn(
+                "h-12 px-5 rounded-lg font-bold uppercase tracking-wide text-sm flex items-center gap-2 transition-all",
+                isSearching
+                  ? "bg-purple-600/50 text-white/70 cursor-wait"
+                  : "bg-linear-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white shadow-lg hover:shadow-xl"
+              )}
+            >
+              {isSearching ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Searching...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Quick Match
+                </>
+              )}
+            </button>
+          )}
 
           {/* Create Game Button */}
-          <button
-            type="button"
-            onClick={() => setIsCreateModalOpen(true)}
-            className="tcg-button-primary h-12 px-6 font-black uppercase tracking-wider text-white flex items-center gap-2 shadow-lg hover:shadow-xl transition-shadow"
-          >
-            <Plus className="w-5 h-5" />
-            Create Game
-          </button>
+          {!myActiveLobby && (
+            <button
+              type="button"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="tcg-button-primary h-12 px-6 font-black uppercase tracking-wider text-white flex items-center gap-2 shadow-lg hover:shadow-xl transition-shadow"
+            >
+              <Plus className="w-5 h-5" />
+              Create Game
+            </button>
+          )}
         </div>
       </div>
 
@@ -274,16 +367,6 @@ export function GameLobby() {
             </button>
           ))}
         </div>
-
-        {/* Refresh Button */}
-        <button
-          type="button"
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          className="p-2 rounded-lg border border-[#3d2b1f] bg-black/30 text-[#a89f94] hover:text-[#e8e0d5] hover:border-[#d4af37]/50 transition-all"
-        >
-          <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
-        </button>
       </div>
 
       {/* Tabs */}
@@ -369,10 +452,7 @@ export function GameLobby() {
       <CreateGameModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onSubmit={(data) => {
-          console.log("Creating game:", data);
-          setIsCreateModalOpen(false);
-        }}
+        onSubmit={handleCreateGame}
       />
 
       {/* Join Confirm Dialog */}

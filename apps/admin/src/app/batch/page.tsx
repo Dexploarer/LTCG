@@ -8,7 +8,6 @@
  * Perform bulk actions on multiple players at once.
  */
 
-import { Card, Text, Title } from "@tremor/react";
 import {
   BatchGrantCardsForm,
   GrantCardsForm,
@@ -21,6 +20,7 @@ import {
 import { PageWrapper } from "@/components/layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RoleGuard } from "@/contexts/AdminContext";
+import { Card, Text, Title } from "@tremor/react";
 
 // =============================================================================
 // Component

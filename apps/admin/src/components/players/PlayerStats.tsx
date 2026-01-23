@@ -6,10 +6,10 @@
  * Reusable player statistics display components.
  */
 
-import { DonutChart, Flex } from "@tremor/react";
 import { RatioStat, StatCard, StatGrid } from "@/components/data";
 import { Badge } from "@/components/ui/badge";
 import type { PlayerStats as PlayerStatsType } from "@/types";
+import { DonutChart, Flex } from "@tremor/react";
 
 // =============================================================================
 // Types

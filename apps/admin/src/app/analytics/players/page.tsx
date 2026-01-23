@@ -7,13 +7,13 @@
  * Uses real Convex data from engagement analytics.
  */
 
+import { ChartCard, LeaderboardGrid, MetricGrid, MetricTile } from "@/components/analytics";
+import { PageWrapper } from "@/components/layout";
+import { Button } from "@/components/ui/button";
 import { api } from "@convex/_generated/api";
 import { AreaChart, Badge, BarChart, Card, DonutChart, Flex, Text, Title } from "@tremor/react";
 import { useQuery } from "convex/react";
 import Link from "next/link";
-import { ChartCard, LeaderboardGrid, MetricGrid, MetricTile } from "@/components/analytics";
-import { PageWrapper } from "@/components/layout";
-import { Button } from "@/components/ui/button";
 
 // =============================================================================
 // Types

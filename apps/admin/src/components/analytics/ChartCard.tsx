@@ -7,11 +7,11 @@
  * Wraps Tremor charts with admin dashboard styling.
  */
 
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Card, Flex, Text, Title } from "@tremor/react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 
 // =============================================================================
 // Types

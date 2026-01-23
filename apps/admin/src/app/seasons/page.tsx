@@ -6,12 +6,6 @@
  * Create, view, and manage ranked seasons.
  */
 
-import { api } from "@convex/_generated/api";
-import type { Id } from "@convex/_generated/dataModel";
-import { BarList, Card, Flex, Text, Title } from "@tremor/react";
-import { useMutation, useQuery } from "convex/react";
-import { useState } from "react";
-import { toast } from "sonner";
 import { DataTable, StatCard, StatGrid } from "@/components/data";
 import { CreateSeasonDialog } from "@/components/forms";
 import { PageWrapper } from "@/components/layout";
@@ -39,6 +33,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RoleGuard } from "@/contexts/AdminContext";
 import type { ColumnDef, Season } from "@/types";
+import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
+import { BarList, Card, Flex, Text, Title } from "@tremor/react";
+import { useMutation, useQuery } from "convex/react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 // =============================================================================
 // Types

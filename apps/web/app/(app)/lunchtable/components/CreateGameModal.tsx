@@ -7,11 +7,12 @@ import { cn } from "@/lib/utils";
 interface CreateGameModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: { mode: "casual" | "ranked" }) => void;
+  onSubmit: (data: { mode: "casual" | "ranked"; isPrivate?: boolean }) => void;
 }
 
 export function CreateGameModal({ isOpen, onClose, onSubmit }: CreateGameModalProps) {
   const [mode, setMode] = useState<"casual" | "ranked">("casual");
+  const [isPrivate, setIsPrivate] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
@@ -20,14 +21,16 @@ export function CreateGameModal({ isOpen, onClose, onSubmit }: CreateGameModalPr
     setIsSubmitting(true);
     // Simulate brief delay
     setTimeout(() => {
-      onSubmit({ mode });
+      onSubmit({ mode, isPrivate });
       setIsSubmitting(false);
       setMode("casual");
+      setIsPrivate(false);
     }, 300);
   };
 
   const handleClose = () => {
     setMode("casual");
+    setIsPrivate(false);
     onClose();
   };
 
@@ -158,6 +161,62 @@ export function CreateGameModal({ isOpen, onClose, onSubmit }: CreateGameModalPr
               <p className="text-xs text-amber-400">
                 <strong>Note:</strong> This ranked match will affect your rating. Win to climb the
                 ladder!
+              </p>
+            </div>
+          )}
+
+          {/* Private Match Toggle */}
+          <button
+            type="button"
+            onClick={() => setIsPrivate(!isPrivate)}
+            className={cn(
+              "w-full p-4 rounded-xl border-2 transition-all text-left",
+              isPrivate
+                ? "bg-purple-500/10 border-purple-500/50 ring-2 ring-purple-500/20"
+                : "bg-black/20 border-[#3d2b1f] hover:border-purple-500/30"
+            )}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "font-black uppercase tracking-wide text-sm",
+                      isPrivate ? "text-purple-400" : "text-[#e8e0d5]"
+                    )}
+                  >
+                    Private Match
+                  </span>
+                  {isPrivate && <Check className="w-4 h-4 text-purple-500" />}
+                </div>
+                <p className="text-xs text-[#a89f94] mt-0.5">
+                  {isPrivate
+                    ? "Only players with the join code can join"
+                    : "Anyone can see and join this lobby"}
+                </p>
+              </div>
+              <div
+                className={cn(
+                  "w-12 h-7 rounded-full transition-colors relative",
+                  isPrivate ? "bg-purple-500" : "bg-[#3d2b1f]"
+                )}
+              >
+                <div
+                  className={cn(
+                    "absolute top-1 w-5 h-5 rounded-full bg-white transition-transform",
+                    isPrivate ? "right-1" : "left-1"
+                  )}
+                />
+              </div>
+            </div>
+          </button>
+
+          {/* Private match info */}
+          {isPrivate && (
+            <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/30 animate-in fade-in slide-in-from-top-2 duration-200">
+              <p className="text-xs text-purple-400">
+                <strong>Note:</strong> You'll receive a 6-character join code to share with your
+                opponent. They'll need this code to join your lobby.
               </p>
             </div>
           )}

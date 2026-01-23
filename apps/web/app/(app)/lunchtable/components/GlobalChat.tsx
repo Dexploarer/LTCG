@@ -20,6 +20,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { ChallengeConfirmDialog } from "./ChallengeConfirmDialog";
 import { PlayerProfileDialog } from "./PlayerProfileDialog";
+import { api } from "@convex/_generated/api";
+import { useQuery, useMutation } from "convex/react";
+import { useAuth } from "@/components/ConvexAuthProvider";
 
 interface ChatMessage {
   id: string;
@@ -36,21 +39,7 @@ interface OnlineUser {
   status: "online" | "in_game" | "idle";
 }
 
-// Mock online users
-const MOCK_ONLINE_USERS: OnlineUser[] = [
-  { id: "1", username: "DragonSlayer", rank: "Diamond", status: "online" },
-  { id: "2", username: "CardMaster99", rank: "Platinum", status: "in_game" },
-  { id: "3", username: "TempestKnight", rank: "Gold", status: "online" },
-  { id: "4", username: "ShadowMage", rank: "Master", status: "idle" },
-  { id: "5", username: "FlameHeart", rank: "Diamond", status: "online" },
-  { id: "6", username: "IronGuard", rank: "Legend", status: "in_game" },
-  { id: "7", username: "StormBringer", rank: "Platinum", status: "online" },
-  { id: "8", username: "PhoenixRise", rank: "Diamond", status: "online" },
-  { id: "9", username: "DeepSeaDiver", rank: "Master", status: "in_game" },
-  { id: "10", username: "RockSolid", rank: "Gold", status: "idle" },
-  { id: "11", username: "GaleForce", rank: "Platinum", status: "online" },
-  { id: "12", username: "FrostBite", rank: "Silver", status: "online" },
-];
+// Removed MOCK_ONLINE_USERS - now using real data from Convex
 
 const RANK_COLORS: Record<string, string> = {
   Bronze: "text-orange-400",
@@ -88,87 +77,7 @@ const MOCK_AGENT_MESSAGES: AgentMessage[] = [
   },
 ];
 
-// Mock messages for UI development
-const MOCK_MESSAGES: ChatMessage[] = [
-  {
-    id: "1",
-    username: "DragonSlayer",
-    message: "Anyone up for a match?",
-    timestamp: Date.now() - 120000,
-  },
-  {
-    id: "2",
-    username: "CardMaster99",
-    message: "GG! That was an intense game",
-    timestamp: Date.now() - 90000,
-  },
-  {
-    id: "3",
-    username: "System",
-    message: "TempestKnight joined the lobby",
-    timestamp: Date.now() - 60000,
-    isSystem: true,
-  },
-  {
-    id: "4",
-    username: "ShadowMage",
-    message: "Looking for practice partner, preferably control decks",
-    timestamp: Date.now() - 30000,
-  },
-  {
-    id: "5",
-    username: "TempestKnight",
-    message: "Hey everyone! First time here",
-    timestamp: Date.now() - 10000,
-  },
-  {
-    id: "6",
-    username: "FlameHeart",
-    message: "Welcome! The community here is great",
-    timestamp: Date.now() - 5000,
-  },
-  {
-    id: "7",
-    username: "System",
-    message: "IronGuard won against StormBringer",
-    timestamp: Date.now() - 3000,
-    isSystem: true,
-  },
-];
-
-const OLDER_MESSAGES: ChatMessage[] = [
-  {
-    id: "old1",
-    username: "PhoenixRise",
-    message: "Just pulled a legendary from my pack!",
-    timestamp: Date.now() - 300000,
-  },
-  {
-    id: "old2",
-    username: "DeepSeaDiver",
-    message: "Nice! Which one?",
-    timestamp: Date.now() - 290000,
-  },
-  {
-    id: "old3",
-    username: "System",
-    message: "PhoenixRise achieved Diamond rank",
-    timestamp: Date.now() - 280000,
-    isSystem: true,
-  },
-  {
-    id: "old4",
-    username: "RockSolid",
-    message: "Congrats on Diamond!",
-    timestamp: Date.now() - 270000,
-  },
-  {
-    id: "old5",
-    username: "GaleForce",
-    message: "The new wind cards are so powerful",
-    timestamp: Date.now() - 260000,
-  },
-];
+// Removed MOCK_MESSAGES and OLDER_MESSAGES - now using real data from Convex
 
 function formatTime(timestamp: number): string {
   return new Date(timestamp).toLocaleTimeString("en-US", {
@@ -178,12 +87,20 @@ function formatTime(timestamp: number): string {
 }
 
 export function GlobalChat() {
+  const { token } = useAuth();
+
+  // Convex queries and mutations
+  const convexMessages = useQuery(api.globalChat.getRecentMessages, { limit: 50 });
+  const convexOnlineUsers = useQuery(api.globalChat.getOnlineUsers);
+  const sendMessageMutation = useMutation(api.globalChat.sendMessage);
+  const updatePresenceMutation = useMutation(api.globalChat.updatePresence);
+
   const [chatMode, setChatMode] = useState<ChatMode>("global");
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>(MOCK_MESSAGES);
   const [agentMessages, setAgentMessages] = useState<AgentMessage[]>(MOCK_AGENT_MESSAGES);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
+  // Removed: Load more functionality (not implemented in MVP)
+  // const [isLoadingMore, setIsLoadingMore] = useState(false);
+  // const [hasMore, setHasMore] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [isAgentTyping, setIsAgentTyping] = useState(false);
   const [isOnlinePanelOpen, setIsOnlinePanelOpen] = useState(false);
@@ -196,7 +113,25 @@ export function GlobalChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const agentMessagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const onlineCount = MOCK_ONLINE_USERS.length;
+
+  // Transform Convex messages to ChatMessage format
+  const messages: ChatMessage[] = (convexMessages || []).map((msg) => ({
+    id: msg._id,
+    username: msg.username,
+    message: msg.message,
+    timestamp: msg.createdAt,
+    isSystem: msg.isSystem,
+  }));
+
+  // Transform Convex online users to OnlineUser format
+  const onlineUsers: OnlineUser[] = (convexOnlineUsers || []).map((user) => ({
+    id: user.userId,
+    username: user.username,
+    rank: "Gold", // TODO: Get rank from user profile
+    status: user.status,
+  }));
+
+  const onlineCount = onlineUsers.length;
 
   const isInitialMount = useRef(true);
   const isAgentInitialMount = useRef(true);
@@ -240,38 +175,42 @@ export function GlobalChat() {
     }
   }, [userMenu]);
 
-  const handleLoadMore = () => {
-    if (isLoadingMore || !hasMore) return;
-    setIsLoadingMore(true);
+  // Presence heartbeat - update every 30 seconds
+  useEffect(() => {
+    if (!token) return;
 
-    // Simulate loading older messages
-    setTimeout(() => {
-      setMessages((prev) => [...OLDER_MESSAGES, ...prev]);
-      setHasMore(false); // No more messages after this
-      setIsLoadingMore(false);
-    }, 1000);
-  };
+    // Initial presence update
+    updatePresenceMutation({ token, status: "online" });
 
-  const handleSend = () => {
-    if (!message.trim() || isSending) return;
+    // Set up heartbeat interval
+    const interval = setInterval(() => {
+      updatePresenceMutation({ token, status: "online" });
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [token, updatePresenceMutation]);
+
+  // Removed: handleLoadMore - pagination not implemented in MVP
+  // TODO: Implement proper pagination with offset/cursor in future version
+
+  const handleSend = async () => {
+    if (!message.trim() || isSending || !token) return;
 
     setIsSending(true);
 
-    // Simulate sending (optimistic update)
-    const newMessage: ChatMessage = {
-      id: `new-${Date.now()}`,
-      username: "You",
-      message: message.trim(),
-      timestamp: Date.now(),
-    };
-
-    setMessages((prev) => [...prev, newMessage]);
-    setMessage("");
-
-    // Simulate network delay
-    setTimeout(() => {
+    try {
+      await sendMessageMutation({
+        token,
+        content: message.trim(),
+      });
+      setMessage("");
+    } catch (error: any) {
+      console.error("Failed to send message:", error);
+      // Show error to user
+      alert(error.message || "Failed to send message. Please try again.");
+    } finally {
       setIsSending(false);
-    }, 300);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -313,7 +252,7 @@ export function GlobalChat() {
 
   const handleOpenChallenge = (username: string, rank?: string) => {
     // Find user's rank if not provided
-    const user = MOCK_ONLINE_USERS.find((u) => u.username === username);
+    const user = onlineUsers.find((u) => u.username === username);
     setChallengeTarget({
       username,
       rank: rank || user?.rank || "Gold",
@@ -433,29 +372,7 @@ export function GlobalChat() {
           ref={messagesContainerRef}
           className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin scrollbar-thumb-[#3d2b1f] scrollbar-track-transparent"
         >
-          {/* Load More Button */}
-          {hasMore && (
-            <div className="flex justify-center py-2">
-              <button
-                type="button"
-                onClick={handleLoadMore}
-                disabled={isLoadingMore}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-black/30 border border-[#3d2b1f] text-[#a89f94] hover:text-[#e8e0d5] hover:border-[#d4af37]/50 text-xs font-bold uppercase tracking-wide transition-all disabled:opacity-50"
-              >
-                {isLoadingMore ? (
-                  <>
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    Loading...
-                  </>
-                ) : (
-                  <>
-                    <ChevronUp className="w-3 h-3" />
-                    Load Earlier Messages
-                  </>
-                )}
-              </button>
-            </div>
-          )}
+          {/* Load More Button - Removed for MVP (pagination not implemented yet) */}
 
           {messages.map((msg) => (
             <div
@@ -712,7 +629,7 @@ export function GlobalChat() {
 
             {/* Users List */}
             <div className="flex-1 overflow-y-auto p-3 space-y-2 max-h-[calc(100vh-220px)] scrollbar-thin scrollbar-thumb-[#3d2b1f] scrollbar-track-transparent">
-              {MOCK_ONLINE_USERS.map((user) => (
+              {onlineUsers.map((user) => (
                 <button
                   type="button"
                   key={user.id}

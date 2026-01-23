@@ -7,10 +7,10 @@
  * Supports various layouts and interactive features.
  */
 
-import { Card, Flex, Text, Title } from "@tremor/react";
-import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card, Flex, Text, Title } from "@tremor/react";
+import type { ReactNode } from "react";
 
 // =============================================================================
 // Types

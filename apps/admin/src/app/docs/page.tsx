@@ -6,11 +6,11 @@
  * Introduction, authentication, and quick start guide.
  */
 
-import { Card, Flex, Text, Title } from "@tremor/react";
-import Link from "next/link";
 import { ApiKeyDisplay, CodeBlock, InfoBox } from "@/components/docs";
 import { PageWrapper } from "@/components/layout";
 import { Button } from "@/components/ui/button";
+import { Card, Flex, Text, Title } from "@tremor/react";
+import Link from "next/link";
 
 // =============================================================================
 // Component
@@ -145,7 +145,7 @@ export default function DocsPage() {
               <CodeBlock
                 language="bash"
                 title="Authorization Header"
-                code={`Authorization: Bearer ltk_your_api_key_here`}
+                code={"Authorization: Bearer ltk_your_api_key_here"}
               />
             </div>
           </div>

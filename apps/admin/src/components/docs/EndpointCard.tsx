@@ -6,9 +6,9 @@
  * Reusable card for displaying API endpoint documentation.
  */
 
+import { cn } from "@/lib/utils";
 import { Badge, Card, Text, Title } from "@tremor/react";
 import { useState } from "react";
-import { cn } from "@/lib/utils";
 
 // =============================================================================
 // Types

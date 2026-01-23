@@ -6,12 +6,6 @@
  * Search for players and manage their forum mutes.
  */
 
-import { api } from "@convex/_generated/api";
-import type { Id } from "@convex/_generated/dataModel";
-import { Card, Text, Title } from "@tremor/react";
-import { useMutation, useQuery } from "convex/react";
-import Link from "next/link";
-import { useState } from "react";
 import { PageWrapper } from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,6 +27,12 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAdmin } from "@/contexts/AdminContext";
+import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
+import { Card, Text, Title } from "@tremor/react";
+import { useMutation, useQuery } from "convex/react";
+import Link from "next/link";
+import { useState } from "react";
 
 // =============================================================================
 // Types
@@ -307,7 +307,7 @@ export default function ForumMutesPage() {
               <Label>Duration</Label>
               <Select
                 value={muteDuration.toString()}
-                onValueChange={(v) => setMuteDuration(parseInt(v, 10))}
+                onValueChange={(v) => setMuteDuration(Number.parseInt(v, 10))}
               >
                 <SelectTrigger>
                   <SelectValue />

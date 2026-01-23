@@ -1,6 +1,0 @@
-<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="32" height="32" rx="6" fill="#1a1a2e"/>
-  <path d="M8 12L16 6L24 12L24 20L16 26L8 20Z" fill="#eab308" stroke="#1a1a2e" stroke-width="1"/>
-  <path d="M12 14L16 11L20 14V18L16 21L12 18Z" fill="#1a1a2e"/>
-  <text x="16" y="17" text-anchor="middle" font-size="6" font-weight="bold" fill="#eab308">LT</text>
-</svg>

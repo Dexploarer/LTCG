@@ -38,4 +38,4 @@ export const STARTER_DECKS = [
 
 export type StarterDeckCode = (typeof STARTER_DECKS)[number]["deckCode"];
 
-export const VALID_DECK_CODES = STARTER_DECKS.map((d) => d.deckCode);
+export const VALID_DECK_CODES = STARTER_DECKS.map((d) => d.deckCode) as readonly StarterDeckCode[];

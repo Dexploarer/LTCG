@@ -1,8 +1,13 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { STARTER_DECKS, VALID_DECK_CODES } from "./seeds/starterDecks";
+import { STARTER_DECKS, VALID_DECK_CODES, type StarterDeckCode } from "./seeds/starterDecks";
 
 const MAX_AGENTS_PER_USER = 3;
+
+// Type guard for starter deck codes
+function isValidDeckCode(code: string): code is StarterDeckCode {
+  return VALID_DECK_CODES.includes(code as StarterDeckCode);
+}
 
 // Generate a cryptographically secure API key
 function generateApiKey(): string {
@@ -240,7 +245,7 @@ export const registerAgent = mutation({
     }
 
     // 4. Validate starter deck code
-    if (!VALID_DECK_CODES.includes(args.starterDeckCode as any)) {
+    if (!isValidDeckCode(args.starterDeckCode)) {
       throw new Error("Invalid starter deck selection");
     }
 

@@ -7,6 +7,9 @@
  * Uses real Convex data from economy analytics.
  */
 
+import { ChartCard, MetricGrid, MetricTile } from "@/components/analytics";
+import { PageWrapper } from "@/components/layout";
+import { Button } from "@/components/ui/button";
 import { api } from "@convex/_generated/api";
 import {
   AreaChart,
@@ -21,9 +24,6 @@ import {
 } from "@tremor/react";
 import { useQuery } from "convex/react";
 import Link from "next/link";
-import { ChartCard, MetricGrid, MetricTile } from "@/components/analytics";
-import { PageWrapper } from "@/components/layout";
-import { Button } from "@/components/ui/button";
 
 // =============================================================================
 // Types

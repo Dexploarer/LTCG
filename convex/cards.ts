@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query } from "./_generated/server";
+import { validateSession } from "./lib/validators";
 
 // ============================================================================
 // QUERIES
@@ -36,20 +37,12 @@ export const getCardDefinition = query({
 export const getUserCards = query({
   args: { token: v.string() },
   handler: async (ctx, args) => {
-    // Get user from session
-    const session = await ctx.db
-      .query("sessions")
-      .withIndex("token", (q) => q.eq("token", args.token))
-      .first();
-
-    if (!session || session.expiresAt < Date.now()) {
-      return [];
-    }
+    const { userId } = await validateSession(ctx, args.token);
 
     // Get all player cards for this user
     const playerCards = await ctx.db
       .query("playerCards")
-      .withIndex("by_user", (q) => q.eq("userId", session.userId))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
     // Join with card definitions
@@ -63,7 +56,7 @@ export const getUserCards = query({
           cardDefinitionId: pc.cardDefinitionId,
           name: cardDef.name,
           rarity: cardDef.rarity,
-          element: cardDef.element,
+          archetype: cardDef.archetype,
           cardType: cardDef.cardType,
           attack: cardDef.attack,
           defense: cardDef.defense,
@@ -89,18 +82,11 @@ export const getUserCards = query({
 export const getUserFavoriteCards = query({
   args: { token: v.string() },
   handler: async (ctx, args) => {
-    const session = await ctx.db
-      .query("sessions")
-      .withIndex("token", (q) => q.eq("token", args.token))
-      .first();
-
-    if (!session || session.expiresAt < Date.now()) {
-      return [];
-    }
+    const { userId } = await validateSession(ctx, args.token);
 
     const favoriteCards = await ctx.db
       .query("playerCards")
-      .withIndex("by_user_favorite", (q) => q.eq("userId", session.userId).eq("isFavorite", true))
+      .withIndex("by_user_favorite", (q) => q.eq("userId", userId).eq("isFavorite", true))
       .collect();
 
     const cardsWithDefinitions = await Promise.all(
@@ -113,7 +99,7 @@ export const getUserFavoriteCards = query({
           cardDefinitionId: pc.cardDefinitionId,
           name: cardDef.name,
           rarity: cardDef.rarity,
-          element: cardDef.element,
+          archetype: cardDef.archetype,
           cardType: cardDef.cardType,
           attack: cardDef.attack,
           defense: cardDef.defense,
@@ -138,18 +124,11 @@ export const getUserFavoriteCards = query({
 export const getUserCollectionStats = query({
   args: { token: v.string() },
   handler: async (ctx, args) => {
-    const session = await ctx.db
-      .query("sessions")
-      .withIndex("token", (q) => q.eq("token", args.token))
-      .first();
-
-    if (!session || session.expiresAt < Date.now()) {
-      return { uniqueCards: 0, totalCards: 0, favoriteCount: 0 };
-    }
+    const { userId } = await validateSession(ctx, args.token);
 
     const playerCards = await ctx.db
       .query("playerCards")
-      .withIndex("by_user", (q) => q.eq("userId", session.userId))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
     const uniqueCards = playerCards.length;
@@ -173,18 +152,11 @@ export const toggleFavorite = mutation({
     playerCardId: v.string(),
   },
   handler: async (ctx, args) => {
-    const session = await ctx.db
-      .query("sessions")
-      .withIndex("token", (q) => q.eq("token", args.token))
-      .first();
-
-    if (!session || session.expiresAt < Date.now()) {
-      throw new Error("Unauthorized");
-    }
+    const { userId } = await validateSession(ctx, args.token);
 
     const playerCard = await ctx.db.get(args.playerCardId as Id<"playerCards">);
 
-    if (!playerCard || playerCard.userId !== session.userId) {
+    if (!playerCard || playerCard.userId !== userId) {
       throw new Error("Card not found or not owned by user");
     }
 
@@ -208,14 +180,7 @@ export const addCardsToInventory = mutation({
     quantity: v.number(),
   },
   handler: async (ctx, args) => {
-    const session = await ctx.db
-      .query("sessions")
-      .withIndex("token", (q) => q.eq("token", args.token))
-      .first();
-
-    if (!session || session.expiresAt < Date.now()) {
-      throw new Error("Unauthorized");
-    }
+    const { userId } = await validateSession(ctx, args.token);
 
     // Check if card definition exists
     const cardDef = await ctx.db.get(args.cardDefinitionId);
@@ -227,7 +192,7 @@ export const addCardsToInventory = mutation({
     const existingCard = await ctx.db
       .query("playerCards")
       .withIndex("by_user_card", (q) =>
-        q.eq("userId", session.userId).eq("cardDefinitionId", args.cardDefinitionId)
+        q.eq("userId", userId).eq("cardDefinitionId", args.cardDefinitionId)
       )
       .first();
 
@@ -241,7 +206,7 @@ export const addCardsToInventory = mutation({
     } else {
       // Create new ownership record
       await ctx.db.insert("playerCards", {
-        userId: session.userId,
+        userId,
         cardDefinitionId: args.cardDefinitionId,
         quantity: args.quantity,
         isFavorite: false,
@@ -259,19 +224,12 @@ export const addCardsToInventory = mutation({
 export const giveStarterCollection = mutation({
   args: { token: v.string() },
   handler: async (ctx, args) => {
-    const session = await ctx.db
-      .query("sessions")
-      .withIndex("token", (q) => q.eq("token", args.token))
-      .first();
-
-    if (!session || session.expiresAt < Date.now()) {
-      throw new Error("Unauthorized");
-    }
+    const { userId } = await validateSession(ctx, args.token);
 
     // Check if user already has cards
     const existingCards = await ctx.db
       .query("playerCards")
-      .withIndex("by_user", (q) => q.eq("userId", session.userId))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .first();
 
     if (existingCards) {
@@ -296,7 +254,7 @@ export const giveStarterCollection = mutation({
     for (const cardDef of allCards) {
       const quantity = rarityQuantities[cardDef.rarity] || 1;
       await ctx.db.insert("playerCards", {
-        userId: session.userId,
+        userId,
         cardDefinitionId: cardDef._id,
         quantity,
         isFavorite: false,
@@ -326,7 +284,7 @@ export const createCardDefinition = internalMutation({
       v.literal("epic"),
       v.literal("legendary")
     ),
-    element: v.union(
+    archetype: v.union(
       v.literal("fire"),
       v.literal("water"),
       v.literal("earth"),
@@ -357,10 +315,13 @@ export const createCardDefinition = internalMutation({
       return existing._id;
     }
 
-    return await ctx.db.insert("cardDefinitions", {
+    const cardId = await ctx.db.insert("cardDefinitions", {
       ...args,
       isActive: true,
       createdAt: Date.now(),
     });
+
+    return cardId;
   },
 });
+

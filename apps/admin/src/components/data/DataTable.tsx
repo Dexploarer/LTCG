@@ -7,7 +7,6 @@
  * Uses shadcn/ui Table components under the hood.
  */
 
-import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,6 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { ColumnDef, TableState } from "@/types";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
 
 // =============================================================================
 // Types

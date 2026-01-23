@@ -7,13 +7,13 @@
  * Complete reference for all API endpoints.
  */
 
-import { Card, Text } from "@tremor/react";
-import Link from "next/link";
-import { useState } from "react";
 import { type Endpoint, EndpointCategory } from "@/components/docs";
 import { PageWrapper } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, Text } from "@tremor/react";
+import Link from "next/link";
+import { useState } from "react";
 
 // =============================================================================
 // Endpoint Data

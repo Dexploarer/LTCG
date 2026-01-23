@@ -6,11 +6,6 @@
  * Reusable moderation action buttons and dialogs for player management.
  */
 
-import { api } from "@convex/_generated/api";
-import type { Id } from "@convex/_generated/dataModel";
-import { useMutation } from "convex/react";
-import { useState } from "react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,6 +25,11 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { RoleGuard } from "@/contexts/AdminContext";
+import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
+import { useMutation } from "convex/react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 // =============================================================================
 // Types
@@ -219,7 +219,7 @@ function SuspendDialog({
       await suspendPlayer({
         playerId,
         reason: reason.trim(),
-        durationMs: parseInt(duration, 10),
+        durationMs: Number.parseInt(duration, 10),
       });
       toast.success(`${playerName} has been suspended`);
       setReason("");
