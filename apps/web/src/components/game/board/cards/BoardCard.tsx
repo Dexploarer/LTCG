@@ -1,0 +1,208 @@
+"use client";
+
+import { motion } from "framer-motion";
+import { Shield, Sparkles, Sword } from "lucide-react";
+import Image from "next/image";
+import { cn } from "@/lib/utils";
+import type { CardInZone } from "../../hooks/useGameBoard";
+
+interface BoardCardProps {
+  card: CardInZone;
+  onClick?: () => void;
+  isSelected?: boolean;
+  isTargetable?: boolean;
+  isAttacking?: boolean;
+  isActivatable?: boolean;
+  size?: "xs" | "sm" | "md" | "lg";
+  showStats?: boolean;
+}
+
+const RARITY_COLORS: Record<string, string> = {
+  common: "border-gray-500/50",
+  uncommon: "border-green-500/50",
+  rare: "border-blue-500/50",
+  epic: "border-purple-500/50",
+  legendary: "border-yellow-500/50",
+};
+
+const RARITY_GLOW: Record<string, string> = {
+  common: "",
+  uncommon: "shadow-green-500/20",
+  rare: "shadow-blue-500/30",
+  epic: "shadow-purple-500/40",
+  legendary: "shadow-yellow-500/50",
+};
+
+export function BoardCard({
+  card,
+  onClick,
+  isSelected = false,
+  isTargetable = false,
+  isAttacking = false,
+  isActivatable = false,
+  size = "md",
+  showStats = true,
+}: BoardCardProps) {
+  const isDefensePosition = card.position === "defense" || card.position === "setDefense";
+  const isFaceDown = card.isFaceDown;
+
+  // Scaled down card sizes for full-page fit
+  const sizeClasses = {
+    xs: "w-7 h-10 sm:w-9 sm:h-13",
+    sm: "w-8 h-11 sm:w-10 sm:h-14",
+    md: "w-10 h-14 sm:w-12 sm:h-16",
+    lg: "w-12 h-16 sm:w-14 sm:h-20",
+  };
+
+  const effectiveAttack = card.monsterStats
+    ? card.monsterStats.attack + (card.attackModifier ?? 0)
+    : 0;
+  const effectiveDefense = card.monsterStats
+    ? card.monsterStats.defense + (card.defenseModifier ?? 0)
+    : 0;
+
+  return (
+    <motion.button
+      onClick={onClick}
+      whileHover={{ scale: 1.05, y: -1 }}
+      whileTap={{ scale: 0.98 }}
+      className={cn(
+        "relative rounded-md border-2 transition-all duration-200",
+        sizeClasses[size],
+        isDefensePosition && "rotate-90",
+        isFaceDown
+          ? "bg-gradient-to-br from-indigo-900 to-purple-900 border-indigo-500/50"
+          : cn(
+              "bg-gradient-to-br from-slate-800 to-slate-900",
+              RARITY_COLORS[card.rarity] ?? RARITY_COLORS.common,
+              RARITY_GLOW[card.rarity] ?? ""
+            ),
+        isSelected && "ring-2 ring-yellow-400 ring-offset-1 ring-offset-slate-900",
+        isTargetable && "ring-2 ring-red-500 shadow-lg shadow-red-500/50 animate-pulse",
+        isAttacking && "ring-2 ring-orange-500 shadow-lg shadow-orange-500/50",
+        isActivatable && "ring-2 ring-green-500 shadow-lg shadow-green-500/40 animate-pulse",
+        card.hasAttacked && "opacity-60",
+        onClick && "cursor-pointer hover:shadow-lg"
+      )}
+    >
+      {isFaceDown ? (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-4 h-4 rounded-full bg-indigo-500/30 flex items-center justify-center">
+            <Sparkles className="w-2.5 h-2.5 text-indigo-300" />
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="absolute inset-0 rounded overflow-hidden relative">
+            {card.imageUrl ? (
+              <Image
+                src={card.imageUrl}
+                alt={card.name}
+                fill
+                className="object-cover"
+                sizes="(max-width: 640px) 40px, 56px"
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">
+                <span className="text-[6px] text-slate-400 text-center px-0.5 leading-tight">
+                  {card.name.substring(0, 10)}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {card.cardType && card.cardType !== "monster" && (
+            <div
+              className={cn(
+                "absolute top-0 left-0 px-0.5 rounded text-[6px] font-bold uppercase",
+                card.cardType === "spell" && "bg-green-600 text-white",
+                card.cardType === "trap" && "bg-purple-600 text-white",
+                card.cardType === "field" && "bg-teal-600 text-white"
+              )}
+            >
+              {card.cardType[0]}
+            </div>
+          )}
+
+          {showStats && card.monsterStats && !isDefensePosition && (
+            <div className="absolute bottom-0 left-0 right-0 bg-black/80 px-0.5 py-0.5 flex justify-between text-[8px] font-bold">
+              <span className="text-red-400 flex items-center gap-0.5">
+                <Sword className="w-2 h-2" />
+                {effectiveAttack}
+              </span>
+              <span className="text-blue-400 flex items-center gap-0.5">
+                <Shield className="w-2 h-2" />
+                {effectiveDefense}
+              </span>
+            </div>
+          )}
+
+          {showStats && card.monsterStats && isDefensePosition && (
+            <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 -rotate-90 bg-black/80 px-0.5 py-0.5 rounded text-[6px] font-bold whitespace-nowrap">
+              <span className="text-blue-400">{effectiveDefense} DEF</span>
+            </div>
+          )}
+
+          {card.monsterStats?.level && (
+            <div className="absolute top-0 right-0 flex gap-px">
+              {Array.from({ length: Math.min(card.monsterStats.level, 3) }).map((_, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: Static level stars don't reorder
+                <div key={`level-star-${i}`} className="w-1 h-1 rounded-full bg-yellow-400" />
+              ))}
+              {card.monsterStats.level > 3 && (
+                <span className="text-[6px] text-yellow-400 font-bold ml-0.5">
+                  +{card.monsterStats.level - 3}
+                </span>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {card.hasAttacked && !isFaceDown && (
+        <div className="absolute inset-0 bg-black/40 rounded flex items-center justify-center">
+          <span className="text-[6px] text-gray-300 font-medium">USED</span>
+        </div>
+      )}
+    </motion.button>
+  );
+}
+
+export function EmptySlot({
+  onClick,
+  label,
+  size = "md",
+  highlighted = false,
+  className,
+}: {
+  onClick?: () => void;
+  label?: string;
+  size?: "xs" | "sm" | "md" | "lg";
+  highlighted?: boolean;
+  className?: string;
+}) {
+  const sizeClasses = {
+    xs: "w-7 h-10 sm:w-9 sm:h-13",
+    sm: "w-8 h-11 sm:w-10 sm:h-14",
+    md: "w-10 h-14 sm:w-12 sm:h-16",
+    lg: "w-12 h-16 sm:w-14 sm:h-20",
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-md border-2 border-dashed transition-all duration-200",
+        sizeClasses[size],
+        highlighted
+          ? "border-green-500/50 bg-green-500/10 hover:bg-green-500/20"
+          : "border-slate-700/50 bg-slate-900/30 hover:bg-slate-800/30",
+        onClick && "cursor-pointer",
+        className
+      )}
+    >
+      {label && <span className="text-[6px] text-slate-500 font-medium">{label}</span>}
+    </button>
+  );
+}

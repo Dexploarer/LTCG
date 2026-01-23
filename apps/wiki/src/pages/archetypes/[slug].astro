@@ -1,0 +1,370 @@
+---
+/**
+ * Dynamic Archetype Page
+ *
+ * Generates a page for each archetype with all cards in that archetype.
+ */
+
+import { getCollection, type CollectionEntry } from 'astro:content';
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import CardFrame from '../../components/CardFrame.astro';
+
+// Define archetype data type explicitly
+interface ArchetypeData {
+  name: string;
+  shortName: string;
+  attribute: 'fire' | 'water' | 'earth' | 'wind' | 'light' | 'dark' | 'divine';
+  playstyle: string;
+  signatureMechanic: string;
+  description: string;
+  keywords: string[];
+}
+
+interface Props {
+  archetype: ArchetypeData;
+}
+
+export async function getStaticPaths() {
+  const archetypes = await getCollection('archetypes');
+
+  return archetypes.map((archetype: CollectionEntry<'archetypes'>) => ({
+    params: { slug: archetype.id },
+    props: { archetype: archetype.data as ArchetypeData },
+  }));
+}
+
+const { archetype } = Astro.props;
+
+// Type alias for card collection entries
+type CardEntry = CollectionEntry<'cards'>;
+
+// Get all cards for this archetype
+const allCards = await getCollection('cards');
+const archetypeCards: CardEntry[] = allCards.filter(
+  (card: CardEntry) => card.data.archetype === archetype.name
+);
+
+// Sort and group cards
+const monsters: CardEntry[] = archetypeCards.filter((c: CardEntry) => c.data.cardType === 'monster');
+const spells: CardEntry[] = archetypeCards.filter((c: CardEntry) => c.data.cardType === 'spell');
+const traps: CardEntry[] = archetypeCards.filter((c: CardEntry) => c.data.cardType === 'trap');
+
+// Sort by rarity then level
+const rarityOrder = { legendary: 0, epic: 1, rare: 2, uncommon: 3, common: 4 };
+const sortByRarityAndLevel = (a: CardEntry, b: CardEntry) => {
+  const rarityDiff = (rarityOrder[a.data.rarity as keyof typeof rarityOrder] ?? 5) -
+                     (rarityOrder[b.data.rarity as keyof typeof rarityOrder] ?? 5);
+  if (rarityDiff !== 0) return rarityDiff;
+  return (b.data.monsterStats?.level ?? 0) - (a.data.monsterStats?.level ?? 0);
+};
+
+monsters.sort(sortByRarityAndLevel);
+spells.sort(sortByRarityAndLevel);
+traps.sort(sortByRarityAndLevel);
+
+// Count by rarity
+const rarityCounts = archetypeCards.reduce((acc: Record<string, number>, card: CardEntry) => {
+  acc[card.data.rarity] = (acc[card.data.rarity] ?? 0) + 1;
+  return acc;
+}, {} as Record<string, number>);
+
+// Attribute color
+const attributeColors: Record<string, string> = {
+  fire: '#ef4444',
+  water: '#3b82f6',
+  earth: '#84cc16',
+  wind: '#06b6d4',
+  light: '#fbbf24',
+  dark: '#8b5cf6',
+  divine: '#f472b6',
+};
+
+const accentColor = attributeColors[archetype.attribute] ?? '#9ca3af';
+---
+
+<StarlightPage
+  frontmatter={{
+    title: archetype.name,
+    description: archetype.description,
+    tableOfContents: { minHeadingLevel: 2, maxHeadingLevel: 2 },
+  }}
+>
+  <div class="archetype-page" style={`--accent-color: ${accentColor}`}>
+    {/* Header */}
+    <header class="archetype-header">
+      <div class="attribute-badge">{archetype.attribute.toUpperCase()}</div>
+      <p class="playstyle">{archetype.playstyle}</p>
+      <p class="description">{archetype.description}</p>
+    </header>
+
+    {/* Quick Stats */}
+    <section class="quick-stats">
+      <div class="stat-card">
+        <span class="stat-number">{archetypeCards.length}</span>
+        <span class="stat-label">Total Cards</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-number">{monsters.length}</span>
+        <span class="stat-label">Monsters</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-number">{spells.length}</span>
+        <span class="stat-label">Spells</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-number">{traps.length}</span>
+        <span class="stat-label">Traps</span>
+      </div>
+    </section>
+
+    {/* Signature Mechanic */}
+    <section class="mechanic-section">
+      <h2>Signature Mechanic</h2>
+      <div class="mechanic-card">
+        <strong>{archetype.signatureMechanic}</strong>
+        <div class="keywords">
+          {archetype.keywords.map((kw) => (
+            <span class="keyword">{kw}</span>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    {/* Rarity Distribution */}
+    <section class="rarity-section">
+      <h2>Rarity Distribution</h2>
+      <div class="rarity-grid">
+        {(['legendary', 'epic', 'rare', 'uncommon', 'common'] as const).map((rarity) => (
+          <div class="rarity-item" data-rarity={rarity}>
+            <span class="rarity-count">{rarityCounts[rarity] ?? 0}</span>
+            <span class="rarity-name">{rarity}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    {/* Monster Cards */}
+    {monsters.length > 0 && (
+      <section class="card-section">
+        <h2>Monsters ({monsters.length})</h2>
+        <div class="card-grid">
+          {monsters.map((card) => (
+            <CardFrame
+              name={card.data.name}
+              cardNumber={card.data.cardNumber}
+              rarity={card.data.rarity}
+              cardType={card.data.cardType}
+              attribute={card.data.monsterStats?.attribute}
+              monsterStats={card.data.monsterStats}
+              effects={card.data.effects}
+              href={`/cards/${card.id}/`}
+              compact
+            />
+          ))}
+        </div>
+      </section>
+    )}
+
+    {/* Spell Cards */}
+    {spells.length > 0 && (
+      <section class="card-section">
+        <h2>Spells ({spells.length})</h2>
+        <div class="card-grid">
+          {spells.map((card) => (
+            <CardFrame
+              name={card.data.name}
+              cardNumber={card.data.cardNumber}
+              rarity={card.data.rarity}
+              cardType={card.data.cardType}
+              effects={card.data.effects}
+              href={`/cards/${card.id}/`}
+              compact
+            />
+          ))}
+        </div>
+      </section>
+    )}
+
+    {/* Trap Cards */}
+    {traps.length > 0 && (
+      <section class="card-section">
+        <h2>Traps ({traps.length})</h2>
+        <div class="card-grid">
+          {traps.map((card) => (
+            <CardFrame
+              name={card.data.name}
+              cardNumber={card.data.cardNumber}
+              rarity={card.data.rarity}
+              cardType={card.data.cardType}
+              effects={card.data.effects}
+              href={`/cards/${card.id}/`}
+              compact
+            />
+          ))}
+        </div>
+      </section>
+    )}
+
+    {/* Strategy Tips */}
+    <section class="strategy-section">
+      <h2>Strategy Tips</h2>
+      <ul>
+        <li>Focus on {archetype.signatureMechanic.toLowerCase()} for maximum impact</li>
+        <li>Build around the <strong>{archetype.attribute}</strong> attribute synergies</li>
+        <li>Key keywords to look for: {archetype.keywords.slice(0, 3).join(', ')}</li>
+      </ul>
+    </section>
+  </div>
+</StarlightPage>
+
+<style>
+  .archetype-page {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  .archetype-header {
+    text-align: center;
+    padding: 1.5rem;
+    border-radius: 12px;
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--accent-color) 20%, transparent) 0%,
+      transparent 100%
+    );
+    border: 1px solid color-mix(in srgb, var(--accent-color) 30%, transparent);
+  }
+
+  .attribute-badge {
+    display: inline-block;
+    padding: 0.25rem 1rem;
+    border-radius: 9999px;
+    background: var(--accent-color);
+    color: white;
+    font-weight: 700;
+    font-size: 0.875rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .playstyle {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem;
+  }
+
+  .description {
+    color: var(--sl-color-gray-2);
+    margin: 0;
+  }
+
+  .quick-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+
+  @media (max-width: 640px) {
+    .quick-stats {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .stat-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+    border-radius: 8px;
+    background: var(--sl-color-gray-6);
+  }
+
+  .stat-number {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent-color);
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+    text-transform: uppercase;
+  }
+
+  .mechanic-section h2,
+  .rarity-section h2,
+  .card-section h2,
+  .strategy-section h2 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--sl-color-gray-5);
+  }
+
+  .mechanic-card {
+    padding: 1rem;
+    border-radius: 8px;
+    background: var(--sl-color-gray-6);
+  }
+
+  .keywords {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+
+  .keyword {
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    background: var(--sl-color-gray-5);
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .rarity-grid {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .rarity-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    background: var(--sl-color-gray-6);
+  }
+
+  .rarity-count {
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+
+  .rarity-name {
+    font-size: 0.75rem;
+    text-transform: capitalize;
+  }
+
+  .rarity-item[data-rarity="common"] .rarity-count { color: #9ca3af; }
+  .rarity-item[data-rarity="uncommon"] .rarity-count { color: #22c55e; }
+  .rarity-item[data-rarity="rare"] .rarity-count { color: #3b82f6; }
+  .rarity-item[data-rarity="epic"] .rarity-count { color: #a855f7; }
+  .rarity-item[data-rarity="legendary"] .rarity-count { color: #f59e0b; }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 1rem;
+  }
+
+  .strategy-section ul {
+    margin: 0;
+    padding-left: 1.5rem;
+  }
+
+  .strategy-section li {
+    margin-bottom: 0.5rem;
+  }
+</style>

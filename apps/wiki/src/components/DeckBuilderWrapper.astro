@@ -1,0 +1,36 @@
+---
+import { getCollection, type CollectionEntry } from 'astro:content';
+import DeckBuilder from './DeckBuilder';
+
+const cardsCollection = await getCollection('cards');
+
+const cards = cardsCollection.map((entry: CollectionEntry<'cards'>) => ({
+  id: entry.id,
+  cardNumber: entry.data.cardNumber,
+  name: entry.data.name,
+  rarity: entry.data.rarity,
+  cardType: entry.data.cardType,
+  archetype: entry.data.archetype,
+  isLimited: entry.data.isLimited,
+  isBanned: entry.data.isBanned,
+  monsterStats: entry.data.monsterStats,
+}));
+---
+
+{cards.length > 0 ? (
+  <DeckBuilder client:load allCards={cards} />
+) : (
+  <div class="no-cards-message">
+    <p><strong>Card database not loaded.</strong></p>
+    <p>Connect to Convex and rebuild to enable the deck builder.</p>
+  </div>
+)}
+
+<style>
+  .no-cards-message {
+    background: var(--sl-color-gray-6);
+    padding: 2rem;
+    border-radius: 0.5rem;
+    border-left: 4px solid var(--sl-color-accent);
+  }
+</style>

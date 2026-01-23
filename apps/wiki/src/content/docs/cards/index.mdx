@@ -1,0 +1,58 @@
+---
+title: Card Database
+description: Browse all LTCG cards - search by name, archetype, type, and rarity.
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## Browse Cards
+
+Explore the complete LTCG card database. Use the filters below to find specific cards.
+
+<CardGrid>
+  <LinkCard
+    title="Infernal Dragons"
+    description="Fire-based aggressive monsters with burn effects"
+    href="/cards/archetypes/#infernal-dragons"
+  />
+  <LinkCard
+    title="Abyssal Depths"
+    description="Water creatures with control and freeze mechanics"
+    href="/cards/archetypes/#abyssal-depths"
+  />
+  <LinkCard
+    title="Iron Legion"
+    description="Defensive constructs with high durability"
+    href="/cards/archetypes/#iron-legion"
+  />
+  <LinkCard
+    title="Storm Riders"
+    description="Swift wind units focused on speed"
+    href="/cards/archetypes/#storm-riders"
+  />
+  <LinkCard
+    title="Necro Empire"
+    description="Undead army with graveyard recursion"
+    href="/cards/archetypes/#necro-empire"
+  />
+</CardGrid>
+
+## Card Types
+
+| Type | Description |
+|------|-------------|
+| Monster | Creatures that attack and defend |
+| Spell | One-time effects |
+| Trap | Set cards that trigger on conditions |
+| Field | Continuous battlefield effects |
+| Equipment | Attach to monsters for bonuses |
+| Ritual | Special summon requirements |
+| Fusion | Combine multiple monsters |
+
+## Rarities
+
+- **Common** - Basic cards, easy to obtain
+- **Uncommon** - Slightly stronger effects
+- **Rare** - Powerful archetype support
+- **Epic** - High-impact effects
+- **Legendary** - Iconic boss monsters

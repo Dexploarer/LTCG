@@ -1,0 +1,54 @@
+---
+title: Welcome to LTCG
+description: Your complete guide to the LTCG Trading Card Game - cards, rules, archetypes, and strategies.
+template: splash
+hero:
+  tagline: Master the game with comprehensive guides, card database, and strategy tips.
+  actions:
+    - text: Quick Start Guide
+      link: /getting-started/quick-start/
+      icon: right-arrow
+      variant: primary
+    - text: Browse Cards
+      link: /cards/
+      variant: secondary
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Explore the Wiki
+
+<CardGrid stagger>
+  <Card title="Game Rules" icon="open-book">
+    Learn the fundamentals of LTCG, from basic gameplay to advanced mechanics.
+    [View Rules](/rules/banlist/)
+  </Card>
+  <Card title="Card Database" icon="document">
+    Browse all cards, filter by archetype, rarity, and type.
+    [Browse Cards](/cards/)
+  </Card>
+  <Card title="Archetypes" icon="puzzle">
+    Discover the unique playstyles and synergies of each archetype.
+    [View Archetypes](/cards/archetypes/)
+  </Card>
+  <Card title="Meta & Tier List" icon="star">
+    Stay up to date with the current competitive meta and top decks.
+    [View Meta](/meta/)
+  </Card>
+</CardGrid>
+
+## Featured Archetypes
+
+The launch set includes five unique archetypes, each with distinct playstyles:
+
+- **Infernal Dragons** - Aggressive fire-based monsters with powerful burn effects
+- **Abyssal Depths** - Control-oriented water creatures with freezing mechanics
+- **Iron Legion** - Defensive earth constructs with high durability
+- **Storm Riders** - Swift wind units focused on speed and evasion
+- **Necro Empire** - Dark undead army with graveyard recursion
+
+## Getting Help
+
+- Join our [Discord](https://discord.gg/lunchtable) for community discussions
+- Follow [@lunchtable](https://x.com/lunchtable) for updates
+- Report issues on [GitHub](https://github.com/lunchtable)

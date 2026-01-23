@@ -1,0 +1,481 @@
+---
+/**
+ * Dynamic Card Detail Page
+ *
+ * Generates a page for each card in the database.
+ * Uses the cards content collection loaded from Convex.
+ */
+
+import { getCollection, type CollectionEntry } from 'astro:content';
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import CardFrame from '../../components/CardFrame.astro';
+
+// Type for card data
+type CardData = CollectionEntry<'cards'>['data'];
+type CardEntry = CollectionEntry<'cards'>;
+
+// Type for card effects
+interface CardEffect {
+  name: string;
+  description: string;
+  effectType?: 'continuous' | 'activated' | 'triggered' | 'quick' | 'ignition' | 'counter';
+  cost?: string;
+}
+
+interface Props {
+  card: CardData;
+}
+
+export async function getStaticPaths() {
+  const cards = await getCollection('cards');
+
+  return cards.map((card: CardEntry) => ({
+    params: { slug: card.id },
+    props: { card: card.data },
+  }));
+}
+
+const { card } = Astro.props;
+
+// Get related cards (same archetype)
+const allCards = await getCollection('cards');
+const relatedCards: CardEntry[] = allCards
+  .filter((c: CardEntry) => c.data.archetype === card.archetype && c.id !== card.cardNumber.toLowerCase())
+  .slice(0, 4);
+
+// Get evolution chain cards
+const evolutionCards: CardEntry[] = card.evolutionLineId
+  ? allCards.filter((c: CardEntry) => c.data.evolutionLineId === card.evolutionLineId)
+  : [];
+
+// Format effect types for display
+const effectTypeLabels: Record<string, string> = {
+  continuous: 'Continuous',
+  activated: 'Activated',
+  triggered: 'Triggered',
+  quick: 'Quick',
+  ignition: 'Ignition',
+  counter: 'Counter',
+};
+
+// Get attribute display color
+const attributeColors: Record<string, string> = {
+  fire: '#ef4444',
+  water: '#3b82f6',
+  earth: '#84cc16',
+  wind: '#06b6d4',
+  light: '#fbbf24',
+  dark: '#8b5cf6',
+  divine: '#f472b6',
+};
+---
+
+<StarlightPage
+  frontmatter={{
+    title: card.name,
+    description: `${card.name} - ${card.rarity} ${card.cardType} from ${card.archetype || 'the'} archetype.`,
+    tableOfContents: false,
+  }}
+>
+  <div class="card-page">
+    {/* Card Display */}
+    <div class="card-showcase">
+      <CardFrame
+        name={card.name}
+        cardNumber={card.cardNumber}
+        rarity={card.rarity}
+        cardType={card.cardType}
+        attribute={card.monsterStats?.attribute}
+        archetype={card.archetype}
+        monsterStats={card.monsterStats}
+        effects={card.effects}
+      />
+    </div>
+
+    {/* Card Details */}
+    <div class="card-details">
+      {/* Basic Info */}
+      <section class="info-section">
+        <h2>Card Information</h2>
+        <dl class="info-grid">
+          <div>
+            <dt>Card Number</dt>
+            <dd><code>{card.cardNumber}</code></dd>
+          </div>
+          <div>
+            <dt>Set</dt>
+            <dd>{card.setCode}</dd>
+          </div>
+          <div>
+            <dt>Rarity</dt>
+            <dd class="rarity" data-rarity={card.rarity}>{card.rarity}</dd>
+          </div>
+          <div>
+            <dt>Type</dt>
+            <dd>{card.cardType}</dd>
+          </div>
+          {card.archetype && (
+            <div>
+              <dt>Archetype</dt>
+              <dd>
+                <a href={`/archetypes/${card.archetype.toLowerCase().replace(/\s+/g, '-')}/`}>
+                  {card.archetype}
+                </a>
+              </dd>
+            </div>
+          )}
+        </dl>
+      </section>
+
+      {/* Monster Stats */}
+      {card.monsterStats && (
+        <section class="info-section">
+          <h2>Monster Stats</h2>
+          <div class="stats-display">
+            <div class="stat-box atk">
+              <span class="stat-label">ATK</span>
+              <span class="stat-value">{card.monsterStats.attack}</span>
+            </div>
+            <div class="stat-box def">
+              <span class="stat-label">DEF</span>
+              <span class="stat-value">{card.monsterStats.defense}</span>
+            </div>
+            <div class="stat-box lvl">
+              <span class="stat-label">Level</span>
+              <span class="stat-value">★{card.monsterStats.level}</span>
+            </div>
+          </div>
+
+          <dl class="info-grid">
+            {card.monsterStats.attribute && (
+              <div>
+                <dt>Attribute</dt>
+                <dd>
+                  <span
+                    class="attribute-badge"
+                    style={`background: ${attributeColors[card.monsterStats.attribute]}`}
+                  >
+                    {card.monsterStats.attribute.toUpperCase()}
+                  </span>
+                </dd>
+              </div>
+            )}
+            {card.monsterStats.monsterType && (
+              <div>
+                <dt>Type</dt>
+                <dd>{card.monsterStats.monsterType}</dd>
+              </div>
+            )}
+          </dl>
+        </section>
+      )}
+
+      {/* Effects */}
+      {card.effects.length > 0 && (
+        <section class="info-section">
+          <h2>Effects</h2>
+          <div class="effects-list">
+            {card.effects.map((effect: CardEffect) => (
+              <div class="effect-box">
+                <div class="effect-header">
+                  <span class="effect-name">{effect.name}</span>
+                  {effect.effectType && (
+                    <span class="effect-type">{effectTypeLabels[effect.effectType] || effect.effectType}</span>
+                  )}
+                </div>
+                <p class="effect-text">{effect.description}</p>
+                {effect.cost && (
+                  <p class="effect-cost">Cost: {effect.cost}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Flavor Text */}
+      {card.flavorText && (
+        <section class="info-section">
+          <h2>Flavor Text</h2>
+          <blockquote class="flavor-text">{card.flavorText}</blockquote>
+        </section>
+      )}
+
+      {/* Evolution Chain */}
+      {evolutionCards.length > 1 && (
+        <section class="info-section">
+          <h2>Evolution Line</h2>
+          <div class="evolution-chain">
+            {evolutionCards
+              .sort((a, b) => {
+                const order = { base: 0, ascended: 1, apex: 2 };
+                return (order[a.data.evolutionStage as keyof typeof order] ?? 0) -
+                       (order[b.data.evolutionStage as keyof typeof order] ?? 0);
+              })
+              .map((evoCard, index) => (
+                <>
+                  {index > 0 && <span class="evo-arrow">→</span>}
+                  <a
+                    href={`/cards/${evoCard.id}/`}
+                    class:list={['evo-card', { current: evoCard.id === card.cardNumber.toLowerCase() }]}
+                  >
+                    <span class="evo-stage">{evoCard.data.evolutionStage}</span>
+                    <span class="evo-name">{evoCard.data.name}</span>
+                  </a>
+                </>
+              ))}
+          </div>
+        </section>
+      )}
+
+      {/* Deck Status */}
+      {(card.isLimited || card.isBanned) && (
+        <section class="info-section">
+          <h2>Deck Status</h2>
+          {card.isBanned && (
+            <p class="status-banned">🚫 This card is <strong>banned</strong> and cannot be used in official play.</p>
+          )}
+          {card.isLimited && !card.isBanned && (
+            <p class="status-limited">⚠️ This card is <strong>limited</strong> to 1 copy per deck.</p>
+          )}
+        </section>
+      )}
+
+      {/* Related Cards */}
+      {relatedCards.length > 0 && (
+        <section class="info-section">
+          <h2>Related Cards</h2>
+          <div class="related-grid">
+            {relatedCards.map((related) => (
+              <CardFrame
+                name={related.data.name}
+                cardNumber={related.data.cardNumber}
+                rarity={related.data.rarity}
+                cardType={related.data.cardType}
+                attribute={related.data.monsterStats?.attribute}
+                monsterStats={related.data.monsterStats}
+                href={`/cards/${related.id}/`}
+                compact
+              />
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  </div>
+</StarlightPage>
+
+<style>
+  .card-page {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  @media (max-width: 768px) {
+    .card-page {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .card-showcase {
+    position: sticky;
+    top: 1rem;
+  }
+
+  .card-details {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .info-section h2 {
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--sl-color-gray-5);
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+  }
+
+  .info-grid dt {
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+    text-transform: uppercase;
+    margin-bottom: 0.25rem;
+  }
+
+  .info-grid dd {
+    font-weight: 500;
+  }
+
+  .rarity {
+    text-transform: capitalize;
+  }
+  .rarity[data-rarity="common"] { color: #9ca3af; }
+  .rarity[data-rarity="uncommon"] { color: #22c55e; }
+  .rarity[data-rarity="rare"] { color: #3b82f6; }
+  .rarity[data-rarity="epic"] { color: #a855f7; }
+  .rarity[data-rarity="legendary"] { color: #f59e0b; }
+
+  .stats-display {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .stat-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    background: var(--sl-color-gray-6);
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+    text-transform: uppercase;
+  }
+
+  .stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    font-family: var(--sl-font-mono);
+  }
+
+  .stat-box.atk .stat-value { color: #ef4444; }
+  .stat-box.def .stat-value { color: #3b82f6; }
+  .stat-box.lvl .stat-value { color: #fbbf24; }
+
+  .attribute-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .effects-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .effect-box {
+    padding: 1rem;
+    border-radius: 8px;
+    background: var(--sl-color-gray-6);
+  }
+
+  .effect-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .effect-name {
+    font-weight: 600;
+  }
+
+  .effect-type {
+    font-size: 0.75rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    background: var(--sl-color-gray-5);
+    color: var(--sl-color-gray-2);
+  }
+
+  .effect-text {
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .effect-cost {
+    margin: 0.5rem 0 0;
+    font-size: 0.875rem;
+    color: var(--sl-color-gray-3);
+  }
+
+  .flavor-text {
+    font-style: italic;
+    color: var(--sl-color-gray-3);
+    border-left: 3px solid var(--sl-color-gray-5);
+    padding-left: 1rem;
+    margin: 0;
+  }
+
+  .evolution-chain {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .evo-arrow {
+    font-size: 1.25rem;
+    color: var(--sl-color-gray-4);
+  }
+
+  .evo-card {
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    background: var(--sl-color-gray-6);
+    text-decoration: none;
+    transition: background 0.2s;
+  }
+
+  .evo-card:hover {
+    background: var(--sl-color-gray-5);
+  }
+
+  .evo-card.current {
+    background: var(--sl-color-accent);
+    color: var(--sl-color-accent-high);
+  }
+
+  .evo-stage {
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    color: var(--sl-color-gray-3);
+  }
+
+  .evo-card.current .evo-stage {
+    color: inherit;
+    opacity: 0.8;
+  }
+
+  .evo-name {
+    font-weight: 500;
+  }
+
+  .status-banned {
+    color: #ef4444;
+    padding: 0.75rem;
+    border-radius: 8px;
+    background: rgba(239, 68, 68, 0.1);
+  }
+
+  .status-limited {
+    color: #f59e0b;
+    padding: 0.75rem;
+    border-radius: 8px;
+    background: rgba(245, 158, 11, 0.1);
+  }
+
+  .related-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
+  }
+</style>

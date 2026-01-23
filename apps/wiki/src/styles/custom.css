@@ -1,0 +1,269 @@
+/**
+ * Lunchtable TCG Wiki Custom Styles
+ *
+ * Extends Starlight's default theme with TCG-specific styles
+ */
+
+/* =============================================================================
+   Color Palette - Archetype Colors
+   ============================================================================= */
+
+:root {
+  /* Archetype attribute colors */
+  --color-fire: #ef4444;
+  --color-water: #3b82f6;
+  --color-earth: #84cc16;
+  --color-wind: #06b6d4;
+  --color-light: #fbbf24;
+  --color-dark: #8b5cf6;
+  --color-divine: #f472b6;
+
+  /* Rarity colors */
+  --color-common: #9ca3af;
+  --color-uncommon: #22c55e;
+  --color-rare: #3b82f6;
+  --color-epic: #a855f7;
+  --color-legendary: #f59e0b;
+
+  /* Brand colors */
+  --color-brand: #eab308;
+  --color-brand-dark: #ca8a04;
+}
+
+/* Dark theme overrides */
+:root[data-theme="dark"] {
+  --sl-color-accent: var(--color-brand);
+  --sl-color-accent-high: var(--color-brand-dark);
+}
+
+/* Light theme overrides */
+:root[data-theme="light"] {
+  --sl-color-accent: var(--color-brand-dark);
+  --sl-color-accent-high: var(--color-brand);
+}
+
+/* =============================================================================
+   Card Display Components
+   ============================================================================= */
+
+.card-frame {
+  border: 3px solid var(--sl-color-gray-5);
+  border-radius: 12px;
+  padding: 1rem;
+  background: linear-gradient(
+    135deg,
+    var(--sl-color-gray-6) 0%,
+    var(--sl-color-gray-7) 100%
+  );
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card-frame:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+/* Rarity borders */
+.card-frame.rarity-common {
+  border-color: var(--color-common);
+}
+.card-frame.rarity-uncommon {
+  border-color: var(--color-uncommon);
+}
+.card-frame.rarity-rare {
+  border-color: var(--color-rare);
+}
+.card-frame.rarity-epic {
+  border-color: var(--color-epic);
+}
+.card-frame.rarity-legendary {
+  border-color: var(--color-legendary);
+  box-shadow: 0 0 12px var(--color-legendary);
+}
+
+/* Attribute badges */
+.attribute-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.attribute-badge.fire {
+  background: var(--color-fire);
+  color: white;
+}
+.attribute-badge.water {
+  background: var(--color-water);
+  color: white;
+}
+.attribute-badge.earth {
+  background: var(--color-earth);
+  color: #1a1a2e;
+}
+.attribute-badge.wind {
+  background: var(--color-wind);
+  color: #1a1a2e;
+}
+.attribute-badge.light {
+  background: var(--color-light);
+  color: #1a1a2e;
+}
+.attribute-badge.dark {
+  background: var(--color-dark);
+  color: white;
+}
+.attribute-badge.divine {
+  background: var(--color-divine);
+  color: white;
+}
+
+/* =============================================================================
+   Card Grid Layout
+   ============================================================================= */
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.5rem;
+  padding: 1rem 0;
+}
+
+.card-grid-small {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+/* =============================================================================
+   Stats Display
+   ============================================================================= */
+
+.stat-row {
+  display: flex;
+  gap: 1rem;
+  font-family: var(--sl-font-mono);
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.stat-item .label {
+  font-size: 0.75rem;
+  color: var(--sl-color-gray-3);
+  text-transform: uppercase;
+}
+
+.stat-item .value {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.stat-atk .value {
+  color: var(--color-fire);
+}
+.stat-def .value {
+  color: var(--color-water);
+}
+.stat-lvl .value {
+  color: var(--color-light);
+}
+
+/* =============================================================================
+   Evolution Tree
+   ============================================================================= */
+
+.evolution-tree {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+.evolution-arrow {
+  font-size: 1.5rem;
+  color: var(--sl-color-gray-3);
+}
+
+.evolution-stage {
+  text-align: center;
+}
+
+.evolution-stage .stage-label {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  color: var(--sl-color-gray-3);
+  margin-bottom: 0.25rem;
+}
+
+/* =============================================================================
+   Archetype Colors
+   ============================================================================= */
+
+.archetype-infernal-dragons {
+  --archetype-color: var(--color-fire);
+}
+.archetype-abyssal-depths {
+  --archetype-color: var(--color-water);
+}
+.archetype-iron-legion {
+  --archetype-color: var(--color-earth);
+}
+.archetype-storm-riders {
+  --archetype-color: var(--color-wind);
+}
+.archetype-radiant-order {
+  --archetype-color: var(--color-light);
+}
+.archetype-shadow-cabal {
+  --archetype-color: var(--color-dark);
+}
+.archetype-primal-beasts {
+  --archetype-color: var(--color-earth);
+}
+.archetype-arcane-council {
+  --archetype-color: var(--color-light);
+}
+.archetype-necro-empire {
+  --archetype-color: var(--color-dark);
+}
+.archetype-void-walkers {
+  --archetype-color: var(--color-divine);
+}
+
+/* =============================================================================
+   Keyword Tags
+   ============================================================================= */
+
+.keyword-tag {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: var(--sl-color-gray-6);
+  color: var(--sl-color-gray-2);
+  margin-right: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+/* =============================================================================
+   Responsive Adjustments
+   ============================================================================= */
+
+@media (max-width: 640px) {
+  .card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
+  }
+
+  .stat-row {
+    flex-wrap: wrap;
+  }
+}

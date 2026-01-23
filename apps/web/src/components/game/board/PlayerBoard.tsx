@@ -1,0 +1,78 @@
+// @ts-nocheck
+// TODO: This file depends on Convex game APIs that have not been implemented yet.
+"use client";
+
+import type { Id } from "@convex/_generated/dataModel";
+import type { CardInZone, PlayerBoard as PlayerBoardType } from "../hooks/useGameBoard";
+import { FieldZone } from "./zones/FieldZone";
+import { MonsterZone } from "./zones/MonsterZone";
+import { PileZone } from "./zones/PileZone";
+import { SpellTrapZone } from "./zones/SpellTrapZone";
+
+interface PlayerBoardProps {
+  board: PlayerBoardType;
+  selectedCard?: Id<"cardInstances"> | null;
+  attackingCard?: Id<"cardInstances"> | null;
+  targetableCards?: Set<Id<"cardInstances">>;
+  activatableBackrowCards?: Set<Id<"cardInstances">>;
+  onCardClick: (card: CardInZone) => void;
+  onEmptyMonsterSlotClick?: (zone: "frontline" | "support", index?: number) => void;
+  onEmptyBackrowClick?: (index?: number) => void;
+  onBackrowCardClick?: (card: CardInZone) => void;
+  onFieldClick?: () => void;
+}
+
+export function PlayerBoard({
+  board,
+  selectedCard,
+  attackingCard,
+  targetableCards,
+  activatableBackrowCards,
+  onCardClick,
+  onEmptyMonsterSlotClick,
+  onEmptyBackrowClick,
+  onBackrowCardClick,
+  onFieldClick,
+}: PlayerBoardProps) {
+  return (
+    <div className="flex items-center gap-1 sm:gap-2 p-1 sm:p-2">
+      {/* Left side: Deck & Graveyard */}
+      <PileZone
+        deckCount={board.deckCount}
+        graveyardCount={board.graveyardCount}
+        graveyardCards={board.graveyard}
+      />
+
+      {/* Center: Main board zones */}
+      <div className="flex-1 space-y-0.5 sm:space-y-1">
+        {/* Backrow (Spell/Trap) */}
+        <SpellTrapZone
+          cards={board.backrow}
+          selectedCard={selectedCard}
+          activatableCards={activatableBackrowCards}
+          onCardClick={onBackrowCardClick ?? onCardClick}
+          onEmptySlotClick={onEmptyBackrowClick}
+        />
+
+        {/* Monster Zone (Support + Frontline) */}
+        <MonsterZone
+          frontline={board.frontline}
+          support={board.support}
+          selectedCard={selectedCard}
+          attackingCard={attackingCard}
+          targetableCards={targetableCards}
+          onCardClick={onCardClick}
+          onEmptySlotClick={onEmptyMonsterSlotClick}
+        />
+      </div>
+
+      {/* Right side: Field spell */}
+      <FieldZone
+        card={board.fieldSpell}
+        selectedCard={selectedCard}
+        onCardClick={onCardClick}
+        onEmptySlotClick={onFieldClick}
+      />
+    </div>
+  );
+}

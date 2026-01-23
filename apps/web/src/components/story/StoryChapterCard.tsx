@@ -1,0 +1,123 @@
+"use client";
+
+import { motion } from "framer-motion";
+import { Lock, Star, Trophy } from "lucide-react";
+import Image from "next/image";
+import { FantasyFrame } from "@/components/ui/FantasyFrame";
+import { cn } from "@/lib/utils";
+
+interface StoryChapterCardProps {
+  chapter: {
+    chapterId: string;
+    name: string;
+    description: string;
+    archetype: string;
+    order: number;
+    requiredLevel: number;
+    isUnlocked: boolean;
+    completedStages: number;
+    totalStages: number;
+    starredStages: number;
+    isCompleted: boolean;
+  };
+  onClick?: () => void;
+}
+
+export function StoryChapterCard({ chapter, onClick }: StoryChapterCardProps) {
+  const assetName = chapter.archetype || "infernal_dragons";
+
+  return (
+    <motion.button
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      className={cn(
+        "relative w-full h-64 text-left group transition-all duration-300",
+        !chapter.isUnlocked && "opacity-80 grayscale"
+      )}
+    >
+      <FantasyFrame
+        variant={chapter.isCompleted ? "gold" : chapter.isUnlocked ? "ethereal" : "obsidian"}
+        className="h-full overflow-hidden"
+        noPadding
+      >
+        {/* Background Image */}
+        <div className="absolute inset-0">
+          <Image
+            src={`/assets/story/${assetName}.png`}
+            alt={chapter.name}
+            fill
+            className="object-cover transition-transform duration-700 group-hover:scale-110"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          />
+          {/* Gradient Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-90" />
+        </div>
+
+        {/* Content */}
+        <div className="relative h-full flex flex-col justify-end p-6 z-10">
+          {/* Top Right Status */}
+          <div className="absolute top-4 right-4">
+            {!chapter.isUnlocked ? (
+              <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm border border-white/20 flex items-center justify-center">
+                <Lock className="w-5 h-5 text-gray-400" />
+              </div>
+            ) : chapter.isCompleted ? (
+              <div className="w-10 h-10 rounded-full bg-yellow-500/20 backdrop-blur-sm border border-yellow-500/50 flex items-center justify-center shadow-[0_0_15px_rgba(234,179,8,0.3)]">
+                <Trophy className="w-5 h-5 text-yellow-400" />
+              </div>
+            ) : null}
+          </div>
+
+          {/* Chapter Info */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-purple-300">
+                Chapter {chapter.order}
+              </span>
+              {chapter.isUnlocked && (
+                <div className="flex items-center gap-1 text-xs text-yellow-400 bg-black/40 px-2 py-0.5 rounded-full border border-white/10">
+                  <Star className="w-3 h-3 fill-current" />
+                  <span>{chapter.starredStages}</span>
+                </div>
+              )}
+            </div>
+
+            <h3 className="text-2xl font-bold text-white group-hover:text-purple-200 transition-colors">
+              {chapter.name}
+            </h3>
+
+            <p className="text-sm text-gray-300 line-clamp-2 min-h-[2.5rem]">
+              {!chapter.isUnlocked
+                ? `Requires Level ${chapter.requiredLevel} to unlock.`
+                : chapter.description}
+            </p>
+
+            {/* Progress Bar */}
+            {chapter.isUnlocked && (
+              <div className="mt-4">
+                <div className="flex justify-between text-xs mb-1.5">
+                  <span className="text-gray-400">Progress</span>
+                  <span className="text-purple-300">
+                    {Math.round((chapter.completedStages / chapter.totalStages) * 100)}%
+                  </span>
+                </div>
+                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden backdrop-blur-sm">
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-all duration-500",
+                      chapter.isCompleted
+                        ? "bg-gradient-to-r from-yellow-500 to-amber-300"
+                        : "bg-gradient-to-r from-purple-500 to-indigo-400"
+                    )}
+                    style={{ width: `${(chapter.completedStages / chapter.totalStages) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </FantasyFrame>
+    </motion.button>
+  );
+}

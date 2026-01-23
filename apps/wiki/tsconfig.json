@@ -1,0 +1,13 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "compilerOptions": {
+    "strictNullChecks": true,
+    "baseUrl": ".",
+    "paths": {
+      "@luchtable/convex/*": ["../../convex/*"],
+      "@luchtable/*": ["./src/*"]
+    }
+  },
+  "include": ["src/**/*", "../../convex/_generated/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

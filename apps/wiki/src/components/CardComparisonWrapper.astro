@@ -1,0 +1,38 @@
+---
+import { getCollection, type CollectionEntry } from 'astro:content';
+import CardComparison from './CardComparison';
+
+const cardsCollection = await getCollection('cards');
+
+const cards = cardsCollection.map((entry: CollectionEntry<'cards'>) => ({
+  id: entry.id,
+  cardNumber: entry.data.cardNumber,
+  name: entry.data.name,
+  rarity: entry.data.rarity,
+  cardType: entry.data.cardType,
+  archetype: entry.data.archetype,
+  isLimited: entry.data.isLimited,
+  isBanned: entry.data.isBanned,
+  evolutionStage: entry.data.evolutionStage,
+  monsterStats: entry.data.monsterStats,
+  effects: entry.data.effects,
+}));
+---
+
+{cards.length > 0 ? (
+  <CardComparison client:load allCards={cards} />
+) : (
+  <div class="no-cards-message">
+    <p><strong>Card database not loaded.</strong></p>
+    <p>Connect to Convex and rebuild to enable card comparison.</p>
+  </div>
+)}
+
+<style>
+  .no-cards-message {
+    background: var(--sl-color-gray-6);
+    padding: 2rem;
+    border-radius: 0.5rem;
+    border-left: 4px solid var(--sl-color-accent);
+  }
+</style>

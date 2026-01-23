@@ -1,0 +1,23 @@
+## Error Type
+Runtime TypeError
+
+## Error Message
+Cannot destructure property 'isLoading' of 'useAuth(...)' as it is undefined.
+
+
+    at _ (chrome-extension://egjidjbpglichdcondbcbdnbeeppgdph/inpage.js:166:26614)
+    at w (chrome-extension://egjidjbpglichdcondbcbdnbeeppgdph/inpage.js:166:26798)
+    at Y (chrome-extension://egjidjbpglichdcondbcbdnbeeppgdph/inpage.js:166:27157)
+    at ConvexAuthProvider (src/components/ConvexAuthProvider.tsx:13:5)
+    at RootLayout (app/layout.tsx:21:9)
+
+## Code Frame
+  11 |
+  12 |   return (
+> 13 |     <ConvexAuthNextjsProvider client={client}>
+     |     ^
+  14 |       {children}
+  15 |     </ConvexAuthNextjsProvider>
+  16 |   );
+
+Next.js version: 16.1.4 (Turbopack)
