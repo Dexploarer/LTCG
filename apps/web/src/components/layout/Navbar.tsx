@@ -85,13 +85,13 @@ export function Navbar() {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const { isOpen, setIsOpen, toggle } = useSidebar();
   const { token, setToken, isAuthenticated } = useAuth();
-  const signOutMutation = useMutation(api.auth.signOut);
+  const signOutMutation = useMutation(api.auth.convexSignOut);
 
   const currentUser = useQuery(api.users.currentUser, token ? { token } : "skip");
 
   const handleSignOut = async () => {
     if (token) {
-      await signOutMutation({ token });
+      await signOutMutation();
     }
     setToken(null);
   };

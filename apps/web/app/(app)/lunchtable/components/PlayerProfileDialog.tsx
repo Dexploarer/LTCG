@@ -1,6 +1,8 @@
 "use client";
 
-import { X } from "lucide-react";
+import { api } from "@convex/_generated/api";
+import { useQuery } from "convex/react";
+import { X, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { ChallengeConfirmDialog } from "./ChallengeConfirmDialog";
 
@@ -20,13 +22,37 @@ interface PlayerProfileDialogProps {
   isOpen: boolean;
   onClose: () => void;
   username: string;
-  profile: PlayerProfile;
 }
 
-export function PlayerProfileDialog({ isOpen, onClose, username, profile }: PlayerProfileDialogProps) {
+function calculateRankFromElo(elo: number): { tier: string; division: number; lp: number } {
+  if (elo < 1000) return { tier: "Bronze", division: 3, lp: elo % 100 };
+  if (elo < 1200) return { tier: "Bronze", division: 2, lp: elo % 100 };
+  if (elo < 1400) return { tier: "Bronze", division: 1, lp: elo % 100 };
+  if (elo < 1600) return { tier: "Silver", division: 3, lp: elo % 100 };
+  if (elo < 1800) return { tier: "Silver", division: 2, lp: elo % 100 };
+  if (elo < 2000) return { tier: "Silver", division: 1, lp: elo % 100 };
+  if (elo < 2200) return { tier: "Gold", division: 3, lp: elo % 100 };
+  if (elo < 2400) return { tier: "Gold", division: 2, lp: elo % 100 };
+  if (elo < 2600) return { tier: "Gold", division: 1, lp: elo % 100 };
+  if (elo < 2800) return { tier: "Platinum", division: 3, lp: elo % 100 };
+  if (elo < 3000) return { tier: "Platinum", division: 2, lp: elo % 100 };
+  if (elo < 3200) return { tier: "Platinum", division: 1, lp: elo % 100 };
+  if (elo < 3400) return { tier: "Diamond", division: 3, lp: elo % 100 };
+  if (elo < 3600) return { tier: "Diamond", division: 2, lp: elo % 100 };
+  if (elo < 3800) return { tier: "Diamond", division: 1, lp: elo % 100 };
+  if (elo < 4000) return { tier: "Master", division: 3, lp: elo % 100 };
+  if (elo < 4200) return { tier: "Master", division: 2, lp: elo % 100 };
+  if (elo < 4400) return { tier: "Master", division: 1, lp: elo % 100 };
+  return { tier: "Legend", division: 1, lp: elo % 100 };
+}
+
+export function PlayerProfileDialog({ isOpen, onClose, username }: PlayerProfileDialogProps) {
   const [activeTab, setActiveTab] = useState<"stats" | "badges" | "agents">("stats");
   const [selectedDetail, setSelectedDetail] = useState<DetailItem | null>(null);
   const [showChallengeDialog, setShowChallengeDialog] = useState(false);
+
+  // Fetch comprehensive user profile
+  const userData = useQuery(api.users.getUserProfile, { username });
 
   const handleChallengeConfirm = (mode: "casual" | "ranked") => {
     console.log(`Challenging ${username} to ${mode} match`);
@@ -112,6 +138,38 @@ export function PlayerProfileDialog({ isOpen, onClose, username, profile }: Play
 
   if (!isOpen) return null;
 
+  // Build profile from real user data
+  const profile: PlayerProfile | null = userData
+    ? {
+        id: userData._id,
+        username: userData.username || username,
+        rank: {
+          casual: calculateRankFromElo(userData.casualRating),
+          ranked: calculateRankFromElo(userData.rankedElo),
+        },
+        stats: {
+          totalGames: userData.totalWins + userData.totalLosses,
+          wins: userData.totalWins,
+          losses: userData.totalLosses,
+          winStreak: 0, // TODO: Add winStreak tracking to schema
+          longestWinStreak: 0, // TODO: Add longestWinStreak tracking to schema
+        },
+        socials: {},
+        agents: [],
+        mostPlayedCard: {
+          id: "placeholder",
+          name: "Most Played Card",
+          element: "fire",
+          timesPlayed: 0,
+        },
+        callingCard: null,
+        badges: [],
+        achievements: [],
+        joinedAt: userData.createdAt || Date.now(),
+        status: "online",
+      }
+    : null;
+
   return (
     <>
       {/* Backdrop */}
@@ -143,50 +201,63 @@ export function PlayerProfileDialog({ isOpen, onClose, username, profile }: Play
             <X className="w-5 h-5" />
           </button>
 
-          {/* Profile Header */}
-          <ProfileHeader profile={profile} onChallenge={() => setShowChallengeDialog(true)} />
+          {/* Loading or Content */}
+          {!profile ? (
+            <div className="flex items-center justify-center p-12">
+              <Loader2 className="w-8 h-8 text-[#d4af37] animate-spin" />
+            </div>
+          ) : (
+            <>
+              {/* Profile Header */}
+              <ProfileHeader profile={profile} onChallenge={() => setShowChallengeDialog(true)} />
 
-          {/* Calling Card & Most Played */}
-          <CallingCardSection profile={profile} onCardClick={openCardDetail} />
+              {/* Calling Card & Most Played */}
+              <CallingCardSection profile={profile} onCardClick={openCardDetail} />
 
-          {/* Tabs */}
-          <ProfileTabs activeTab={activeTab} onTabChange={setActiveTab} />
+              {/* Tabs */}
+              <ProfileTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
-          {/* Tab Content */}
-          <div className="p-6 max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#3d2b1f] scrollbar-track-transparent">
-            {activeTab === "stats" && (
-              <StatsTab profile={profile} onAchievementClick={openAchievementDetail} />
-            )}
-            {activeTab === "badges" && (
-              <BadgesTab profile={profile} onBadgeClick={openBadgeDetail} />
-            )}
-            {activeTab === "agents" && <AgentsTab profile={profile} />}
-          </div>
+              {/* Tab Content */}
+              <div className="p-6 max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#3d2b1f] scrollbar-track-transparent">
+                {activeTab === "stats" && (
+                  <StatsTab profile={profile} onAchievementClick={openAchievementDetail} />
+                )}
+                {activeTab === "badges" && (
+                  <BadgesTab profile={profile} onBadgeClick={openBadgeDetail} />
+                )}
+                {activeTab === "agents" && <AgentsTab profile={profile} />}
+              </div>
 
-          {/* Footer */}
-          <div className="px-6 py-4 border-t border-[#3d2b1f] bg-black/30">
-            <p className="text-center text-[10px] text-[#a89f94]">
-              Member since{" "}
-              {new Date(profile.joinedAt).toLocaleDateString("en-US", {
-                month: "long",
-                year: "numeric",
-              })}
-            </p>
-          </div>
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-[#3d2b1f] bg-black/30">
+                <p className="text-center text-[10px] text-[#a89f94]">
+                  Member since{" "}
+                  {new Date(profile.joinedAt).toLocaleDateString("en-US", {
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </p>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
       {/* Detail Popup */}
-      <DetailPopup detail={selectedDetail} onClose={() => setSelectedDetail(null)} />
+      {selectedDetail && (
+        <DetailPopup detail={selectedDetail} onClose={() => setSelectedDetail(null)} />
+      )}
 
-      {/* Challenge Confirm Dialog */}
-      <ChallengeConfirmDialog
-        isOpen={showChallengeDialog}
-        onClose={() => setShowChallengeDialog(false)}
-        onConfirm={handleChallengeConfirm}
-        opponentUsername={username}
-        opponentRank={profile.rank.ranked.tier}
-      />
+      {/* Challenge Dialog */}
+      {showChallengeDialog && profile && (
+        <ChallengeConfirmDialog
+          isOpen={showChallengeDialog}
+          onClose={() => setShowChallengeDialog(false)}
+          onConfirm={handleChallengeConfirm}
+          opponentUsername={username}
+          opponentRank={profile.rank.ranked.tier}
+        />
+      )}
     </>
   );
 }
