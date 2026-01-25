@@ -52,6 +52,9 @@ export async function drawCards(
   const drawnCards: Id<"cardDefinitions">[] = [];
   for (let i = 0; i < cardsToDraw; i++) {
     const cardId = deck[i];
+    if (!cardId) {
+      throw new Error(`Cannot draw card: deck is empty or invalid at index ${i}`);
+    }
     drawnCards.push(cardId);
 
     // Record card_drawn event
@@ -97,7 +100,9 @@ export async function shuffleDeck(
   const shuffled = [...deck];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    const temp = shuffled[i];
+    shuffled[i] = shuffled[j]!;
+    shuffled[j] = temp!;
   }
 
   // Get player username for events

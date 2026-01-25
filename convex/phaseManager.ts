@@ -50,7 +50,7 @@ function getNextPhase(currentPhase: GamePhase): GamePhase | null {
   if (currentIndex === -1 || currentIndex === PHASE_SEQUENCE.length - 1) {
     return null; // No next phase (end of turn)
   }
-  return PHASE_SEQUENCE[currentIndex + 1];
+  return PHASE_SEQUENCE[currentIndex + 1] ?? null;
 }
 
 /**

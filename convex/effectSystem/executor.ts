@@ -116,7 +116,12 @@ export async function executeEffect(
       if (!targets || targets.length === 0) {
         result = { success: false, message: "No targets selected" };
       } else {
-        result = await executeModifyATK(ctx, gameState, targets[0], effect.value || 0, isHost);
+        const target = targets[0];
+        if (!target) {
+          result = { success: false, message: "No target selected" };
+        } else {
+          result = await executeModifyATK(ctx, gameState, target, effect.value || 0, isHost);
+        }
       }
       break;
 
@@ -124,7 +129,12 @@ export async function executeEffect(
       if (!targets || targets.length === 0) {
         result = { success: false, message: "No targets selected" };
       } else {
-        result = await executeSpecialSummon(ctx, gameState, targets[0], playerId, effect.targetLocation || "hand");
+        const target = targets[0];
+        if (!target) {
+          result = { success: false, message: "No target selected" };
+        } else {
+          result = await executeSpecialSummon(ctx, gameState, target, playerId, effect.targetLocation || "hand");
+        }
       }
       break;
 
@@ -132,7 +142,12 @@ export async function executeEffect(
       if (!targets || targets.length === 0) {
         result = { success: false, message: "No targets selected" };
       } else {
-        result = await executeToHand(ctx, gameState, lobbyId, targets[0], playerId, effect.targetLocation || "graveyard");
+        const target = targets[0];
+        if (!target) {
+          result = { success: false, message: "No target selected" };
+        } else {
+          result = await executeToHand(ctx, gameState, lobbyId, target, playerId, effect.targetLocation || "graveyard");
+        }
       }
       break;
 
@@ -150,7 +165,12 @@ export async function executeEffect(
       if (!targets || targets.length === 0) {
         result = { success: false, message: "No targets selected for negation" };
       } else {
-        result = await executeNegate(ctx, gameState, targets[0], effect);
+        const target = targets[0];
+        if (!target) {
+          result = { success: false, message: "No target selected" };
+        } else {
+          result = await executeNegate(ctx, gameState, target, effect);
+        }
       }
       break;
 
@@ -158,21 +178,26 @@ export async function executeEffect(
       if (!targets || targets.length === 0) {
         result = { success: false, message: "No targets selected" };
       } else {
-        // Filter targetLocation to valid source locations for sending to GY
-        const validLocation = (effect.targetLocation === "board" ||
-                                effect.targetLocation === "hand" ||
-                                effect.targetLocation === "deck")
-          ? effect.targetLocation
-          : "board";
+        const target = targets[0];
+        if (!target) {
+          result = { success: false, message: "No target selected" };
+        } else {
+          // Filter targetLocation to valid source locations for sending to GY
+          const validLocation = (effect.targetLocation === "board" ||
+                                  effect.targetLocation === "hand" ||
+                                  effect.targetLocation === "deck")
+            ? effect.targetLocation
+            : "board";
 
-        result = await executeSendToGraveyard(
-          ctx,
-          gameState,
-          lobbyId,
-          targets[0],
-          playerId,
-          validLocation
-        );
+          result = await executeSendToGraveyard(
+            ctx,
+            gameState,
+            lobbyId,
+            target,
+            playerId,
+            validLocation
+          );
+        }
       }
       break;
 
@@ -180,13 +205,18 @@ export async function executeEffect(
       if (!targets || targets.length === 0) {
         result = { success: false, message: "No targets selected" };
       } else {
-        result = await executeBanish(
-          ctx,
-          gameState,
-          targets[0],
-          playerId,
-          effect.targetLocation || "board"
-        );
+        const target = targets[0];
+        if (!target) {
+          result = { success: false, message: "No target selected" };
+        } else {
+          result = await executeBanish(
+            ctx,
+            gameState,
+            target,
+            playerId,
+            effect.targetLocation || "board"
+          );
+        }
       }
       break;
 

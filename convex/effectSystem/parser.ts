@@ -82,7 +82,7 @@ export function parseAbility(abilityText: string): ParsedEffect | null {
 
   // Pattern: "Discard X card(s)" or "Discard X monster(s)"
   const discardMatch = text.match(/discard (\d+) (monster|spell|trap|card)s?/i);
-  if (discardMatch) {
+  if (discardMatch && discardMatch[1] && discardMatch[2]) {
     cost = {
       type: "discard",
       value: parseInt(discardMatch[1]),
@@ -94,7 +94,7 @@ export function parseAbility(abilityText: string): ParsedEffect | null {
 
   // Pattern: "Pay X LP"
   const payLPMatch = text.match(/pay (\d+) lp/i);
-  if (payLPMatch) {
+  if (payLPMatch && payLPMatch[1]) {
     cost = {
       type: "pay_lp",
       value: parseInt(payLPMatch[1])
@@ -104,7 +104,7 @@ export function parseAbility(abilityText: string): ParsedEffect | null {
 
   // Pattern: "Tribute X monster(s)"
   const tributeMatch = text.match(/tribute (\d+) (monster|card)s?/i);
-  if (tributeMatch) {
+  if (tributeMatch && tributeMatch[1] && tributeMatch[2]) {
     cost = {
       type: "tribute",
       value: parseInt(tributeMatch[1]),
@@ -115,7 +115,7 @@ export function parseAbility(abilityText: string): ParsedEffect | null {
 
   // Pattern: "Banish X card(s)" (only if followed by "then" or ":")
   const banishCostMatch = text.match(/banish (\d+) (monster|spell|trap|card)s?/i);
-  if (banishCostMatch && (text.includes(", then") || text.match(/banish.*:/))) {
+  if (banishCostMatch && banishCostMatch[1] && banishCostMatch[2] && (text.includes(", then") || text.match(/banish.*:/))) {
     cost = {
       type: "banish",
       value: parseInt(banishCostMatch[1]),
@@ -150,7 +150,7 @@ export function parseAbility(abilityText: string): ParsedEffect | null {
   if (isContinuous) {
     // Enhanced pattern with optional modifier words (additional, extra, bonus, etc.)
     const continuousAtkMatch = effectText.match(/all\s+(\w+(?:-type)?)\s+monsters?\s+(?:you control|your opponent controls)\s+(gains?|loses?)\s+(?:an?\s+)?(?:additional|extra|bonus)?\s*(\d+)\s+atk/i);
-    if (continuousAtkMatch) {
+    if (continuousAtkMatch && continuousAtkMatch[1] && continuousAtkMatch[2] && continuousAtkMatch[3]) {
       const archetype = continuousAtkMatch[1].toLowerCase();
       const gainOrLose = continuousAtkMatch[2].toLowerCase();
       const value = parseInt(continuousAtkMatch[3]);
@@ -168,7 +168,7 @@ export function parseAbility(abilityText: string): ParsedEffect | null {
 
     // Simpler pattern: "All X monsters gain Y ATK" with optional modifiers
     const simpleAtkMatch = effectText.match(/all\s+(\w+(?:-type)?)\s+monsters?\s+(gains?|loses?)\s+(?:an?\s+)?(?:additional|extra|bonus)?\s*(\d+)\s+atk/i);
-    if (simpleAtkMatch) {
+    if (simpleAtkMatch && simpleAtkMatch[1] && simpleAtkMatch[2] && simpleAtkMatch[3]) {
       const archetype = simpleAtkMatch[1].toLowerCase();
       const gainOrLose = simpleAtkMatch[2].toLowerCase();
       const value = parseInt(simpleAtkMatch[3]);
@@ -186,7 +186,7 @@ export function parseAbility(abilityText: string): ParsedEffect | null {
 
   // Parse Draw effects
   const drawMatch = effectText.match(/draw (\d+) card/);
-  if (drawMatch) {
+  if (drawMatch && drawMatch[1]) {
     return {
       type: "draw",
       trigger,
@@ -245,7 +245,7 @@ export function parseAbility(abilityText: string): ParsedEffect | null {
 
   // Parse Damage effects
   const damageMatch = effectText.match(/(?:deal|inflict)\s*(\d+)\s*(?:damage|lp)?/);
-  if (damageMatch) {
+  if (damageMatch && damageMatch[1]) {
     return {
       type: "damage",
       trigger,
@@ -258,7 +258,7 @@ export function parseAbility(abilityText: string): ParsedEffect | null {
   // Parse ATK/DEF modification (check before LP to avoid false matches)
   // Supports: "gains 500 ATK", "gains an additional 500 ATK", "gains an extra 500 ATK"
   const atkMatch = effectText.match(/(gains?|loses?)\s+(?:an?\s+)?(?:additional|extra|bonus)?\s*(\d+)\s*atk/);
-  if (atkMatch) {
+  if (atkMatch && atkMatch[1] && atkMatch[2]) {
     const value = parseInt(atkMatch[2]);
     return {
       type: "modifyATK",
@@ -271,7 +271,7 @@ export function parseAbility(abilityText: string): ParsedEffect | null {
 
   // Parse Gain LP effects
   const gainLPMatch = effectText.match(/(?:gains?|recovers?)\s*(\d+)\s*(?:lp|life points)?/);
-  if (gainLPMatch) {
+  if (gainLPMatch && gainLPMatch[1]) {
     return {
       type: "gainLP",
       trigger,
@@ -287,7 +287,7 @@ export function parseAbility(abilityText: string): ParsedEffect | null {
       (effectText.includes("graveyard") || effectText.includes("gy")) &&
       effectText.includes("hand")) {
     const countMatch = effectText.match(/(\d+)/);
-    const targetCount = countMatch ? parseInt(countMatch[1]) : 1;
+    const targetCount = (countMatch && countMatch[1]) ? parseInt(countMatch[1]) : 1;
 
     // Detect target type from text
     let targetType: "monster" | "spell" | "trap" | "any" = "any";
@@ -323,7 +323,7 @@ export function parseAbility(abilityText: string): ParsedEffect | null {
   // Example: "Return 1 card to their hand"
   if (effectText.includes("return") && effectText.includes("hand") && !effectText.includes("graveyard")) {
     const countMatch = effectText.match(/(\d+)/);
-    const targetCount = countMatch ? parseInt(countMatch[1]) : 1;
+    const targetCount = (countMatch && countMatch[1]) ? parseInt(countMatch[1]) : 1;
 
     return {
       type: "toHand",
@@ -340,7 +340,7 @@ export function parseAbility(abilityText: string): ParsedEffect | null {
   // Example: "Return 1 card to their deck"
   if (effectText.includes("return") && effectText.includes("deck")) {
     const countMatch = effectText.match(/(\d+)/);
-    const targetCount = countMatch ? parseInt(countMatch[1]) : 1;
+    const targetCount = (countMatch && countMatch[1]) ? parseInt(countMatch[1]) : 1;
 
     return {
       type: "toGraveyard", // Using toGraveyard type temporarily for deck returns
@@ -357,7 +357,7 @@ export function parseAbility(abilityText: string): ParsedEffect | null {
   //           "Search your deck for 1 Spell card and add it to your hand"
   if (effectText.includes("search") || (effectText.includes("add") && effectText.includes("deck"))) {
     const countMatch = effectText.match(/(\d+)/);
-    const targetCount = countMatch ? parseInt(countMatch[1]) : 1;
+    const targetCount = (countMatch && countMatch[1]) ? parseInt(countMatch[1]) : 1;
 
     // Detect target type
     let targetType: "monster" | "spell" | "trap" | "any" = "any";
@@ -482,5 +482,5 @@ export function parseMultiPartAbility(abilityText: string): ParsedAbility {
  */
 export function parseSingleAbility(abilityText: string): ParsedEffect | null {
   const parsed = parseMultiPartAbility(abilityText);
-  return parsed.effects.length > 0 ? parsed.effects[0] : null;
+  return parsed.effects.length > 0 ? (parsed.effects[0] ?? null) : null;
 }

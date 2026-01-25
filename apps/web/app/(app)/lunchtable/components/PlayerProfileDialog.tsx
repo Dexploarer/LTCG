@@ -13,36 +13,26 @@ import { BadgesTab } from "./profile/BadgesTab";
 import { AgentsTab } from "./profile/AgentsTab";
 import { DetailPopup } from "./profile/DetailPopup";
 
-// Import types and mock data
-import type { DetailItem } from "./profile/types";
-import {
-  MOCK_PROFILE,
-  MOCK_CARD_DETAILS,
-  MOCK_BADGE_DETAILS,
-  MOCK_ACHIEVEMENT_DETAILS,
-} from "./profile/mockData";
+// Import types
+import type { DetailItem, PlayerProfile } from "./profile/types";
 
 interface PlayerProfileDialogProps {
   isOpen: boolean;
   onClose: () => void;
   username: string;
+  profile: PlayerProfile;
 }
 
-export function PlayerProfileDialog({ isOpen, onClose, username }: PlayerProfileDialogProps) {
+export function PlayerProfileDialog({ isOpen, onClose, username, profile }: PlayerProfileDialogProps) {
   const [activeTab, setActiveTab] = useState<"stats" | "badges" | "agents">("stats");
   const [selectedDetail, setSelectedDetail] = useState<DetailItem | null>(null);
   const [showChallengeDialog, setShowChallengeDialog] = useState(false);
 
-  // In real implementation, fetch profile by username
-  const profile = { ...MOCK_PROFILE, username };
-
   const handleChallengeConfirm = (mode: "casual" | "ranked") => {
-    // TODO: Send challenge via Convex
     console.log(`Challenging ${username} to ${mode} match`);
     setShowChallengeDialog(false);
   };
 
-  // Handlers for opening detail views
   const openCardDetail = (
     card: {
       id: string;
@@ -50,10 +40,14 @@ export function PlayerProfileDialog({ isOpen, onClose, username }: PlayerProfile
       element: "fire" | "water" | "earth" | "wind";
       rarity?: "common" | "rare" | "epic" | "legendary";
       timesPlayed?: number;
+      attack?: number;
+      defense?: number;
+      cost?: number;
+      ability?: string;
+      flavorText?: string;
     },
     isCallingCard: boolean
   ) => {
-    const details = MOCK_CARD_DETAILS[card.id] || {};
     setSelectedDetail({
       type: "card",
       id: card.id,
@@ -64,7 +58,11 @@ export function PlayerProfileDialog({ isOpen, onClose, username }: PlayerProfile
       element: card.element,
       rarity: card.rarity,
       timesPlayed: card.timesPlayed,
-      ...details,
+      attack: card.attack,
+      defense: card.defense,
+      cost: card.cost,
+      ability: card.ability,
+      flavorText: card.flavorText,
     });
   };
 
@@ -74,11 +72,9 @@ export function PlayerProfileDialog({ isOpen, onClose, username }: PlayerProfile
     description: string;
     icon: string;
     earnedAt: number;
+    rarity?: "common" | "rare" | "epic" | "legendary";
+    howToEarn?: string;
   }) => {
-    const details = MOCK_BADGE_DETAILS[badge.id] || {
-      howToEarn: "Complete the required challenge.",
-      rarity: "Common",
-    };
     setSelectedDetail({
       type: "badge",
       id: badge.id,
@@ -86,8 +82,8 @@ export function PlayerProfileDialog({ isOpen, onClose, username }: PlayerProfile
       description: badge.description,
       icon: badge.icon,
       earnedAt: badge.earnedAt,
-      flavorText: details.howToEarn,
-      rarity: details.rarity as "common" | "rare" | "epic" | "legendary",
+      flavorText: badge.howToEarn,
+      rarity: badge.rarity,
     });
   };
 
@@ -98,11 +94,9 @@ export function PlayerProfileDialog({ isOpen, onClose, username }: PlayerProfile
     icon: string;
     progress?: number;
     maxProgress?: number;
+    howToComplete?: string;
+    reward?: string;
   }) => {
-    const details = MOCK_ACHIEVEMENT_DETAILS[ach.id] || {
-      howToComplete: "Complete the objective.",
-      reward: "Gold",
-    };
     setSelectedDetail({
       type: "achievement",
       id: ach.id,
@@ -111,8 +105,8 @@ export function PlayerProfileDialog({ isOpen, onClose, username }: PlayerProfile
       icon: ach.icon,
       progress: ach.progress,
       maxProgress: ach.maxProgress,
-      flavorText: details.howToComplete,
-      ability: details.reward,
+      flavorText: ach.howToComplete,
+      ability: ach.reward,
     });
   };
 

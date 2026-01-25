@@ -187,8 +187,8 @@ export const getGameEventStats = query({
       firstEvent: events[0]?.timestamp,
       lastEvent: events[events.length - 1]?.timestamp,
       gameDuration:
-        events.length > 0
-          ? events[events.length - 1].timestamp - events[0].timestamp
+        events.length > 0 && events[0] && events[events.length - 1]
+          ? events[events.length - 1]!.timestamp - events[0]!.timestamp
           : 0,
     };
   },
