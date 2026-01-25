@@ -79,7 +79,10 @@ export async function executeEffect(
         let allSucceeded = true;
 
         for (let i = 0; i < Math.min(effect.targetCount, targets.length); i++) {
-          const destroyResult = await executeDestroy(ctx, gameState, lobbyId, targets[i], playerId);
+          const target = targets[i];
+          if (!target) continue;
+
+          const destroyResult = await executeDestroy(ctx, gameState, lobbyId, target, playerId);
           destroyResults.push(destroyResult.message);
           if (!destroyResult.success) {
             allSucceeded = false;
@@ -92,7 +95,12 @@ export async function executeEffect(
         };
       } else {
         // Single target destroy
-        result = await executeDestroy(ctx, gameState, lobbyId, targets[0], playerId);
+        const target = targets[0];
+        if (!target) {
+          result = { success: false, message: "No target selected" };
+        } else {
+          result = await executeDestroy(ctx, gameState, lobbyId, target, playerId);
+        }
       }
       break;
 

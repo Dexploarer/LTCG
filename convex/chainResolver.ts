@@ -61,7 +61,7 @@ export const addToChain = mutation({
     // 5. Validate spell speed
     if (currentChain.length > 0) {
       const lastChainLink = currentChain[currentChain.length - 1];
-      if (args.spellSpeed < lastChainLink.spellSpeed) {
+      if (lastChainLink && args.spellSpeed < lastChainLink.spellSpeed) {
         throw new Error(
           `Cannot chain Spell Speed ${args.spellSpeed} to Spell Speed ${lastChainLink.spellSpeed}`
         );
@@ -148,13 +148,18 @@ export const resolveChain = mutation({
       throw new Error("No chain to resolve");
     }
 
+    const firstChainLink = currentChain[0];
+    if (!firstChainLink) {
+      throw new Error("Invalid chain structure");
+    }
+
     // 4. Record chain_resolving event
     await ctx.runMutation(api.gameEvents.recordEvent, {
       lobbyId: args.lobbyId,
       gameId: lobby.gameId!,
       turnNumber: lobby.turnNumber!,
       eventType: "chain_resolving",
-      playerId: currentChain[0].playerId,
+      playerId: firstChainLink.playerId,
       playerUsername: "System",
       description: `Chain of ${currentChain.length} effect(s) is resolving`,
       metadata: {
@@ -170,6 +175,8 @@ export const resolveChain = mutation({
     // 5. Resolve chain in reverse order (CL3 → CL2 → CL1)
     for (let i = currentChain.length - 1; i >= 0; i--) {
       const chainLink = currentChain[i];
+      if (!chainLink) continue;
+
       const card = await ctx.db.get(chainLink.cardId);
 
       // Execute effect (simplified for MVP)
@@ -205,7 +212,7 @@ export const resolveChain = mutation({
       gameId: lobby.gameId!,
       turnNumber: lobby.turnNumber!,
       eventType: "chain_resolved",
-      playerId: currentChain[0].playerId,
+      playerId: firstChainLink.playerId,
       playerUsername: "System",
       description: `Chain fully resolved`,
       metadata: {

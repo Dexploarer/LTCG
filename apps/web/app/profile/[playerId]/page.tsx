@@ -159,11 +159,11 @@ export default function PlayerProfilePage({ params }: { params: Promise<PagePara
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <Calendar className="w-4 h-4" />
-                  Joined {formatDate(profileUser.createdAt)}
+                  Joined {profileUser.createdAt ? formatDate(profileUser.createdAt) : "Unknown"}
                 </div>
                 <div className="flex items-center gap-1">
                   <Clock className="w-4 h-4" />
-                  Last seen {formatRelativeTime(profileUser.createdAt)}
+                  Last seen {profileUser.createdAt ? formatRelativeTime(profileUser.createdAt) : "Unknown"}
                 </div>
               </div>
             </div>
