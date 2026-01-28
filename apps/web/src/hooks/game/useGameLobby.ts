@@ -2,7 +2,6 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { useAuth } from "@/components/ConvexAuthProvider";
 import { toast } from "sonner";
 import type { Id } from "@convex/_generated/dataModel";
 
@@ -16,23 +15,10 @@ import type { Id } from "@convex/_generated/dataModel";
  * - Real-time lobby discovery
  */
 export function useGameLobby() {
-  const { token } = useAuth();
-
-  // Queries
-  const waitingLobbies = useQuery(
-    api.games.listWaitingLobbies,
-    {}
-  );
-
-  const myLobby = useQuery(
-    api.games.getActiveLobby,
-    token ? { token } : "skip"
-  );
-
-  const privateLobby = useQuery(
-    api.games.getMyPrivateLobby,
-    token ? { token } : "skip"
-  );
+  // No auth check needed - this hook should only be used inside <Authenticated>
+  const waitingLobbies = useQuery(api.games.listWaitingLobbies, {});
+  const myLobby = useQuery(api.games.getActiveLobby, {});
+  const privateLobby = useQuery(api.games.getMyPrivateLobby, {});
 
   // Mutations
   const createMutation = useMutation(api.games.createLobby);
@@ -46,9 +32,8 @@ export function useGameLobby() {
     mode: "casual" | "ranked",
     isPrivate = false
   ) => {
-    if (!token) throw new Error("Not authenticated");
     try {
-      const result = await createMutation({ token, mode, isPrivate });
+      const result = await createMutation({ mode, isPrivate });
       const modeText = mode === "casual" ? "Casual" : "Ranked";
       if (isPrivate && result.joinCode) {
         toast.success(
@@ -68,9 +53,8 @@ export function useGameLobby() {
     lobbyId: Id<"gameLobbies">,
     joinCode?: string
   ) => {
-    if (!token) throw new Error("Not authenticated");
     try {
-      const result = await joinMutation({ token, lobbyId, joinCode });
+      const result = await joinMutation({ lobbyId, joinCode });
       toast.success(`Joined game vs ${result.opponentUsername}`);
       return result;
     } catch (error: any) {
@@ -80,9 +64,8 @@ export function useGameLobby() {
   };
 
   const joinByCode = async (joinCode: string) => {
-    if (!token) throw new Error("Not authenticated");
     try {
-      const result = await joinByCodeMutation({ token, joinCode });
+      const result = await joinByCodeMutation({ joinCode });
       toast.success("Joined private game!");
       return result;
     } catch (error: any) {
@@ -92,9 +75,8 @@ export function useGameLobby() {
   };
 
   const cancelLobby = async () => {
-    if (!token) throw new Error("Not authenticated");
     try {
-      await cancelMutation({ token });
+      await cancelMutation({});
       toast.success("Lobby cancelled");
     } catch (error: any) {
       toast.error(error.message || "Failed to cancel lobby");
@@ -103,9 +85,8 @@ export function useGameLobby() {
   };
 
   const leaveLobby = async () => {
-    if (!token) throw new Error("Not authenticated");
     try {
-      await leaveMutation({ token });
+      await leaveMutation({});
       toast.success("Left lobby");
     } catch (error: any) {
       toast.error(error.message || "Failed to leave lobby");

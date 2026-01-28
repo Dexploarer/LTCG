@@ -16,7 +16,10 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "@convex/_generated/api";
 import { useProfile, useFriends } from "@/hooks";
+import { useAuth } from "@/hooks/auth/useConvexAuthHook";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,47 +35,6 @@ interface Friend {
   lastSeen?: number;
   currentGame?: string;
 }
-
-interface FriendRequest {
-  id: string;
-  from: {
-    id: string;
-    username: string;
-  };
-  timestamp: number;
-}
-
-// Mock data
-const MOCK_FRIENDS: Friend[] = [
-  { id: "f1", username: "DragonMaster", status: "online" },
-  { id: "f2", username: "ShadowKnight", status: "in-game", currentGame: "Ranked Match" },
-  {
-    id: "f3",
-    username: "PhoenixRider",
-    status: "offline",
-    lastSeen: Date.now() - 2 * 60 * 60 * 1000,
-  },
-  { id: "f4", username: "IceQueen", status: "online" },
-  {
-    id: "f5",
-    username: "ThunderGod",
-    status: "offline",
-    lastSeen: Date.now() - 1 * 24 * 60 * 60 * 1000,
-  },
-];
-
-const MOCK_REQUESTS: FriendRequest[] = [
-  {
-    id: "r1",
-    from: { id: "u1", username: "NewPlayer123" },
-    timestamp: Date.now() - 30 * 60 * 1000,
-  },
-  {
-    id: "r2",
-    from: { id: "u2", username: "CardMaster" },
-    timestamp: Date.now() - 2 * 60 * 60 * 1000,
-  },
-];
 
 const statusColors: Record<FriendStatus, string> = {
   online: "bg-green-500",
@@ -98,6 +60,7 @@ function formatLastSeen(timestamp: number): string {
 
 export default function SocialPage() {
   const { profile: currentUser, isLoading: profileLoading } = useProfile();
+  const { isAuthenticated } = useAuth();
   const {
     friends,
     incomingRequests,
@@ -116,24 +79,15 @@ export default function SocialPage() {
 
   const [activeTab, setActiveTab] = useState<TabType>("friends");
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-    setIsSearching(true);
-    try {
-      // Use the searchUsers function from the hook
-      const results = await fetch(`/api/search?q=${searchQuery}`);
-      // For now, just clear results - we'll implement this properly when needed
-      setSearchResults([]);
-    } catch (error) {
-      console.error("Search failed:", error);
-    }
-    setIsSearching(false);
-  };
+  // Real-time search results from Convex
+  const searchResults = useQuery(
+    api.social.friends.searchUsers,
+    isAuthenticated && searchQuery.trim().length > 0 ? { query: searchQuery.trim(), limit: 20 } : "skip"
+  );
 
-  const offlineFriends = friends?.filter((f) => !f.isOnline) || [];
+  type FriendType = NonNullable<typeof friends>[number];
+  const offlineFriends = friends?.filter((f: FriendType) => !f.isOnline) || [];
 
   if (profileLoading || !currentUser) {
     return (
@@ -211,7 +165,7 @@ export default function SocialPage() {
                   Online — {onlineFriends.length}
                 </h2>
                 <div className="space-y-2">
-                  {onlineFriends.map((friend) => (
+                  {onlineFriends.map((friend: FriendType) => (
                     <FriendCard
                       key={friend.userId}
                       friend={{
@@ -235,7 +189,7 @@ export default function SocialPage() {
                   Offline — {offlineFriends.length}
                 </h2>
                 <div className="space-y-2">
-                  {offlineFriends.map((friend) => (
+                  {offlineFriends.map((friend: FriendType) => (
                     <FriendCard
                       key={friend.userId}
                       friend={{
@@ -278,7 +232,7 @@ export default function SocialPage() {
                 <p className="text-[#a89f94]">No pending friend requests</p>
               </div>
             ) : (
-              incomingRequests?.map((request) => (
+              incomingRequests?.map((request: NonNullable<typeof incomingRequests>[number]) => (
                 <div
                   key={request.userId}
                   className="flex items-center gap-4 p-4 rounded-xl bg-black/40 border border-[#3d2b1f]"
@@ -321,44 +275,32 @@ export default function SocialPage() {
         {/* Search Tab */}
         {activeTab === "search" && (
           <div>
-            <div className="flex gap-2 mb-6">
-              <div className="relative flex-1">
+            <div className="mb-6">
+              <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#a89f94]" />
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                   placeholder="Search by username..."
                   className="pl-12 bg-black/40 border-[#3d2b1f] text-[#e8e0d5]"
                 />
               </div>
-              <Button
-                onClick={handleSearch}
-                disabled={isSearching || !searchQuery.trim()}
-                className="bg-[#d4af37] hover:bg-[#f9e29f] text-[#1a1614]"
-              >
-                {isSearching ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Search className="w-4 h-4" />
-                )}
-              </Button>
             </div>
 
-            {searchResults.length > 0 && (
+            {searchResults && searchResults.length > 0 && (
               <div className="space-y-2">
-                {searchResults.map((player) => (
+                {searchResults.map((player: NonNullable<typeof searchResults>[number]) => (
                   <div
-                    key={player.id}
+                    key={player.userId}
                     className="flex items-center gap-4 p-4 rounded-xl bg-black/40 border border-[#3d2b1f]"
                   >
                     <Avatar className="w-12 h-12 border border-[#3d2b1f]">
                       <AvatarFallback className="bg-[#1a1614] text-[#d4af37] font-bold">
-                        {player.username[0]}
+                        {(player.username || "U")[0]}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
-                      <p className="font-medium text-[#e8e0d5]">{player.username}</p>
+                      <p className="font-medium text-[#e8e0d5]">{player.username || "Unknown"}</p>
                       <p className="text-xs text-[#a89f94]">
                         Lvl {player.level} • {player.rankedElo} ELO
                       </p>
@@ -366,8 +308,8 @@ export default function SocialPage() {
                     <Button
                       size="sm"
                       className="bg-[#d4af37] hover:bg-[#f9e29f] text-[#1a1614]"
-                      onClick={() => sendFriendRequest(player.username)}
-                      disabled={player.friendshipStatus !== null}
+                      onClick={() => player.username && sendFriendRequest(player.username)}
+                      disabled={player.friendshipStatus !== null || !player.username}
                     >
                       <UserPlus className="w-4 h-4 mr-2" />
                       {player.friendshipStatus === "accepted"
@@ -383,10 +325,17 @@ export default function SocialPage() {
               </div>
             )}
 
-            {searchQuery && searchResults.length === 0 && !isSearching && (
+            {searchQuery && searchResults && searchResults.length === 0 && (
               <div className="text-center py-16 rounded-xl bg-black/40 border border-[#3d2b1f]">
                 <Search className="w-16 h-16 mx-auto mb-4 text-[#a89f94]/50" />
                 <p className="text-[#a89f94]">No players found</p>
+              </div>
+            )}
+
+            {!searchQuery && (
+              <div className="text-center py-16 rounded-xl bg-black/40 border border-[#3d2b1f]">
+                <Search className="w-16 h-16 mx-auto mb-4 text-[#a89f94]/50" />
+                <p className="text-[#a89f94]">Start typing to search for players</p>
               </div>
             )}
           </div>

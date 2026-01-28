@@ -99,6 +99,8 @@ export function BinderCard({
   const element = ELEMENT_CONFIG[card.element] || ELEMENT_CONFIG.neutral;
   const ElementIcon = element.icon;
 
+  console.log("🃏 Rendering BinderCard:", card.name, "imageUrl:", card.imageUrl);
+
   const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (!cardRef.current || variant !== "grid") return;
 
@@ -141,7 +143,7 @@ export function BinderCard({
       >
         <div
           className={cn(
-            "relative w-full aspect-[2.5/3.5] rounded-xl overflow-hidden border-2 transition-all duration-150 ease-out",
+            "relative w-full aspect-[2.5/3.5] rounded-xl overflow-hidden border-2 transition-all duration-150 ease-out bg-gray-900",
             rarity.border
           )}
           style={{
@@ -150,17 +152,20 @@ export function BinderCard({
             boxShadow: isHovering
               ? `0 25px 50px -12px ${rarity.glow}, 0 0 40px ${rarity.glow}`
               : `0 10px 30px -10px rgba(0, 0, 0, 0.5)`,
+            minHeight: "200px",
           }}
         >
           {/* Card Background */}
           <div className={cn("absolute inset-0", rarity.bg)}>
-            {/* Card Art - Use default background until real artwork is added */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={card.imageUrl && card.imageUrl.trim() !== "" ? card.imageUrl : "/assets/card-bg.svg"}
-              alt={card.name}
-              className="absolute inset-0 w-full h-full object-cover"
-            />
+            {/* Solid dark background */}
+            <div className="absolute inset-0 bg-gray-800" />
+
+            {/* Large card type watermark */}
+            <div className="absolute inset-0 flex items-center justify-center opacity-30">
+              <div className={cn("text-8xl font-black uppercase", rarity.color)}>
+                {card.cardType[0]}
+              </div>
+            </div>
           </div>
 
           {/* Shine effect on hover */}
@@ -249,19 +254,20 @@ export function BinderCard({
       {/* Card Thumbnail */}
       <div
         className={cn(
-          "relative w-14 h-20 rounded-lg overflow-hidden shrink-0 border-2",
-          rarity.border
+          "relative w-14 h-20 rounded-lg overflow-hidden shrink-0 border-2 bg-gray-800",
+          rarity.border,
+          rarity.bg
         )}
         style={{
           boxShadow: `0 0 15px ${rarity.glow}`,
         }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={card.imageUrl && card.imageUrl.trim() !== "" ? card.imageUrl : "/assets/card-bg.svg"}
-          alt={card.name}
-          className="absolute inset-0 w-full h-full object-cover"
-        />
+        {/* Card type watermark */}
+        <div className="absolute inset-0 flex items-center justify-center opacity-40">
+          <div className={cn("text-3xl font-black uppercase", rarity.color)}>
+            {card.cardType[0]}
+          </div>
+        </div>
       </div>
 
       {/* Card Info */}

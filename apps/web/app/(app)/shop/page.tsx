@@ -57,171 +57,6 @@ interface MarketListing {
   createdAt: number;
 }
 
-// Mock shop data
-const MOCK_SHOP_ITEMS: ShopItem[] = [
-  // Card Packs
-  {
-    id: "pack1",
-    name: "Starter Pack",
-    description: "5 random cards, guaranteed 1 rare",
-    type: "pack",
-    goldPrice: 500,
-    contents: "5 Cards",
-  },
-  {
-    id: "pack2",
-    name: "Booster Pack",
-    description: "8 random cards, guaranteed 1 epic",
-    type: "pack",
-    goldPrice: 1000,
-    gemPrice: 100,
-    contents: "8 Cards",
-  },
-  {
-    id: "pack3",
-    name: "Premium Pack",
-    description: "10 random cards, guaranteed 1 legendary",
-    type: "pack",
-    gemPrice: 250,
-    contents: "10 Cards",
-  },
-  {
-    id: "pack4",
-    name: "Element Pack",
-    description: "5 cards of a random element",
-    type: "pack",
-    goldPrice: 750,
-    contents: "5 Cards",
-  },
-  // Boxes
-  {
-    id: "box1",
-    name: "Starter Box",
-    description: "Contains 10 Starter Packs",
-    type: "box",
-    goldPrice: 4500,
-    contents: "10 Packs",
-  },
-  {
-    id: "box2",
-    name: "Booster Box",
-    description: "Contains 10 Booster Packs + Bonus",
-    type: "box",
-    goldPrice: 9000,
-    gemPrice: 900,
-    contents: "10 Packs + Bonus",
-  },
-  {
-    id: "box3",
-    name: "Premium Box",
-    description: "Contains 10 Premium Packs",
-    type: "box",
-    gemPrice: 2250,
-    contents: "10 Packs",
-  },
-  // Currency
-  {
-    id: "cur1",
-    name: "Gold Pouch",
-    description: "A small pouch of gold",
-    type: "currency",
-    gemPrice: 50,
-    quantity: 1000,
-  },
-  {
-    id: "cur2",
-    name: "Gold Chest",
-    description: "A chest filled with gold",
-    type: "currency",
-    gemPrice: 200,
-    quantity: 5000,
-  },
-  {
-    id: "cur3",
-    name: "Gold Vault",
-    description: "A vault overflowing with gold",
-    type: "currency",
-    gemPrice: 500,
-    quantity: 15000,
-  },
-];
-
-// Mock marketplace data
-const MOCK_LISTINGS: MarketListing[] = [
-  {
-    _id: "l1",
-    sellerId: "s1",
-    sellerName: "DragonMaster",
-    listingType: "fixed",
-    cardName: "Flame Drake",
-    cardRarity: "rare",
-    quantity: 1,
-    price: 500,
-    createdAt: Date.now() - 2 * 60 * 60 * 1000,
-  },
-  {
-    _id: "l2",
-    sellerId: "s2",
-    sellerName: "CardCollector",
-    listingType: "auction",
-    cardName: "Ancient Phoenix",
-    cardRarity: "legendary",
-    quantity: 1,
-    price: 1000,
-    currentBid: 1500,
-    bidCount: 5,
-    endsAt: Date.now() + 4 * 60 * 60 * 1000,
-    createdAt: Date.now() - 12 * 60 * 60 * 1000,
-  },
-  {
-    _id: "l3",
-    sellerId: "s3",
-    sellerName: "TradePro",
-    listingType: "fixed",
-    cardName: "Water Elemental",
-    cardRarity: "uncommon",
-    quantity: 3,
-    price: 150,
-    createdAt: Date.now() - 1 * 60 * 60 * 1000,
-  },
-  {
-    _id: "l4",
-    sellerId: "s1",
-    sellerName: "DragonMaster",
-    listingType: "fixed",
-    cardName: "Shadow Assassin",
-    cardRarity: "epic",
-    quantity: 1,
-    price: 800,
-    createdAt: Date.now() - 30 * 60 * 1000,
-  },
-  {
-    _id: "l5",
-    sellerId: "s4",
-    sellerName: "NoviceTrader",
-    listingType: "auction",
-    cardName: "Crystal Golem",
-    cardRarity: "rare",
-    quantity: 1,
-    price: 300,
-    currentBid: 450,
-    bidCount: 3,
-    endsAt: Date.now() + 8 * 60 * 60 * 1000,
-    createdAt: Date.now() - 6 * 60 * 60 * 1000,
-  },
-  {
-    _id: "l6",
-    sellerId: "s5",
-    sellerName: "EliteDealer",
-    listingType: "fixed",
-    cardName: "Thunder Giant",
-    cardRarity: "epic",
-    quantity: 2,
-    price: 750,
-    createdAt: Date.now() - 45 * 60 * 1000,
-  },
-];
-
 const RARITY_COLORS: Record<Rarity, string> = {
   common: "text-gray-400",
   uncommon: "text-green-400",
@@ -289,15 +124,15 @@ export default function ShopPage() {
 
   // Group shop items by type
   const packItems = useMemo(
-    () => transformedShopItems.filter((item) => item.type === "pack"),
+    () => transformedShopItems.filter((item: ShopItem) => item.type === "pack"),
     [transformedShopItems]
   );
   const boxItems = useMemo(
-    () => transformedShopItems.filter((item) => item.type === "box"),
+    () => transformedShopItems.filter((item: ShopItem) => item.type === "box"),
     [transformedShopItems]
   );
   const currencyItems = useMemo(
-    () => transformedShopItems.filter((item) => item.type === "currency"),
+    () => transformedShopItems.filter((item: ShopItem) => item.type === "currency"),
     [transformedShopItems]
   );
 
@@ -452,7 +287,7 @@ export default function ShopPage() {
                 <h2 className="text-xl font-bold text-[#e8e0d5]">Card Packs</h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {packItems.map((item) => (
+                {packItems.map((item: ShopItem) => (
                   <ShopItemCard
                     key={item.id}
                     item={item}
@@ -469,7 +304,7 @@ export default function ShopPage() {
                 <h2 className="text-xl font-bold text-[#e8e0d5]">Boxes</h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {boxItems.map((item) => (
+                {boxItems.map((item: ShopItem) => (
                   <ShopItemCard
                     key={item.id}
                     item={item}
@@ -486,7 +321,7 @@ export default function ShopPage() {
                 <h2 className="text-xl font-bold text-[#e8e0d5]">Currency</h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {currencyItems.map((item) => (
+                {currencyItems.map((item: ShopItem) => (
                   <CurrencyCard
                     key={item.id}
                     item={item}
@@ -557,7 +392,7 @@ export default function ShopPage() {
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                {filteredListings.map((listing) => (
+                {filteredListings.map((listing: MarketListing) => (
                   <MarketListingCard
                     key={listing._id}
                     listing={listing}

@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { use } from "react";
-import { useAuth } from "@/components/ConvexAuthProvider";
+import { useAuth } from "@/hooks/auth/useConvexAuthHook";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -68,9 +68,9 @@ export default function PlayerProfilePage({ params }: { params: Promise<PagePara
   const resolvedParams = use(params);
   const playerId = resolvedParams.playerId as Id<"users">;
 
-  const { token } = useAuth();
-  const currentUser = useQuery(api.users.currentUser, token ? { token } : "skip");
-  const profileUser = useQuery(api.users.getUser, { userId: playerId });
+  const { isAuthenticated } = useAuth();
+  const currentUser = useQuery(api.core.users.currentUser, isAuthenticated ? {} : "skip");
+  const profileUser = useQuery(api.core.users.getUser, { userId: playerId });
 
   const isOwnProfile = currentUser?._id === playerId;
 

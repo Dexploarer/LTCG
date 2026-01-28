@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { useAuth } from "@/components/ConvexAuthProvider";
+import { useAuth } from "../auth/useConvexAuthHook";
 import { toast } from "sonner";
 
 /**
@@ -16,7 +16,7 @@ import { toast } from "sonner";
  * - Online users list
  */
 export function useGlobalChat() {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   // Queries
   const messages = useQuery(api.globalChat.getRecentMessages, { limit: 100 });
@@ -29,11 +29,11 @@ export function useGlobalChat() {
 
   // Actions
   const sendMessage = async (message: string) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!isAuthenticated) throw new Error("Not authenticated");
     if (message.trim().length === 0) return;
 
     try {
-      await sendMessageMutation({ token, content: message.trim() });
+      await sendMessageMutation({ content: message.trim() });
     } catch (error: any) {
       toast.error(error.message || "Failed to send message");
       throw error;
@@ -41,9 +41,9 @@ export function useGlobalChat() {
   };
 
   const updatePresence = async () => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     try {
-      await updatePresenceMutation({ token });
+      await updatePresenceMutation({});
     } catch (error) {
       // Silent fail for presence updates
       console.error("Presence update failed:", error);
@@ -52,13 +52,13 @@ export function useGlobalChat() {
 
   // Heartbeat every 30 seconds
   useEffect(() => {
-    if (!token) return;
+    if (!isAuthenticated) return;
 
     updatePresence(); // Initial update
     const interval = setInterval(updatePresence, 30000);
 
     return () => clearInterval(interval);
-  }, [token]);
+  }, [isAuthenticated]);
 
   return {
     messages,

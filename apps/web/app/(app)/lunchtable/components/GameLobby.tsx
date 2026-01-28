@@ -16,13 +16,16 @@ import {
   Waves,
   Zap,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { CreateGameModal } from "./CreateGameModal";
 import { JoinConfirmDialog } from "./JoinConfirmDialog";
 import { SpectatorGameView } from "./SpectatorGameView";
+import { GameBoard } from "@/components/game/GameBoard";
 import type { Id } from "@convex/_generated/dataModel";
 import { useGameLobby, useSpectator, useMatchmaking } from "@/hooks";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@convex/_generated/api";
 
 type GameStatus = "waiting" | "active";
 type TabType = "join" | "watch";
@@ -42,31 +45,6 @@ interface GameLobbyEntry {
   turnNumber?: number;
   spectatorCount?: number;
 }
-
-const ARCHETYPE_CONFIG = {
-    hostName: "FlameHeart",
-    hostRank: "Legend",
-    deckArchetype: "fire",
-    mode: "ranked",
-    createdAt: Date.now() - 900000,
-    status: "active",
-    opponentName: "DeepSeaDiver",
-    opponentRank: "Master",
-    turnNumber: 15,
-  },
-  {
-    id: "6",
-    hostName: "GaleForce",
-    hostRank: "Platinum",
-    deckArchetype: "wind",
-    mode: "casual",
-    createdAt: Date.now() - 450000,
-    status: "active",
-    opponentName: "RockSolid",
-    opponentRank: "Diamond",
-    turnNumber: 5,
-  },
-];
 
 const ARCHETYPE_CONFIG = {
   fire: {
@@ -137,20 +115,25 @@ export function GameLobby() {
     leaveQueue,
   } = useMatchmaking();
 
+  const forceCloseGame = useMutation(api.admin.mutations.forceCloseMyGame);
+
   // Convert API data to component format
+  // Filter out the user's own lobby from the waiting games list
   const waitingGames: GameLobbyEntry[] =
-    lobbiesData?.map((lobby) => ({
-      id: lobby.id,
-      hostName: lobby.hostUsername,
-      hostRank: lobby.hostRank,
-      deckArchetype: lobby.deckArchetype as "fire" | "water" | "earth" | "wind",
-      mode: lobby.mode as "casual" | "ranked",
-      createdAt: lobby.createdAt,
-      status: "waiting" as const,
-    })) || [];
+    lobbiesData
+      ?.filter((lobby: any) => lobby.id !== myActiveLobby?.id)
+      .map((lobby: any) => ({
+        id: lobby.id,
+        hostName: lobby.hostUsername,
+        hostRank: lobby.hostRank,
+        deckArchetype: lobby.deckArchetype as "fire" | "water" | "earth" | "wind",
+        mode: lobby.mode as "casual" | "ranked",
+        createdAt: lobby.createdAt,
+        status: "waiting" as const,
+      })) || [];
 
   const activeGames: GameLobbyEntry[] =
-    activeGamesData?.map((game) => ({
+    activeGamesData?.map((game: any) => ({
       id: game.lobbyId,
       hostName: game.hostUsername,
       hostRank: "Bronze", // Rank not included in query, using default
@@ -165,8 +148,13 @@ export function GameLobby() {
 
   const handleCreateGame = async (data: { mode: "casual" | "ranked"; isPrivate?: boolean }) => {
     try {
-      await createLobby(data.mode, data.isPrivate || false);
+      const result = await createLobby(data.mode, data.isPrivate || false);
       setIsCreateModalOpen(false);
+
+      // Redirect to game board immediately after creating
+      if (result && result.lobbyId) {
+        setSpectatingGameId(result.lobbyId as string);
+      }
     } catch (error: any) {
       console.error("Failed to create lobby:", error);
     }
@@ -198,7 +186,15 @@ export function GameLobby() {
     }
   };
 
-  const handleJoinGame = (game: GameLobbyEntry) => {
+  const handleJoinGame = async (game: GameLobbyEntry) => {
+    // Auto-cancel user's old lobby before joining (only if waiting)
+    if (myActiveLobby && myActiveLobby.status === "waiting") {
+      try {
+        await cancelLobby();
+      } catch (error: any) {
+        console.error("Failed to cancel old lobby:", error);
+      }
+    }
     setJoiningGame(game);
   };
 
@@ -210,22 +206,70 @@ export function GameLobby() {
     if (!joiningGame) return;
 
     try {
-      await joinLobbyAction(joiningGame.id as any);
+      const result = await joinLobbyAction(joiningGame.id as any);
       setJoiningGame(null);
+
+      // Redirect to game view after successfully joining
+      if (result && result.lobbyId) {
+        setSpectatingGameId(result.lobbyId as string);
+      }
     } catch (error: any) {
       console.error("Failed to join game:", error);
       setJoiningGame(null);
     }
   };
 
-  // Render spectator view if watching a game
-  if (spectatingGameId) {
-    return (
-      <SpectatorGameView
-        lobbyId={spectatingGameId as Id<"gameLobbies">}
-        onExit={() => setSpectatingGameId(null)}
-      />
-    );
+  // Auto-redirect to game board when user has an active lobby (waiting or active)
+  useEffect(() => {
+    if (myActiveLobby && (myActiveLobby.status === "waiting" || myActiveLobby.status === "active") && !spectatingGameId) {
+      setSpectatingGameId(myActiveLobby.id as string);
+    }
+  }, [myActiveLobby, spectatingGameId]);
+
+  // Get current user
+  const currentUser = useQuery(api.core.users.currentUser);
+
+  // Get lobby details to check if user is a player
+  const spectatingLobby = useQuery(
+    api.gameplay.games.queries.getLobbyDetails,
+    spectatingGameId ? { lobbyId: spectatingGameId as Id<"gameLobbies"> } : "skip"
+  );
+
+  // Render game view if watching/playing a game
+  if (spectatingGameId && currentUser) {
+    // Wait for lobby details to load before deciding player vs spectator
+    if (spectatingLobby === undefined) {
+      return (
+        <div className="h-screen flex items-center justify-center bg-[#0d0a09]">
+          <div className="flex flex-col items-center gap-2">
+            <Loader2 className="h-6 w-6 animate-spin text-[#d4af37]" />
+            <span className="text-xs text-[#a89f94]">Loading game...</span>
+          </div>
+        </div>
+      );
+    }
+
+    const isPlayer =
+      spectatingLobby &&
+      (spectatingLobby.hostId === currentUser._id || spectatingLobby.opponentId === currentUser._id);
+
+    if (isPlayer) {
+      // User is a player - show full game board
+      return (
+        <GameBoard
+          lobbyId={spectatingGameId as Id<"gameLobbies">}
+          playerId={currentUser._id}
+        />
+      );
+    } else {
+      // User is a spectator - show spectator view
+      return (
+        <SpectatorGameView
+          lobbyId={spectatingGameId as Id<"gameLobbies">}
+          onExit={() => setSpectatingGameId(null)}
+        />
+      );
+    }
   }
 
   return (
@@ -243,6 +287,30 @@ export function GameLobby() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Game Active - Show game */}
+          {myActiveLobby && myActiveLobby.status === "active" && (
+            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600/20 border border-green-500/30 text-green-400">
+              <Swords className="w-4 h-4" />
+              <span className="text-sm font-bold">Game in progress!</span>
+              <button
+                type="button"
+                onClick={() => setSpectatingGameId(myActiveLobby.id as string)}
+                className="ml-2 px-3 py-1 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-400 text-xs font-bold uppercase transition-colors"
+              >
+                View Game
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await forceCloseGame({});
+                }}
+                className="ml-2 px-3 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs font-bold uppercase transition-colors"
+              >
+                Force Close
+              </button>
+            </div>
+          )}
+
           {/* My Active Lobby Status */}
           {myActiveLobby && myActiveLobby.status === "waiting" && (
             <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#d4af37]/20 border border-[#d4af37]/30 text-[#d4af37]">

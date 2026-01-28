@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { useAuth } from "@/components/ConvexAuthProvider";
+import { useAuth } from "../auth/useConvexAuthHook";
 
 /**
  * usePlayerXP Hook
@@ -14,11 +14,11 @@ import { useAuth } from "@/components/ConvexAuthProvider";
  * - Percentage calculation
  */
 export function usePlayerXP() {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   const xpInfo = useQuery(
     api.story.getPlayerXPInfo,
-    token ? { token } : "skip"
+    isAuthenticated ? {} : "skip"
   );
 
   return {

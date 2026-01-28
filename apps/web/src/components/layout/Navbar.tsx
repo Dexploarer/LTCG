@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import {
   BookOpen,
   ChevronRight,
@@ -19,7 +19,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useState } from "react";
-import { useAuth } from "@/components/ConvexAuthProvider";
+import { useAuth } from "@/hooks/auth/useConvexAuthHook";
 import { LogoutConfirmDialog } from "@/components/dialogs/LogoutConfirmDialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -84,16 +84,13 @@ export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const { isOpen, setIsOpen, toggle } = useSidebar();
-  const { token, setToken, isAuthenticated } = useAuth();
-  const signOutMutation = useMutation(api.auth.convexSignOut);
+  const { isAuthenticated, signOut } = useAuth();
 
-  const currentUser = useQuery(api.users.currentUser, token ? { token } : "skip");
+  const currentUser = useQuery(api.core.users.currentUser, isAuthenticated ? {} : "skip");
 
   const handleSignOut = async () => {
-    if (token) {
-      await signOutMutation();
-    }
-    setToken(null);
+    await signOut();
+    window.location.href = "/login";
   };
 
   useEffect(() => {

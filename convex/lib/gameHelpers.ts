@@ -7,7 +7,8 @@
 
 import type { MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
-import { api } from "../_generated/api";
+import { recordEventHelper, recordGameEndHelper } from "../gameplay/gameEvents";
+import { parseAbility } from "../effectSystem";
 
 export type CardZone =
   | "hand"
@@ -58,7 +59,7 @@ export async function drawCards(
     drawnCards.push(cardId);
 
     // Record card_drawn event
-    await ctx.runMutation(api.gameEvents.recordEvent, {
+    await recordEventHelper(ctx, {
       lobbyId: gameState.lobbyId,
       gameId: gameState.gameId,
       turnNumber: 0, // Will be set by caller if needed
@@ -110,7 +111,7 @@ export async function shuffleDeck(
   const username = user?.username || "Unknown";
 
   // Record deck_shuffled event
-  await ctx.runMutation(api.gameEvents.recordEvent, {
+  await recordEventHelper(ctx, {
     lobbyId: gameState.lobbyId,
     gameId: gameState.gameId,
     turnNumber: 0, // Will be set by caller if needed
@@ -179,7 +180,7 @@ export async function moveCard(
   }
 
   // Record zone transition event
-  await ctx.runMutation(api.gameEvents.recordEvent, {
+  await recordEventHelper(ctx, {
     lobbyId: gameState.lobbyId,
     gameId: gameState.gameId,
     turnNumber,
@@ -253,7 +254,7 @@ export async function applyDamage(
   const username = user?.username || "Unknown";
 
   // Record damage event
-  await ctx.runMutation(api.gameEvents.recordEvent, {
+  await recordEventHelper(ctx, {
     lobbyId,
     gameId: gameState.gameId,
     turnNumber,
@@ -265,7 +266,7 @@ export async function applyDamage(
   });
 
   // Record lp_changed event
-  await ctx.runMutation(api.gameEvents.recordEvent, {
+  await recordEventHelper(ctx, {
     lobbyId,
     gameId: gameState.gameId,
     turnNumber,
@@ -288,7 +289,7 @@ export async function applyDamage(
     const winner = await ctx.db.get(winnerId);
     const winnerUsername = winner?.username || "Unknown";
 
-    await ctx.runMutation(api.gameEvents.recordGameEnd, {
+    await recordGameEndHelper(ctx, {
       lobbyId,
       gameId: gameState.gameId,
       turnNumber,
@@ -340,7 +341,7 @@ export async function enforceHandLimit(
   const username = user?.username || "Unknown";
 
   // Record hand_limit_enforced event
-  await ctx.runMutation(api.gameEvents.recordEvent, {
+  await recordEventHelper(ctx, {
     lobbyId: gameState.lobbyId,
     gameId: gameState.gameId,
     turnNumber,
@@ -486,9 +487,6 @@ export async function applyContinuousEffects(
 ): Promise<{ atkBonus: number; defBonus: number }> {
   let atkBonus = 0;
   let defBonus = 0;
-
-  // Import parseAbility here to avoid circular dependency
-  const { parseAbility } = await import("../effectSystem");
 
   // Check all cards on both boards for continuous effects
   const allBoards = [...gameState.hostBoard, ...gameState.opponentBoard];

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Cinzel, Crimson_Text, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ConvexAuthProvider } from "@/components/ConvexAuthProvider";
+import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
+import { ConvexClientProvider } from "@/components/ConvexClientProvider";
 import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -60,15 +61,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} ${cinzel.variable} ${crimsonText.variable} antialiased min-h-screen bg-background font-serif`}
-      >
-        <ConvexAuthProvider>
-          <LayoutWrapper>{children}</LayoutWrapper>
-          <Toaster />
-        </ConvexAuthProvider>
-      </body>
-    </html>
+    <ConvexAuthNextjsServerProvider>
+      <html lang="en" className="dark">
+        <body
+          className={`${geistSans.variable} ${geistMono.variable} ${cinzel.variable} ${crimsonText.variable} antialiased min-h-screen bg-background font-serif`}
+        >
+          <ConvexClientProvider>
+            <LayoutWrapper>{children}</LayoutWrapper>
+            <Toaster />
+          </ConvexClientProvider>
+        </body>
+      </html>
+    </ConvexAuthNextjsServerProvider>
   );
 }

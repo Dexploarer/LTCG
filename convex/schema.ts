@@ -2,6 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import type { Infer } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
+import { rateLimitTables } from "convex-helpers/server/rateLimit";
 
 // ============================================================================
 // SHARED VALIDATORS (Reusable across schema and function args)
@@ -42,6 +43,7 @@ export type ProgressStatus = Infer<typeof progressStatusValidator>;
 
 export default defineSchema({
   ...authTables,
+  ...rateLimitTables,
   users: defineTable({
     // Convex Auth fields
     name: v.optional(v.string()),
@@ -79,6 +81,9 @@ export default defineSchema({
     xp: v.optional(v.number()), // default: 0
     level: v.optional(v.number()), // default: 1
 
+    // Economy
+    gold: v.optional(v.number()), // default: 500
+
     lastStatsUpdate: v.optional(v.number()),
   })
     .index("email", ["email"])
@@ -92,14 +97,6 @@ export default defineSchema({
     .index("rankedElo_byType", ["isAiAgent", "rankedElo"])
     .index("casualRating_byType", ["isAiAgent", "casualRating"])
     .index("xp_byType", ["isAiAgent", "xp"]),
-
-  sessions: defineTable({
-    userId: v.id("users"),
-    token: v.string(),
-    expiresAt: v.number(),
-  })
-    .index("token", ["token"])
-    .index("userId", ["userId"]),
 
   // Admin roles for protected operations
   adminRoles: defineTable({
@@ -279,7 +276,20 @@ export default defineSchema({
     playerId: v.id("users"),
     playerUsername: v.string(),
     description: v.string(), // Human-readable event description
-    metadata: v.optional(v.any()), // Additional event data (card IDs, damage amounts, etc.)
+    /**
+     * v.any() USAGE: Game event metadata
+     *
+     * REASON: Different event types have different metadata structures
+     * EXPECTED TYPES:
+     * - damage events: { targetPlayerId: Id<"users">, amount: number, cardId: Id<"cardDefinitions"> }
+     * - card_drawn events: { cardId: Id<"cardDefinitions">, zone: string }
+     * - summon events: { cardId: Id<"cardDefinitions">, position: number, isTribute: boolean }
+     * - chain events: { chainLength: number, spellSpeed: number }
+     *
+     * SECURITY: Read-only field, not user-modifiable
+     * ALTERNATIVE: Could use a union of specific metadata types, but would be extremely verbose
+     */
+    metadata: v.optional(v.any()),
     timestamp: v.number(),
   })
     .index("by_lobby", ["lobbyId", "timestamp"])
@@ -416,6 +426,18 @@ export default defineSchema({
       v.array(v.id("cardDefinitions")) // Cards that have used their OPT effect this turn
     ),
 
+    // AI & Story Mode (for single-player battles)
+    gameMode: v.optional(v.union(v.literal("pvp"), v.literal("story"))), // Default: "pvp"
+    isAIOpponent: v.optional(v.boolean()), // True if opponent is AI
+    aiDifficulty: v.optional(
+      v.union(
+        v.literal("easy"),
+        v.literal("normal"),
+        v.literal("hard"),
+        v.literal("legendary")
+      )
+    ), // AI difficulty level
+
     // Timestamps
     lastMoveAt: v.number(),
     createdAt: v.number(),
@@ -423,7 +445,8 @@ export default defineSchema({
     .index("by_lobby", ["lobbyId"])
     .index("by_game_id", ["gameId"])
     .index("by_host", ["hostId"])
-    .index("by_opponent", ["opponentId"]),
+    .index("by_opponent", ["opponentId"])
+    .index("by_game_mode", ["gameMode"]),
 
   // Matchmaking queue for quick match
   matchmakingQueue: defineTable({
@@ -650,6 +673,19 @@ export default defineSchema({
     balanceAfter: v.number(),
     referenceId: v.optional(v.string()),
     description: v.string(),
+    /**
+     * v.any() USAGE: Transaction metadata
+     *
+     * REASON: Different transaction types have different metadata structures
+     * EXPECTED TYPES:
+     * - purchase: { productId: string, productName: string }
+     * - marketplace_fee: { listingId: Id<"marketplaceListings">, feePercent: number }
+     * - quest reward: { questId: string, questType: "daily" | "weekly" | "achievement" }
+     * - achievement: { achievementId: string, category: string, rarity: string }
+     *
+     * SECURITY: Written only by internal mutations with controlled metadata
+     * ALTERNATIVE: Define TransactionMetadata union type (recommended for v2)
+     */
     metadata: v.optional(v.any()),
     createdAt: v.number(),
   })
@@ -949,6 +985,151 @@ export default defineSchema({
     .index("by_act_chapter", ["actNumber", "chapterNumber"])
     .index("by_archetype", ["archetype"])
     .index("by_active", ["isActive"]),
+
+  // Stage definitions (10 stages per chapter)
+  storyStages: defineTable({
+    chapterId: v.id("storyChapters"),
+    stageNumber: v.number(), // 1-10
+    name: v.string(),
+    description: v.string(),
+    aiDifficulty: v.union(
+      v.literal("easy"),
+      v.literal("medium"),
+      v.literal("hard"),
+      v.literal("boss")
+    ),
+    rewardGold: v.number(),
+    rewardXp: v.number(),
+    firstClearBonus: v.number(), // Extra gold for first clear
+  })
+    .index("by_chapter", ["chapterId"])
+    .index("by_chapter_stage", ["chapterId", "stageNumber"]),
+
+  // Stage progress tracking (per user, per stage)
+  storyStageProgress: defineTable({
+    userId: v.id("users"),
+    stageId: v.id("storyStages"),
+    chapterId: v.id("storyChapters"),
+    stageNumber: v.number(),
+    status: v.union(
+      v.literal("locked"),
+      v.literal("available"),
+      v.literal("completed"),
+      v.literal("starred") // 3 stars
+    ),
+    starsEarned: v.number(), // 0-3
+    bestScore: v.optional(v.number()), // Highest LP remaining
+    timesCompleted: v.number(),
+    firstClearClaimed: v.boolean(),
+    lastCompletedAt: v.optional(v.number()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_stage", ["userId", "stageId"])
+    .index("by_user_chapter", ["userId", "chapterId"]),
+
+  // ============================================================================
+  // PROGRESSION SYSTEM - Quests & Achievements
+  // ============================================================================
+
+  // Quest definitions - reusable quest templates
+  questDefinitions: defineTable({
+    questId: v.string(), // Unique identifier (e.g., "daily_win_3")
+    name: v.string(),
+    description: v.string(),
+    questType: v.union(
+      v.literal("daily"),
+      v.literal("weekly"),
+      v.literal("achievement")
+    ),
+    requirementType: v.string(), // "win_games", "play_cards", "deal_damage", etc.
+    targetValue: v.number(),
+    rewards: v.object({
+      gold: v.number(),
+      xp: v.number(),
+      gems: v.optional(v.number()),
+    }),
+    // Optional filters for requirements
+    filters: v.optional(v.object({
+      gameMode: v.optional(v.union(v.literal("ranked"), v.literal("casual"), v.literal("story"))),
+      archetype: v.optional(v.string()),
+      cardType: v.optional(v.string()),
+    })),
+    isActive: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_quest_id", ["questId"])
+    .index("by_type", ["questType"])
+    .index("by_active", ["isActive"]),
+
+  // User quest progress - tracks individual player's quest status
+  userQuests: defineTable({
+    userId: v.id("users"),
+    questId: v.string(), // References questDefinitions.questId
+    currentProgress: v.number(),
+    status: v.union(
+      v.literal("active"),
+      v.literal("completed"),
+      v.literal("claimed")
+    ),
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    claimedAt: v.optional(v.number()),
+    expiresAt: v.optional(v.number()), // For daily/weekly quests
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_status", ["userId", "status"])
+    .index("by_quest", ["questId"])
+    .index("by_expires", ["expiresAt"]),
+
+  // Achievement definitions - permanent unlockable achievements
+  achievementDefinitions: defineTable({
+    achievementId: v.string(),
+    name: v.string(),
+    description: v.string(),
+    category: v.union(
+      v.literal("wins"),
+      v.literal("games_played"),
+      v.literal("collection"),
+      v.literal("social"),
+      v.literal("story"),
+      v.literal("ranked"),
+      v.literal("special")
+    ),
+    rarity: v.union(
+      v.literal("common"),
+      v.literal("rare"),
+      v.literal("epic"),
+      v.literal("legendary")
+    ),
+    icon: v.string(), // Icon name
+    requirementType: v.string(),
+    targetValue: v.number(),
+    rewards: v.optional(v.object({
+      gold: v.optional(v.number()),
+      xp: v.optional(v.number()),
+      gems: v.optional(v.number()),
+      badge: v.optional(v.string()),
+    })),
+    isSecret: v.boolean(), // Hidden until unlocked
+    isActive: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_achievement_id", ["achievementId"])
+    .index("by_category", ["category"])
+    .index("by_rarity", ["rarity"])
+    .index("by_active", ["isActive"]),
+
+  // User achievement progress
+  userAchievements: defineTable({
+    userId: v.id("users"),
+    achievementId: v.string(),
+    currentProgress: v.number(),
+    isUnlocked: v.boolean(),
+    unlockedAt: v.optional(v.number()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_unlocked", ["userId", "isUnlocked"])
+    .index("by_achievement", ["achievementId"]),
 
   // ============================================================================
   // SOCIAL SYSTEM - Friends

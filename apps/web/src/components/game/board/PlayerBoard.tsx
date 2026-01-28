@@ -15,7 +15,9 @@ interface PlayerBoardProps {
   attackingCard?: Id<"cardInstances"> | null;
   targetableCards?: Set<Id<"cardInstances">>;
   activatableBackrowCards?: Set<Id<"cardInstances">>;
+  attackableCards?: Set<Id<"cardInstances">>;
   onCardClick: (card: CardInZone) => void;
+  onCardAttack?: (card: CardInZone) => void;
   onEmptyMonsterSlotClick?: (zone: "frontline" | "support", index?: number) => void;
   onEmptyBackrowClick?: (index?: number) => void;
   onBackrowCardClick?: (card: CardInZone) => void;
@@ -28,7 +30,9 @@ export function PlayerBoard({
   attackingCard,
   targetableCards,
   activatableBackrowCards,
+  attackableCards,
   onCardClick,
+  onCardAttack,
   onEmptyMonsterSlotClick,
   onEmptyBackrowClick,
   onBackrowCardClick,
@@ -61,7 +65,9 @@ export function PlayerBoard({
           selectedCard={selectedCard}
           attackingCard={attackingCard}
           targetableCards={targetableCards}
+          attackableCards={attackableCards}
           onCardClick={onCardClick}
+          onCardAttack={onCardAttack}
           onEmptySlotClick={onEmptyMonsterSlotClick}
         />
       </div>

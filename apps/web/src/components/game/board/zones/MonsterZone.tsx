@@ -14,7 +14,9 @@ interface MonsterZoneProps {
   selectedCard?: Id<"cardInstances"> | null;
   targetableCards?: Set<Id<"cardInstances">>;
   attackingCard?: Id<"cardInstances"> | null;
+  attackableCards?: Set<Id<"cardInstances">>;
   onCardClick?: (card: CardInZone) => void;
+  onCardAttack?: (card: CardInZone) => void;
   onEmptySlotClick?: (zone: "frontline" | "support", index?: number) => void;
 }
 
@@ -25,7 +27,9 @@ export function MonsterZone({
   selectedCard,
   targetableCards = new Set<Id<"cardInstances">>(),
   attackingCard,
+  attackableCards = new Set<Id<"cardInstances">>(),
   onCardClick,
+  onCardAttack,
   onEmptySlotClick,
 }: MonsterZoneProps) {
   // Support zone has 4 slots max
@@ -54,6 +58,8 @@ export function MonsterZone({
                 isSelected={selectedCard === card.instanceId}
                 isTargetable={targetableCards.has(card.instanceId)}
                 isAttacking={attackingCard === card.instanceId}
+                canAttack={attackableCards.has(card.instanceId)}
+                onAttack={() => onCardAttack?.(card)}
                 onClick={() => onCardClick?.(card)}
               />
             ) : (
@@ -85,6 +91,8 @@ export function MonsterZone({
             isSelected={selectedCard === frontline.instanceId}
             isTargetable={targetableCards.has(frontline.instanceId)}
             isAttacking={attackingCard === frontline.instanceId}
+            canAttack={attackableCards.has(frontline.instanceId)}
+            onAttack={() => onCardAttack?.(frontline)}
             onClick={() => onCardClick?.(frontline)}
           />
         ) : (

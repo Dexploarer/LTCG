@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { useAuth } from "@/components/ConvexAuthProvider";
+import { useAuth } from "../auth/useConvexAuthHook";
 
 /**
  * usePresence Hook
@@ -11,7 +11,7 @@ import { useAuth } from "@/components/ConvexAuthProvider";
  * Simple hook for getting online user count.
  */
 export function usePresence() {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   const onlineUsers = useQuery(api.globalChat.getOnlineUsers, {});
 
@@ -21,9 +21,9 @@ export function usePresence() {
     onlineUsers,
     onlineCount: onlineUsers?.length || 0,
     updatePresence: async () => {
-      if (!token) return;
+      if (!isAuthenticated) return;
       try {
-        await updateMutation({ token });
+        await updateMutation({});
       } catch (error) {
         console.error("Presence update failed:", error);
       }

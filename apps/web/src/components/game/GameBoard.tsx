@@ -1,12 +1,12 @@
-// @ts-nocheck
-// TODO: This file depends on Convex game APIs that haven't been implemented yet.
-// Remove @ts-nocheck when backend game engine is complete.
 "use client";
 
 import type { Id } from "@convex/_generated/dataModel";
-import { Flag, Loader2, Trophy, XCircle } from "lucide-react";
+import { Flag, Loader2, Trophy, XCircle, Users } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
+import { useQuery, useMutation } from "convex/react";
+import { toast } from "sonner";
+import { api } from "@convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { LifePointsBar } from "./board/LifePointsBar";
 import { OpponentBoard } from "./board/OpponentBoard";
@@ -23,11 +23,19 @@ import { SummonModal } from "./dialogs/SummonModal";
 import { type CardInZone, useGameBoard } from "./hooks/useGameBoard";
 
 interface GameBoardProps {
-  gameId: Id<"games">;
-  playerId: Id<"players">;
+  lobbyId: Id<"gameLobbies">;
+  playerId?: Id<"users">;
+  gameMode?: "pvp" | "story";
 }
 
-export function GameBoard({ gameId, playerId }: GameBoardProps) {
+export function GameBoard({ lobbyId, playerId: providedPlayerId, gameMode = "pvp" }: GameBoardProps) {
+  // Get player ID from auth if not provided (story mode)
+  const authUser = useQuery(api.core.users.currentUser, {});
+  const playerId = providedPlayerId || (authUser?._id as Id<"users"> | undefined);
+
+  // First check lobby status - MUST be called before any conditional returns
+  const lobbyDetails = useQuery(api.gameplay.games.queries.getLobbyDetails, { lobbyId });
+
   const {
     // State
     player,
@@ -59,7 +67,7 @@ export function GameBoard({ gameId, playerId }: GameBoardProps) {
     activateFieldSpell,
     activateTrap,
     respondToChain,
-  } = useGameBoard(gameId, playerId);
+  } = useGameBoard(lobbyId, playerId || ("" as Id<"users">));
 
   // UI State
   const [selectedHandCard, setSelectedHandCard] = useState<CardInZone | null>(null);
@@ -73,6 +81,38 @@ export function GameBoard({ gameId, playerId }: GameBoardProps) {
   const [showActivateModal, setShowActivateModal] = useState(false);
   const [showCardInspector, setShowCardInspector] = useState(false);
   const [isForfeitLoading, setIsForfeitLoading] = useState(false);
+  const [isAIThinking, setIsAIThinking] = useState(false);
+
+  // AI Turn Automation (Story Mode)
+  const executeAITurn = useMutation(api.gameplay.ai.aiTurn.executeAITurn);
+  const gameState = useQuery(
+    api.gameplay.games.queries.getGameStateForPlayer,
+    lobbyId ? { lobbyId } : "skip"
+  );
+
+  useEffect(() => {
+    if (gameMode !== "story") return;
+    if (!gameState || !lobbyDetails) return;
+    if (gameState.gameMode !== "story" || !gameState.isAIOpponent) return;
+    if (isAIThinking) return; // Already executing
+
+    const isAITurn = gameState.currentTurnPlayerId === gameState.opponentId;
+
+    if (isAITurn && !gameEnded) {
+      setIsAIThinking(true);
+
+      // Delay AI turn slightly for better UX
+      setTimeout(async () => {
+        try {
+          await executeAITurn({ gameId: gameState.gameId });
+        } catch (error) {
+          console.error("AI turn failed:", error);
+        } finally {
+          setIsAIThinking(false);
+        }
+      }, 1000);
+    }
+  }, [gameMode, gameState, lobbyDetails, gameEnded, isAIThinking, executeAITurn]);
 
   const attackableAttackers = useMemo(() => {
     if (!attackOptions) return new Set<Id<"cardInstances">>();
@@ -140,8 +180,13 @@ export function GameBoard({ gameId, playerId }: GameBoardProps) {
       const result = await declareAttack(selectedFieldCard.instanceId, targetId);
 
       if (result.success) {
+        toast.success(`${selectedFieldCard.name} attacked!`);
         setSelectedFieldCard(null);
         setShowAttackModal(false);
+      } else if (result.error) {
+        toast.error("Attack Failed", {
+          description: result.error,
+        });
       }
     },
     [selectedFieldCard, declareAttack]
@@ -149,16 +194,55 @@ export function GameBoard({ gameId, playerId }: GameBoardProps) {
 
   const handleHandCardClick = useCallback(
     (card: CardInZone) => {
-      if (!isPlayerTurn || !isMainPhase) {
+      console.log("Hand card clicked:", {
+        cardName: card.name,
+        isPlayerTurn,
+        isMainPhase,
+        currentPhase: phase?.currentPhase,
+        validActions,
+      });
+
+      if (!isPlayerTurn) {
+        toast.warning("Not Your Turn", {
+          description: "Wait for your opponent to finish their turn.",
+        });
         return;
       }
 
-      if (playableHandCards.has(card.instanceId)) {
-        setSelectedHandCard(card);
-        setShowSummonModal(true);
+      if (!isMainPhase) {
+        const phaseNames: Record<string, string> = {
+          draw: "Draw Phase",
+          standby: "Standby Phase",
+          main1: "Main Phase 1",
+          battle_start: "Battle Start",
+          battle: "Battle Phase",
+          battle_end: "Battle End",
+          main2: "Main Phase 2",
+          end: "End Phase",
+        };
+        const phaseName = phaseNames[phase?.currentPhase || ""] || phase?.currentPhase || "Unknown Phase";
+        toast.warning("Wrong Phase", {
+          description: `You can only play cards during Main Phase 1 or Main Phase 2. Current Phase: ${phaseName}. Click the "Next" or "Battle" button to advance.`,
+        });
+        return;
       }
+
+      // Allow clicking any card in hand - backend will validate if action is allowed
+      console.log("Opening card dialog for:", card.name);
+      setSelectedHandCard(card);
+      setShowSummonModal(true);
     },
-    [isPlayerTurn, isMainPhase, playableHandCards]
+    [isPlayerTurn, isMainPhase, phase, validActions]
+  );
+
+  const handleMonsterAttackClick = useCallback(
+    (card: CardInZone) => {
+      if (!isBattlePhase || !isPlayerTurn) return;
+      console.log("Monster attack button clicked:", card.name);
+      setSelectedFieldCard(card);
+      setShowAttackModal(true);
+    },
+    [isBattlePhase, isPlayerTurn]
   );
 
   const handleFieldCardClick = useCallback(
@@ -199,14 +283,33 @@ export function GameBoard({ gameId, playerId }: GameBoardProps) {
   );
 
   const handleSummon = useCallback(
-    async (position: "attack" | "defense") => {
+    async (position: "attack" | "defense", tributeIds?: Id<"cardDefinitions">[]) => {
       if (!selectedHandCard) return;
 
-      const result = await normalSummon(selectedHandCard.instanceId, position);
+      // Calculate tributes required based on monster level
+      const level = selectedHandCard.monsterStats?.level ?? 0;
+      const tributesRequired = level >= 7 ? 2 : level >= 5 ? 1 : 0;
+      const tributesProvided = tributeIds?.length ?? 0;
+
+      // Validate tributes before attempting summon
+      if (tributesRequired > 0 && tributesProvided < tributesRequired) {
+        toast.error(`Tribute Required`, {
+          description: `This Level ${level} monster requires ${tributesRequired} tribute${tributesRequired > 1 ? "s" : ""}. Please select ${tributesRequired} monster${tributesRequired > 1 ? "s" : ""} from your field to tribute.`,
+        });
+        return;
+      }
+
+      console.log("Summoning with tributes:", tributeIds);
+      const result = await normalSummon(selectedHandCard.instanceId, position, tributeIds);
 
       if (result.success) {
+        toast.success(`${selectedHandCard.name} summoned in ${position} position!`);
         setSelectedHandCard(null);
         setShowSummonModal(false);
+      } else if (result.error) {
+        toast.error("Summon Failed", {
+          description: result.error,
+        });
       }
     },
     [selectedHandCard, normalSummon]
@@ -218,8 +321,13 @@ export function GameBoard({ gameId, playerId }: GameBoardProps) {
     const result = await setMonster(selectedHandCard.instanceId);
 
     if (result.success) {
+      toast.success(`${selectedHandCard.name} set face-down in defense position!`);
       setSelectedHandCard(null);
       setShowSummonModal(false);
+    } else if (result.error) {
+      toast.error("Set Monster Failed", {
+        description: result.error,
+      });
     }
   }, [selectedHandCard, setMonster]);
 
@@ -229,15 +337,20 @@ export function GameBoard({ gameId, playerId }: GameBoardProps) {
     const result = await setSpellTrap(selectedHandCard.instanceId);
 
     if (result.success) {
+      toast.success(`${selectedHandCard.name} set face-down in spell/trap zone!`);
       setSelectedHandCard(null);
       setShowSummonModal(false);
+    } else if (result.error) {
+      toast.error("Set Spell/Trap Failed", {
+        description: result.error,
+      });
     }
   }, [selectedHandCard, setSpellTrap]);
 
   const handleHandCardActivate = useCallback(async () => {
     if (!selectedHandCard) return;
 
-    let result: { success: boolean };
+    let result: { success: boolean; error?: string };
     if (selectedHandCard.cardType === "field") {
       result = await activateFieldSpell(selectedHandCard.instanceId);
     } else {
@@ -245,23 +358,45 @@ export function GameBoard({ gameId, playerId }: GameBoardProps) {
     }
 
     if (result.success) {
+      toast.success(`${selectedHandCard.name} activated!`);
       setSelectedHandCard(null);
       setShowSummonModal(false);
+    } else if (result.error) {
+      toast.error("Activation Failed", {
+        description: result.error,
+      });
     }
   }, [selectedHandCard, activateSpell, activateFieldSpell]);
 
   const handleAdvancePhase = useCallback(async () => {
-    await advancePhase();
+    const result = await advancePhase();
+    if (!result.success && result.error) {
+      toast.error("Phase Advance Failed", {
+        description: result.error,
+      });
+    }
   }, [advancePhase]);
 
   const handleEndTurn = useCallback(async () => {
-    await endTurn();
+    const result = await endTurn();
+    if (!result.success && result.error) {
+      toast.error("End Turn Failed", {
+        description: result.error,
+      });
+    }
   }, [endTurn]);
 
   const handleForfeit = useCallback(async () => {
     setIsForfeitLoading(true);
     try {
-      await forfeitGame();
+      const result = await forfeitGame();
+      if (result.success) {
+        toast.info("Game forfeited");
+      } else if (result.error) {
+        toast.error("Forfeit Failed", {
+          description: result.error,
+        });
+      }
     } finally {
       setIsForfeitLoading(false);
       setShowForfeitDialog(false);
@@ -328,10 +463,48 @@ export function GameBoard({ gameId, playerId }: GameBoardProps) {
     });
   }, [chainResponses, player]);
 
+  // Player ID check - MUST happen after all hooks are called
+  if (!playerId) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#0d0a09]">
+        <Loader2 className="w-8 h-8 animate-spin text-[#d4af37]" />
+      </div>
+    );
+  }
+
+  // Waiting for opponent state
+  if (lobbyDetails && lobbyDetails.status === "waiting") {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0d0a09]">
+        <div className="flex flex-col items-center gap-4 p-8 rounded-xl border border-[#3d2b1f] bg-black/40">
+          <Users className="h-16 w-16 text-[#d4af37] animate-pulse" />
+          <h2 className="text-2xl font-bold text-[#e8e0d5]">Waiting for Opponent</h2>
+          <p className="text-sm text-[#a89f94] text-center max-w-md">
+            Your game lobby is ready. Share your join code or wait for someone to join from the lobby list.
+          </p>
+          {lobbyDetails.joinCode && (
+            <div className="flex flex-col items-center gap-2 mt-2">
+              <p className="text-xs text-[#a89f94]">Private Game Code:</p>
+              <div className="px-4 py-2 rounded-lg bg-[#d4af37]/20 border border-[#d4af37]/30">
+                <p className="text-2xl font-mono font-bold text-[#d4af37] tracking-wider">
+                  {lobbyDetails.joinCode}
+                </p>
+              </div>
+            </div>
+          )}
+          <Loader2 className="h-6 w-6 animate-spin text-[#d4af37] mt-2" />
+          <Button asChild variant="outline" className="mt-4">
+            <Link href="/lunchtable">Back to Lobby</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   // Loading state
   if (isLoading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-[#0d0a09]">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0d0a09]">
         <div className="flex flex-col items-center gap-2">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           <span className="text-xs text-muted-foreground">Loading game...</span>
@@ -376,24 +549,19 @@ export function GameBoard({ gameId, playerId }: GameBoardProps) {
     );
   }
 
-  // Determine summon options
+  // Determine summon options based on card type
   const selectedId = selectedHandCard?.instanceId;
-  const canSummonAttack =
-    selectedId &&
-    validActions?.canNormalSummon &&
-    validActions.summonableMonsters?.includes(selectedId) === true;
-  const canSummonDefense = canSummonAttack;
-  const canSetMonster =
-    selectedId &&
-    validActions?.canSetMonster &&
-    validActions.settableMonsters?.includes(selectedId) === true;
-  const canSetSpellTrap =
-    selectedId &&
-    validActions?.canSetSpellTrap &&
-    validActions.settableSpellTraps?.includes(selectedId) === true;
+  const isCreature = selectedHandCard?.cardType === "creature";
+  const isSpell = selectedHandCard?.cardType === "spell";
+  const isTrap = selectedHandCard?.cardType === "trap";
+
+  const canSummonAttack = isCreature && (validActions?.canNormalSummon ?? false);
+  const canSummonDefense = isCreature && (validActions?.canNormalSummon ?? false);
+  const canSetMonster = isCreature && (validActions?.canSetMonster ?? false);
+  const canSetSpellTrap = (isSpell || isTrap) && (validActions?.canSetSpellTrap ?? false);
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-arena relative flex flex-col">
+    <div className="fixed inset-0 z-50 overflow-hidden bg-arena flex flex-col">
       {/* Decorative Overlay */}
       <div className="absolute inset-0 bg-black/40 z-0" />
       <div className="absolute inset-0 bg-vignette z-0 pointer-events-none" />
@@ -444,6 +612,7 @@ export function GameBoard({ gameId, playerId }: GameBoardProps) {
             isPlayerTurn={isPlayerTurn}
             canAdvancePhase={validActions?.canAdvancePhase ?? false}
             onAdvancePhase={handleAdvancePhase}
+            onEndTurn={handleEndTurn}
           />
         </div>
 
@@ -454,7 +623,9 @@ export function GameBoard({ gameId, playerId }: GameBoardProps) {
             selectedCard={selectedFieldCard?.instanceId}
             attackingCard={phase.attackingCardId}
             targetableCards={targetableCards}
+            attackableCards={attackableAttackers}
             onCardClick={handleFieldCardClick}
+            onCardAttack={handleMonsterAttackClick}
             onEmptyBackrowClick={handleSetSpellTrap}
             activatableBackrowCards={activatableBackrowCards}
             onBackrowCardClick={handleBackrowCardClick}
@@ -504,19 +675,32 @@ export function GameBoard({ gameId, playerId }: GameBoardProps) {
           canSummonAttack={canSummonAttack ?? false}
           canSummonDefense={canSummonDefense ?? false}
           canSet={
-            selectedHandCard?.cardType === "monster"
+            selectedHandCard?.cardType === "creature"
               ? (canSetMonster ?? false)
               : (canSetSpellTrap ?? false)
           }
           canActivate={
-            selectedId
-              ? ((validActions?.activatableSpells?.includes(selectedId) ||
-                  validActions?.activatableFieldCards?.includes(selectedId)) ??
-                false)
-              : false
+            selectedHandCard?.cardType === "spell" && (validActions?.canActivateSpell ?? false)
+          }
+          tributesRequired={
+            selectedHandCard?.monsterStats?.level
+              ? selectedHandCard.monsterStats.level >= 7
+                ? 2
+                : selectedHandCard.monsterStats.level >= 5
+                  ? 1
+                  : 0
+              : 0
+          }
+          availableTributes={
+            player?.frontline || player?.support?.length > 0
+              ? [
+                  ...(player.frontline ? [player.frontline] : []),
+                  ...(player.support || []),
+                ].filter((card) => !card.isFaceDown)
+              : []
           }
           onSummon={handleSummon}
-          onSet={selectedHandCard?.cardType === "monster" ? handleSetMonster : handleSetSpellTrap}
+          onSet={selectedHandCard?.cardType === "creature" ? handleSetMonster : handleSetSpellTrap}
           onActivate={handleHandCardActivate}
           onClose={() => {
             setShowSummonModal(false);
@@ -577,6 +761,17 @@ export function GameBoard({ gameId, playerId }: GameBoardProps) {
           }}
         />
       </div>
+
+      {/* AI Thinking Overlay (Story Mode) */}
+      {isAIThinking && (
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-100 flex items-center justify-center">
+          <div className="bg-[#1a1614] border-2 border-[#d4af37] rounded-xl p-8 flex flex-col items-center gap-4">
+            <Loader2 className="w-12 h-12 animate-spin text-[#d4af37]" />
+            <p className="text-[#d4af37] text-xl font-bold">AI Opponent Thinking...</p>
+            <p className="text-[#a89f94] text-sm">Please wait while the AI makes its move</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

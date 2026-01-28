@@ -140,3 +140,17 @@ export const SPECTATOR = {
   /** Spectator count update throttle (ms) */
   COUNT_UPDATE_THROTTLE_MS: 5000, // Update every 5 seconds max
 } as const;
+
+/**
+ * Rate Limiting Configuration
+ * SECURITY: Protects against abuse of sensitive operations
+ *
+ * Uses @convex-dev/ratelimiter configured in convex.config.ts
+ */
+export const RATELIMIT_CONFIG = {
+  /** Enable rate limiting in production */
+  ENABLED: true,
+
+  /** Log rate limit violations for monitoring */
+  LOG_VIOLATIONS: true,
+} as const;

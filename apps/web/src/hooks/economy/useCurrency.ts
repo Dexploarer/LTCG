@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { useAuth } from "@/components/ConvexAuthProvider";
+import { useAuth } from "../auth/useConvexAuthHook";
 
 /**
  * useCurrency Hook
@@ -12,17 +12,17 @@ import { useAuth } from "@/components/ConvexAuthProvider";
  * - View transaction history
  */
 export function useCurrency() {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   // Queries
   const balance = useQuery(
     api.economy.getPlayerBalance,
-    token ? { token } : "skip"
+    isAuthenticated ? {} : "skip"
   );
 
   const transactions = useQuery(
     api.economy.getTransactionHistory,
-    token ? { token } : "skip"
+    isAuthenticated ? {} : "skip"
   );
 
   return {

@@ -3,7 +3,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { Bot, ChevronLeft, ChevronRight, Image, Link, Loader2, X } from "lucide-react";
 import { useState } from "react";
-import { useAuth } from "@/components/ConvexAuthProvider";
+import { useAuth } from "@/hooks/auth/useConvexAuthHook";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { api } from "../../../../convex/_generated/api";
@@ -19,7 +19,7 @@ interface RegisterAgentModalProps {
 type Step = 1 | 2 | 3 | 4;
 
 export function RegisterAgentModal({ isOpen, onClose, onSuccess }: RegisterAgentModalProps) {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   // Form state
   const [step, setStep] = useState<Step>(1);
@@ -40,14 +40,13 @@ export function RegisterAgentModal({ isOpen, onClose, onSuccess }: RegisterAgent
   const registerAgent = useMutation(api.agents.registerAgent);
 
   const handleSubmit = async () => {
-    if (!token || !name || !selectedDeck) return;
+    if (!isAuthenticated || !name || !selectedDeck) return;
 
     setIsSubmitting(true);
     setError(null);
 
     try {
       const result = await registerAgent({
-        token,
         name,
         profilePictureUrl: profilePictureUrl || undefined,
         socialLink: socialLink || undefined,

@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { useAuth } from "@/components/ConvexAuthProvider";
+import { useAuth } from "../auth/useConvexAuthHook";
 import type { Id } from "@convex/_generated/dataModel";
 
 /**
@@ -14,17 +14,19 @@ import type { Id } from "@convex/_generated/dataModel";
  * - Determine if viewing own profile
  */
 export function useProfile(userId?: Id<"users">) {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   // Current user
   const currentUser = useQuery(
-    api.users.currentUser,
-    token ? { token } : "skip"
+    // @ts-ignore - Type depth issue with Convex generated types
+    api.core.users.currentUser,
+    isAuthenticated ? {} : "skip"
   );
 
   // Other user
   const otherUser = useQuery(
-    api.users.getUser,
+    // @ts-ignore - Type depth issue with Convex generated types
+    api.core.users.getUser,
     userId ? { userId } : "skip"
   );
 

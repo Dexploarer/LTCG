@@ -3,7 +3,7 @@
 import { useQuery } from "convex/react";
 import { Bot, Loader2, Plus } from "lucide-react";
 import { useState } from "react";
-import { useAuth } from "@/components/ConvexAuthProvider";
+import { useAuth } from "@/hooks/auth/useConvexAuthHook";
 import { Button } from "@/components/ui/button";
 import { api } from "../../../../convex/_generated/api";
 import { AgentCard } from "./AgentCard";
@@ -12,10 +12,10 @@ import { RegisterAgentModal } from "./RegisterAgentModal";
 const MAX_AGENTS = 3;
 
 export function AgentManagement() {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const agents = useQuery(api.agents.getUserAgents, token ? { token } : "skip");
+  const agents = useQuery(api.agents.getUserAgents, isAuthenticated ? {} : "skip");
 
   const isLoading = agents === undefined;
   const agentCount = agents?.length || 0;

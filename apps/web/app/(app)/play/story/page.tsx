@@ -1,164 +1,160 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { motion } from "framer-motion";
 import { BookOpen, ChevronLeft, Loader2, Shield, Star, Trophy } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/components/ConvexAuthProvider";
+import { useAuth } from "@/hooks/auth/useConvexAuthHook";
 import { StoryChapterCard } from "@/components/story/StoryChapterCard";
 import { cn } from "@/lib/utils";
+import { useMemo, useEffect } from "react";
 
-// Mock data for UI development
-const MOCK_CHAPTERS = [
+// Mock chapter metadata (UI names and descriptions)
+const CHAPTER_INFO = [
   {
-    chapterId: "ch1",
+    chapterNumber: 1,
     name: "Infernal Dragons",
-    description:
-      "Face the fury of the Fire Dragon Legion. Master aggressive strategies and burn damage mechanics.",
+    description: "Face the fury of the Fire Dragon Legion. Master aggressive strategies and burn damage mechanics.",
     archetype: "infernal_dragons",
-    order: 1,
-    requiredLevel: 1,
-    isUnlocked: true,
-    completedStages: 7,
-    totalStages: 10,
-    starredStages: 4,
-    isCompleted: false,
   },
   {
-    chapterId: "ch2",
+    chapterNumber: 2,
     name: "Abyssal Horrors",
-    description:
-      "Descend into the deep. Learn control tactics and master the art of freezing your opponents.",
+    description: "Descend into the deep. Learn control tactics and master the art of freezing your opponents.",
     archetype: "abyssal_horrors",
-    order: 2,
-    requiredLevel: 5,
-    isUnlocked: true,
-    completedStages: 3,
-    totalStages: 10,
-    starredStages: 2,
-    isCompleted: false,
   },
   {
-    chapterId: "ch3",
-    name: "Celestial Guardians",
-    description:
-      "Ascend to the heavens. Discover defensive formations and divine protection spells.",
-    archetype: "celestial_guardians",
-    order: 3,
-    requiredLevel: 10,
-    isUnlocked: false,
-    completedStages: 0,
-    totalStages: 10,
-    starredStages: 0,
-    isCompleted: false,
-  },
-  {
-    chapterId: "ch4",
+    chapterNumber: 3,
     name: "Nature Spirits",
     description: "Connect with the wild. Harness growth mechanics and healing abilities.",
     archetype: "nature_spirits",
-    order: 4,
-    requiredLevel: 15,
-    isUnlocked: false,
-    completedStages: 0,
-    totalStages: 10,
-    starredStages: 0,
-    isCompleted: false,
   },
   {
-    chapterId: "ch5",
-    name: "Shadow Assassins",
-    description: "Strike from the darkness. Master stealth and quick elimination tactics.",
-    archetype: "shadow_assassins",
-    order: 5,
-    requiredLevel: 20,
-    isUnlocked: false,
-    completedStages: 0,
-    totalStages: 10,
-    starredStages: 0,
-    isCompleted: false,
-  },
-  {
-    chapterId: "ch6",
+    chapterNumber: 4,
     name: "Storm Elementals",
     description: "Command the tempest. Unleash lightning and wind-based combos.",
     archetype: "storm_elementals",
-    order: 6,
-    requiredLevel: 25,
-    isUnlocked: false,
-    completedStages: 0,
-    totalStages: 10,
-    starredStages: 0,
-    isCompleted: false,
   },
   {
-    chapterId: "ch7",
+    chapterNumber: 5,
+    name: "Shadow Assassins",
+    description: "Strike from the darkness. Master stealth and quick elimination tactics.",
+    archetype: "shadow_assassins",
+  },
+  {
+    chapterNumber: 6,
+    name: "Celestial Guardians",
+    description: "Ascend to the heavens. Discover defensive formations and divine protection spells.",
+    archetype: "celestial_guardians",
+  },
+  {
+    chapterNumber: 7,
     name: "Undead Legion",
     description: "Raise the fallen. Learn resurrection mechanics and army building.",
     archetype: "undead_legion",
-    order: 7,
-    requiredLevel: 30,
-    isUnlocked: false,
-    completedStages: 0,
-    totalStages: 10,
-    starredStages: 0,
-    isCompleted: false,
   },
   {
-    chapterId: "ch8",
-    name: "Arcane Mages",
-    description: "Wield pure magic. Master spell combinations and mana management.",
-    archetype: "arcane_mages",
-    order: 8,
-    requiredLevel: 35,
-    isUnlocked: false,
-    completedStages: 0,
-    totalStages: 10,
-    starredStages: 0,
-    isCompleted: false,
-  },
-  {
-    chapterId: "ch9",
-    name: "Mechanical Constructs",
-    description: "Build the future. Combine units and create powerful mechanical synergies.",
-    archetype: "mechanical_constructs",
-    order: 9,
-    requiredLevel: 40,
-    isUnlocked: false,
-    completedStages: 0,
-    totalStages: 10,
-    starredStages: 0,
-    isCompleted: false,
-  },
-  {
-    chapterId: "ch10",
+    chapterNumber: 8,
     name: "Divine Knights",
     description: "The final trial. Face the legendary Divine Knights in the ultimate challenge.",
     archetype: "divine_knights",
-    order: 10,
-    requiredLevel: 45,
-    isUnlocked: false,
-    completedStages: 0,
-    totalStages: 10,
-    starredStages: 0,
-    isCompleted: false,
+  },
+  {
+    chapterNumber: 9,
+    name: "Arcane Mages",
+    description: "Wield pure magic. Master spell combinations and mana management.",
+    archetype: "arcane_mages",
+  },
+  {
+    chapterNumber: 10,
+    name: "Mechanical Constructs",
+    description: "Build the future. Combine units and create powerful mechanical synergies.",
+    archetype: "mechanical_constructs",
   },
 ];
 
-const MOCK_STATS = {
-  completedChapters: 0,
-  totalChapters: 10,
-  completedStages: 10,
-  totalStages: 100,
-  starredStages: 6,
-};
-
 export default function StoryModePage() {
   const router = useRouter();
-  const { token } = useAuth();
-  const currentUser = useQuery(api.users.currentUser, token ? { token } : "skip");
+  const { isAuthenticated } = useAuth();
+  const currentUser = useQuery(api.core.users.currentUser, isAuthenticated ? {} : "skip");
+
+  // Fetch real data with type assertions to avoid deep instantiation errors
+  const allChapters = useQuery(
+    api.progression.story.getAvailableChapters,
+    isAuthenticated ? {} : "skip"
+  ) as any;
+  const playerProgress = useQuery(
+    api.progression.story.getPlayerProgress,
+    isAuthenticated ? {} : "skip"
+  ) as any;
+
+  const initializeStoryProgress = useMutation(api.progression.story.initializeStoryProgress);
+
+  // Initialize progress on first access
+  useEffect(() => {
+    if (isAuthenticated && playerProgress && !playerProgress.progressByAct) {
+      // No progress exists, initialize it
+      initializeStoryProgress().catch(console.error);
+    }
+  }, [isAuthenticated, playerProgress, initializeStoryProgress]);
+
+  // Transform real data to match UI format
+  const chapters = useMemo(() => {
+    if (!allChapters) return [];
+
+    return allChapters.map((chapter: any) => {
+      const info = CHAPTER_INFO[chapter.chapterNumber - 1];
+      const chapterId = `${chapter.actNumber}-${chapter.chapterNumber}`;
+
+      return {
+        chapterId,
+        name: info?.name || `Chapter ${chapter.chapterNumber}`,
+        description: info?.description || chapter.description || "",
+        archetype: info?.archetype || chapter.archetype || "mixed",
+        order: chapter.chapterNumber,
+        requiredLevel: chapter.requiredLevel || (chapter.chapterNumber - 1) * 5 + 1,
+        isUnlocked: chapter.status !== "locked",
+        completedStages: chapter.stagesCompleted || 0,
+        totalStages: 10,
+        starredStages: chapter.starsEarned || 0,
+        isCompleted: chapter.status === "completed",
+      };
+    });
+  }, [allChapters]);
+
+  const stats = useMemo(() => {
+    if (!playerProgress) {
+      return {
+        completedChapters: 0,
+        totalChapters: 10,
+        completedStages: 0,
+        totalStages: 100,
+        starredStages: 0,
+      };
+    }
+
+    // Calculate total stages from progress
+    let totalStages = 0;
+    if (playerProgress.progressByAct) {
+      Object.values(playerProgress.progressByAct).forEach((chapters: any) => {
+        chapters.forEach((ch: any) => {
+          totalStages += ch.timesCompleted || 0;
+        });
+      });
+    }
+
+    return {
+      completedChapters: playerProgress.totalChaptersCompleted || 0,
+      totalChapters: 10,
+      completedStages: totalStages,
+      totalStages: 100,
+      starredStages: playerProgress.totalStarsEarned || 0,
+    };
+  }, [playerProgress]);
+
+  const badges = 3; // Placeholder for now
 
   if (!currentUser) {
     return (
@@ -219,23 +215,23 @@ export default function StoryModePage() {
             {[
               {
                 label: "Chapters",
-                value: `${MOCK_STATS.completedChapters}/${MOCK_STATS.totalChapters}`,
+                value: `${stats.completedChapters}/${stats.totalChapters}`,
                 color: "text-purple-400",
                 icon: BookOpen,
               },
               {
                 label: "Stages Cleared",
-                value: `${MOCK_STATS.completedStages}/${MOCK_STATS.totalStages}`,
+                value: `${stats.completedStages}/${stats.totalStages}`,
                 color: "text-blue-400",
                 icon: Shield,
               },
               {
                 label: "Stars Earned",
-                value: MOCK_STATS.starredStages,
+                value: stats.starredStages,
                 color: "text-yellow-400",
                 icon: Star,
               },
-              { label: "Badges", value: 3, color: "text-green-400", icon: Trophy },
+              { label: "Badges", value: badges, color: "text-green-400", icon: Trophy },
             ].map((stat) => (
               <div
                 key={stat.label}
@@ -250,7 +246,7 @@ export default function StoryModePage() {
 
           {/* Chapters Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-20">
-            {MOCK_CHAPTERS.map((chapter, index) => (
+            {chapters.length > 0 ? chapters.map((chapter, index) => (
               <motion.div
                 key={chapter.chapterId}
                 initial={{ opacity: 0, y: 50 }}
@@ -266,7 +262,15 @@ export default function StoryModePage() {
                   }}
                 />
               </motion.div>
-            ))}
+            )) : (
+              <div className="col-span-full text-center py-16">
+                <Loader2 className="w-8 h-8 animate-spin text-[#d4af37] mx-auto mb-4" />
+                <p className="text-[#a89f94] mb-4">Loading chapters...</p>
+                <p className="text-[#a89f94] text-sm">
+                  Run <code className="bg-black/40 px-2 py-1 rounded">bun convex run scripts/seedStoryChapters:seedStoryChapters</code> to initialize chapters.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

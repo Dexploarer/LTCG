@@ -1,17 +1,35 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, Authenticated, AuthLoading } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { useAuth } from "@/components/ConvexAuthProvider";
 import { GameLobby, GlobalChat, WelcomeGuideDialog } from "./components";
 
 export default function LunchtablePage() {
-  const { token } = useAuth();
-  const currentUser = useQuery(api.users.currentUser, token ? { token } : "skip");
-  const selectStarterDeck = useMutation(api.decks.selectStarterDeck);
+  return (
+    <>
+      <AuthLoading>
+        <div className="min-h-screen flex items-center justify-center bg-[#0d0a09]">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="w-10 h-10 text-[#d4af37] animate-spin" />
+            <p className="text-[#a89f94] text-sm uppercase tracking-widest font-bold">
+              Entering the Arena...
+            </p>
+          </div>
+        </div>
+      </AuthLoading>
+      <Authenticated>
+        <LunchtableContent />
+      </Authenticated>
+    </>
+  );
+}
+
+function LunchtableContent() {
+  const currentUser = useQuery(api.core.users.currentUser, {});
+  const selectStarterDeck = useMutation(api.core.decks.selectStarterDeck);
 
   // Track if user needs onboarding (no starter deck)
   const [showWelcomeGuide, setShowWelcomeGuide] = useState(false);
@@ -35,7 +53,11 @@ export default function LunchtablePage() {
   }, []);
 
   const handleWelcomeComplete = async (selectedDeck: string) => {
-    if (!token || !currentUser) return;
+    console.log("🎮 handleWelcomeComplete called with:", selectedDeck);
+    if (!currentUser) {
+      console.log("❌ No current user, aborting");
+      return;
+    }
 
     // Map frontend archetype to backend deck code
     // Note: Only fire and water starter decks are currently available
@@ -45,17 +67,22 @@ export default function LunchtablePage() {
     };
 
     const deckCode = deckCodeMap[selectedDeck as keyof typeof deckCodeMap];
+    console.log("🎯 Mapped deck code:", deckCode);
     if (!deckCode) {
+      console.log("❌ Invalid deck code");
       toast.error("Invalid starter deck selection.");
       return;
     }
 
     setIsClaimingDeck(true);
     try {
-      const result = await selectStarterDeck({ token, deckCode });
+      console.log("🚀 Calling selectStarterDeck mutation...");
+      const result = await selectStarterDeck({ deckCode });
+      console.log("✅ Mutation success:", result);
       toast.success(`${result.deckName} claimed! You received ${result.cardsReceived} cards.`);
       setShowWelcomeGuide(false);
     } catch (error: any) {
+      console.error("❌ Mutation error:", error);
       toast.error(error.message || "Failed to claim starter deck");
     } finally {
       setIsClaimingDeck(false);
@@ -68,7 +95,7 @@ export default function LunchtablePage() {
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-10 h-10 text-[#d4af37] animate-spin" />
           <p className="text-[#a89f94] text-sm uppercase tracking-widest font-bold">
-            Entering the Arena...
+            Loading Profile...
           </p>
         </div>
       </div>

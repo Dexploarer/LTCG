@@ -40,7 +40,8 @@ export default function LeaderboardsPage() {
   const [activeSegment, setActiveSegment] = useState<PlayerSegment>("all");
 
   // Use leaderboard hook with filters
-  const { rankings, myRank: userRank, lastUpdated, isLoading } = useLeaderboard(activeType, activeSegment);
+  const leaderboardData = useLeaderboard(activeType, activeSegment);
+  const { rankings = [], myRank: userRank, lastUpdated, isLoading = true } = leaderboardData || {};
 
   const leaderboardTypes: { id: LeaderboardType; label: string; icon: typeof Trophy }[] = [
     { id: "ranked", label: "Ranked (ELO)", icon: Trophy },
@@ -63,7 +64,7 @@ export default function LeaderboardsPage() {
   }
 
   // Check if current user is in top 100
-  const userInTop100 = rankings.some((p) => p.userId === currentUser._id);
+  const userInTop100 = rankings.some((p: (typeof rankings)[number]) => p.userId === currentUser._id);
 
   return (
     <div className="min-h-screen bg-[#0d0a09] relative overflow-hidden">
@@ -259,7 +260,7 @@ export default function LeaderboardsPage() {
                 <p className="text-sm mt-2">Be the first to play!</p>
               </div>
             ) : (
-              rankings.map((player) => {
+              rankings.map((player: (typeof rankings)[number]) => {
                 const isCurrentUser = player.userId === currentUser._id;
                 return (
                   <div

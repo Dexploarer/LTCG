@@ -5,4 +5,4 @@
  * It maintains backward compatibility for all existing imports.
  */
 
-export * from "./effectSystem/index";
+export * from "./gameplay/effectSystem/index";

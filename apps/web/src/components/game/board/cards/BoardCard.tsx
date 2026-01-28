@@ -13,6 +13,8 @@ interface BoardCardProps {
   isTargetable?: boolean;
   isAttacking?: boolean;
   isActivatable?: boolean;
+  canAttack?: boolean;
+  onAttack?: () => void;
   size?: "xs" | "sm" | "md" | "lg";
   showStats?: boolean;
 }
@@ -40,6 +42,8 @@ export function BoardCard({
   isTargetable = false,
   isAttacking = false,
   isActivatable = false,
+  canAttack = false,
+  onAttack,
   size = "md",
   showStats = true,
 }: BoardCardProps) {
@@ -105,7 +109,7 @@ export function BoardCard({
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">
                 <span className="text-[6px] text-slate-400 text-center px-0.5 leading-tight">
-                  {card.name.substring(0, 10)}
+                  {card.name ? card.name.substring(0, 10) : "Card"}
                 </span>
               </div>
             )}
@@ -162,6 +166,23 @@ export function BoardCard({
       {card.hasAttacked && !isFaceDown && (
         <div className="absolute inset-0 bg-black/40 rounded flex items-center justify-center">
           <span className="text-[6px] text-gray-300 font-medium">USED</span>
+        </div>
+      )}
+
+      {canAttack && !card.hasAttacked && !isFaceDown && onAttack && (
+        <div
+          className="absolute inset-0 bg-linear-to-t from-red-600/90 via-red-500/80 to-transparent rounded flex items-center justify-center"
+          onClick={(e) => {
+            e.stopPropagation();
+            onAttack();
+          }}
+        >
+          <div className="flex flex-col items-center gap-0.5">
+            <Sword className="w-3 h-3 sm:w-4 sm:h-4 text-white animate-pulse" />
+            <span className="text-[7px] sm:text-[9px] text-white font-bold uppercase tracking-wide">
+              Attack
+            </span>
+          </div>
         </div>
       )}
     </motion.button>

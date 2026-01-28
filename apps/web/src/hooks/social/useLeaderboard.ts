@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { useAuth } from "@/components/ConvexAuthProvider";
+import { useAuth } from "../auth/useConvexAuthHook";
 
 /**
  * useLeaderboard Hook
@@ -17,7 +17,7 @@ export function useLeaderboard(
   type: "ranked" | "casual" | "story" = "ranked",
   segment: "all" | "humans" | "ai" = "all"
 ) {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   // Cached leaderboard (updated every 5 min)
   const leaderboard = useQuery(api.leaderboards.getCachedLeaderboard, {
@@ -28,13 +28,13 @@ export function useLeaderboard(
   // User's rank
   const myRank = useQuery(
     api.leaderboards.getUserRank,
-    token ? { token, type } : "skip"
+    isAuthenticated ? { type } : "skip"
   );
 
   // Battle history - TODO: API not yet implemented
   // const battleHistory = useQuery(
   //   api.leaderboards.getBattleHistory,
-  //   token ? { token } : "skip"
+  //   isAuthenticated ? {} : "skip"
   // );
 
   return {

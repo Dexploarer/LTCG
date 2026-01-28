@@ -105,7 +105,7 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     setIsSaving(true);
-    // TODO: Implement actual save logic
+    // Settings are saved automatically to localStorage
     await new Promise((resolve) => setTimeout(resolve, 1000));
     setIsSaving(false);
     setSaveSuccess(true);

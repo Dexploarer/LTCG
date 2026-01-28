@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { useAuth } from "@/components/ConvexAuthProvider";
+import { useAuth } from "../auth/useConvexAuthHook";
 import { toast } from "sonner";
 import type { Id } from "@convex/_generated/dataModel";
 
@@ -18,27 +18,27 @@ import type { Id } from "@convex/_generated/dataModel";
  * - Search for users
  */
 export function useFriends() {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   // Queries
   const friends = useQuery(
     api.friends.getFriends,
-    token ? { token } : "skip"
+    isAuthenticated ? {} : "skip"
   );
 
   const incomingRequests = useQuery(
     api.friends.getIncomingRequests,
-    token ? { token } : "skip"
+    isAuthenticated ? {} : "skip"
   );
 
   const outgoingRequests = useQuery(
     api.friends.getOutgoingRequests,
-    token ? { token } : "skip"
+    isAuthenticated ? {} : "skip"
   );
 
   const blockedUsers = useQuery(
     api.friends.getBlockedUsers,
-    token ? { token } : "skip"
+    isAuthenticated ? {} : "skip"
   );
 
   // Mutations
@@ -52,9 +52,9 @@ export function useFriends() {
 
   // Actions
   const sendFriendRequest = async (friendUsername: string) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!isAuthenticated) throw new Error("Not authenticated");
     try {
-      const result = await sendRequestMutation({ token, friendUsername });
+      const result = await sendRequestMutation({ friendUsername });
       if (result.autoAccepted) {
         toast.success(`You are now friends with ${friendUsername}!`);
       } else {
@@ -68,9 +68,9 @@ export function useFriends() {
   };
 
   const acceptFriendRequest = async (friendId: Id<"users">) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!isAuthenticated) throw new Error("Not authenticated");
     try {
-      await acceptRequestMutation({ token, friendId });
+      await acceptRequestMutation({ friendId });
       toast.success("Friend request accepted!");
     } catch (error: any) {
       toast.error(error.message || "Failed to accept friend request");
@@ -79,9 +79,9 @@ export function useFriends() {
   };
 
   const declineFriendRequest = async (friendId: Id<"users">) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!isAuthenticated) throw new Error("Not authenticated");
     try {
-      await declineRequestMutation({ token, friendId });
+      await declineRequestMutation({ friendId });
       toast.info("Friend request declined");
     } catch (error: any) {
       toast.error(error.message || "Failed to decline friend request");
@@ -90,9 +90,9 @@ export function useFriends() {
   };
 
   const cancelFriendRequest = async (friendId: Id<"users">) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!isAuthenticated) throw new Error("Not authenticated");
     try {
-      await cancelRequestMutation({ token, friendId });
+      await cancelRequestMutation({ friendId });
       toast.info("Friend request cancelled");
     } catch (error: any) {
       toast.error(error.message || "Failed to cancel friend request");
@@ -101,9 +101,9 @@ export function useFriends() {
   };
 
   const removeFriend = async (friendId: Id<"users">) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!isAuthenticated) throw new Error("Not authenticated");
     try {
-      await removeFriendMutation({ token, friendId });
+      await removeFriendMutation({ friendId });
       toast.info("Friend removed");
     } catch (error: any) {
       toast.error(error.message || "Failed to remove friend");
@@ -112,9 +112,9 @@ export function useFriends() {
   };
 
   const blockUser = async (friendId: Id<"users">) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!isAuthenticated) throw new Error("Not authenticated");
     try {
-      await blockUserMutation({ token, friendId });
+      await blockUserMutation({ friendId });
       toast.success("User blocked");
     } catch (error: any) {
       toast.error(error.message || "Failed to block user");
@@ -123,9 +123,9 @@ export function useFriends() {
   };
 
   const unblockUser = async (friendId: Id<"users">) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!isAuthenticated) throw new Error("Not authenticated");
     try {
-      await unblockUserMutation({ token, friendId });
+      await unblockUserMutation({ friendId });
       toast.success("User unblocked");
     } catch (error: any) {
       toast.error(error.message || "Failed to unblock user");
@@ -135,10 +135,10 @@ export function useFriends() {
 
   // Helper function for searching users
   const searchUsers = (query: string, limit?: number) => {
-    if (!token) return null;
+    if (!isAuthenticated) return null;
     return useQuery(
       api.friends.searchUsers,
-      query.length > 0 ? { token, query, limit } : "skip"
+      query.length > 0 ? { query, limit } : "skip"
     );
   };
 
@@ -155,8 +155,8 @@ export function useFriends() {
     outgoingRequestCount: outgoingRequests?.length || 0,
 
     // Online friends
-    onlineFriends: friends?.filter(f => f.isOnline) || [],
-    onlineCount: friends?.filter(f => f.isOnline).length || 0,
+    onlineFriends: friends?.filter((f: NonNullable<typeof friends>[number]) => f.isOnline) || [],
+    onlineCount: friends?.filter((f: NonNullable<typeof friends>[number]) => f.isOnline).length || 0,
 
     // Loading states
     isLoading: friends === undefined,

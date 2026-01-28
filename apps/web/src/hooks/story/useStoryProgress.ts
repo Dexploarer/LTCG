@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { useAuth } from "@/components/ConvexAuthProvider";
+import { useAuth } from "../auth/useConvexAuthHook";
 import { toast } from "sonner";
 import type { Id } from "@convex/_generated/dataModel";
 
@@ -16,17 +16,17 @@ import type { Id } from "@convex/_generated/dataModel";
  * - Track stars and rewards
  */
 export function useStoryProgress() {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   // Queries
   const progress = useQuery(
     api.story.getPlayerProgress,
-    token ? { token } : "skip"
+    isAuthenticated ? {} : "skip"
   );
 
   const availableChapters = useQuery(
     api.story.getAvailableChapters,
-    token ? { token } : "skip"
+    isAuthenticated ? {} : "skip"
   );
 
   // Mutations
@@ -40,9 +40,9 @@ export function useStoryProgress() {
     chapterNumber: number,
     difficulty: "normal" | "hard" | "legendary"
   ) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!isAuthenticated) throw new Error("Not authenticated");
     try {
-      await startMutation({ token, actNumber, chapterNumber, difficulty });
+      await startMutation({ actNumber, chapterNumber, difficulty });
       toast.success("Chapter started!");
     } catch (error: any) {
       toast.error(error.message || "Failed to start chapter");
@@ -55,10 +55,9 @@ export function useStoryProgress() {
     won: boolean,
     finalLP: number
   ) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!isAuthenticated) throw new Error("Not authenticated");
     try {
       const result = await completeMutation({
-        token,
         attemptId,
         won,
         finalLP,
@@ -74,9 +73,9 @@ export function useStoryProgress() {
   };
 
   const abandonChapter = async (attemptId: Id<"storyBattleAttempts">) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!isAuthenticated) throw new Error("Not authenticated");
     try {
-      await abandonMutation({ token, attemptId });
+      await abandonMutation({ attemptId });
       toast.info("Chapter abandoned");
     } catch (error: any) {
       toast.error(error.message || "Failed to abandon chapter");

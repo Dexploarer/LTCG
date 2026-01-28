@@ -9,4 +9,4 @@
 // Original file backed up to: convex/games.ts.backup
 // ============================================================================
 
-export * from "./games/index";
+export * from "./gameplay/games/index";

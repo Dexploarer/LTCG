@@ -113,7 +113,7 @@ export function GlobalChat() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // Transform Convex messages to ChatMessage format
-  const messages: ChatMessage[] = (convexMessages || []).map((msg) => ({
+  const messages: ChatMessage[] = (convexMessages || []).map((msg: NonNullable<typeof convexMessages>[number]) => ({
     id: msg._id,
     username: msg.username,
     message: msg.message,
@@ -122,7 +122,7 @@ export function GlobalChat() {
   }));
 
   // Transform Convex online users to OnlineUser format
-  const onlineUsers: OnlineUser[] = (convexOnlineUsers || []).map((user) => ({
+  const onlineUsers: OnlineUser[] = (convexOnlineUsers || []).map((user: NonNullable<typeof convexOnlineUsers>[number]) => ({
     id: user.userId,
     username: user.username,
     rank: "Gold", // TODO: Get rank from user profile

@@ -4,9 +4,8 @@
  * Tests XP calculation, level progression, and badge awarding
  */
 
-// @ts-nocheck - convex-test callback typing limitation
 import { describe, it, expect } from "vitest";
-import { createTestInstance } from "../test.setup";
+import { createTestInstance } from "../test_utils/setup";
 import { calculateLevel, getXPForNextLevel, getLevelProgress } from "./xpHelpers";
 import { XP_PER_LEVEL } from "./storyConstants";
 
@@ -138,8 +137,8 @@ describe("addXP", () => {
 
     const xpRecord = await t.run(async (ctx) => {
       return await ctx.db
-        .query("playerXP")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .query("playerXP" as any)
+        .withIndex("by_user" as any, (q: any) => q.eq("userId", userId))
         .first();
     });
 
@@ -180,8 +179,8 @@ describe("addXP", () => {
 
     const badge = await t.run(async (ctx) => {
       return await ctx.db
-        .query("playerBadges")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .query("playerBadges" as any)
+        .withIndex("by_user" as any, (q: any) => q.eq("userId", userId))
         .first();
     });
 
@@ -220,8 +219,8 @@ describe("addXP", () => {
 
     const badges = await t.run(async (ctx) => {
       return await ctx.db
-        .query("playerBadges")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .query("playerBadges" as any)
+        .withIndex("by_user" as any, (q: any) => q.eq("userId", userId))
         .collect();
     });
 
@@ -262,8 +261,8 @@ describe("addXP", () => {
 
     const xpRecord = await t.run(async (ctx) => {
       return await ctx.db
-        .query("playerXP")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .query("playerXP" as any)
+        .withIndex("by_user" as any, (q: any) => q.eq("userId", userId))
         .first();
     });
 
@@ -328,8 +327,8 @@ describe("addXP", () => {
 
     const xpRecord = await t.run(async (ctx) => {
       return await ctx.db
-        .query("playerXP")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .query("playerXP" as any)
+        .withIndex("by_user" as any, (q: any) => q.eq("userId", userId))
         .first();
     });
 

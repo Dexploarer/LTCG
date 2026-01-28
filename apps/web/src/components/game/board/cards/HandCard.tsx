@@ -74,7 +74,7 @@ export function HandCard({
       }}
       whileTap={{ scale: 1.08 }}
       className={cn(
-        "relative w-12 h-16 sm:w-14 sm:h-20 rounded-lg border-2 transition-shadow duration-200",
+        "relative w-12 h-16 sm:w-14 sm:h-20 rounded-lg border-2 transition-all duration-200",
         "bg-gradient-to-br",
         bgColor,
         colors.border,
@@ -82,8 +82,8 @@ export function HandCard({
         isSelected && "ring-2 ring-yellow-400 ring-offset-1 ring-offset-slate-900 z-50",
         isPlayable &&
           !isSelected &&
-          "ring-2 ring-green-400 shadow-lg shadow-green-500/50 animate-pulse",
-        !isPlayable && "opacity-70",
+          "ring-4 ring-green-400/80 shadow-xl shadow-green-500/60 animate-pulse scale-105",
+        !isPlayable && "opacity-60 grayscale-20",
         onClick ? "cursor-pointer" : "cursor-default"
       )}
       style={{
@@ -103,7 +103,7 @@ export function HandCard({
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center p-0.5">
-            {card.cardType === "monster" ? (
+            {card.cardType === "creature" ? (
               <Sparkles className="w-4 h-4 text-slate-500" />
             ) : card.cardType === "spell" ? (
               <FlaskConical className="w-4 h-4 text-green-500/50" />
@@ -123,7 +123,7 @@ export function HandCard({
       <div
         className={cn(
           "absolute top-4 right-0.5 px-0.5 py-0.5 rounded text-[6px] font-bold uppercase",
-          card.cardType === "monster" && "bg-orange-600 text-white",
+          card.cardType === "creature" && "bg-orange-600 text-white",
           card.cardType === "spell" && "bg-green-600 text-white",
           card.cardType === "trap" && "bg-purple-600 text-white",
           card.cardType === "field" && "bg-teal-600 text-white"
@@ -156,8 +156,10 @@ export function HandCard({
 
       {/* Playable indicator */}
       {isPlayable && (
-        <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 bg-green-500 text-white text-[6px] px-1 py-0.5 rounded-full font-bold shadow-lg shadow-green-500/50">
-          PLAY
+        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex flex-col items-center gap-0.5">
+          <div className="bg-linear-to-r from-green-400 to-emerald-500 text-white text-[7px] sm:text-[8px] px-1.5 py-0.5 rounded-full font-bold shadow-lg shadow-green-500/60 animate-pulse">
+            ▶ PLAYABLE
+          </div>
         </div>
       )}
 

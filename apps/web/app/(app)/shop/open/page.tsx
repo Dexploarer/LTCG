@@ -16,7 +16,7 @@ import {
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { useAuth } from "@/components/ConvexAuthProvider";
+import { useAuth } from "@/hooks/auth/useConvexAuthHook";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -119,8 +119,8 @@ export default function PackOpeningPage() {
   const searchParams = useSearchParams();
   const packType = searchParams.get("pack") || "starter";
 
-  const { token } = useAuth();
-  const currentUser = useQuery(api.users.currentUser, token ? { token } : "skip");
+  const { isAuthenticated } = useAuth();
+  const currentUser = useQuery(api.core.users.currentUser, isAuthenticated ? {} : "skip");
 
   const [phase, setPhase] = useState<OpeningPhase>("ready");
   const [cards, setCards] = useState<Card[]>([]);

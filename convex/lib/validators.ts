@@ -15,38 +15,14 @@ import type {
 } from "./types";
 
 /**
- * Validate user session and return authenticated user
+ * DEPRECATED: Use getCurrentUser or requireAuth from convexAuth.ts instead
+ * This function was part of the old token-based auth system and has been removed.
  *
- * @throws Error if authentication fails or session expired
- * @returns User ID and username
+ * Use these instead:
+ * - getCurrentUser(ctx) - returns null if not authenticated
+ * - requireAuthQuery(ctx) - throws if not authenticated (for queries)
+ * - requireAuthMutation(ctx) - throws if not authenticated (for mutations)
  */
-export async function validateSession(
-  ctx: QueryCtx | MutationCtx,
-  token: string
-): Promise<AuthenticatedUser> {
-  if (!token) {
-    throw new Error("Authentication required");
-  }
-
-  const session = await ctx.db
-    .query("sessions")
-    .withIndex("token", (q) => q.eq("token", token))
-    .first();
-
-  if (!session || session.expiresAt < Date.now()) {
-    throw new Error("Session expired or invalid");
-  }
-
-  const user = await ctx.db.get(session.userId);
-  if (!user) {
-    throw new Error("User not found");
-  }
-
-  return {
-    userId: session.userId,
-    username: user.username || user.name || "",
-  };
-}
 
 /**
  * Check if user owns enough of a specific card

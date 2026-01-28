@@ -24,7 +24,13 @@ interface StoryChapterCardProps {
 }
 
 export function StoryChapterCard({ chapter, onClick }: StoryChapterCardProps) {
-  const assetName = chapter.archetype || "infernal_dragons";
+  const assetName = chapter.archetype; // Use the chapter's archetype for the background
+  const isUnlocked = chapter.isUnlocked;
+  const isCompleted = chapter.isCompleted;
+  const chapterName = chapter.name;
+  const chapterDescription = chapter.description;
+  const totalStages = chapter.totalStages;
+  const completedStages = chapter.completedStages;
 
   return (
     <motion.button
@@ -33,11 +39,11 @@ export function StoryChapterCard({ chapter, onClick }: StoryChapterCardProps) {
       onClick={onClick}
       className={cn(
         "relative w-full h-64 text-left group transition-all duration-300",
-        !chapter.isUnlocked && "opacity-80 grayscale"
+        !isUnlocked && "opacity-80 grayscale"
       )}
     >
       <FantasyFrame
-        variant={chapter.isCompleted ? "gold" : chapter.isUnlocked ? "ethereal" : "obsidian"}
+        variant={isCompleted ? "gold" : isUnlocked ? "ethereal" : "obsidian"}
         className="h-full overflow-hidden"
         noPadding
       >
@@ -45,7 +51,7 @@ export function StoryChapterCard({ chapter, onClick }: StoryChapterCardProps) {
         <div className="absolute inset-0">
           <Image
             src={`/assets/story/${assetName}.png`}
-            alt={chapter.name}
+            alt={chapterName}
             fill
             className="object-cover transition-transform duration-700 group-hover:scale-110"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -58,11 +64,11 @@ export function StoryChapterCard({ chapter, onClick }: StoryChapterCardProps) {
         <div className="relative h-full flex flex-col justify-end p-6 z-10">
           {/* Top Right Status */}
           <div className="absolute top-4 right-4">
-            {!chapter.isUnlocked ? (
+            {!isUnlocked ? (
               <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm border border-white/20 flex items-center justify-center">
                 <Lock className="w-5 h-5 text-gray-400" />
               </div>
-            ) : chapter.isCompleted ? (
+            ) : isCompleted ? (
               <div className="w-10 h-10 rounded-full bg-yellow-500/20 backdrop-blur-sm border border-yellow-500/50 flex items-center justify-center shadow-[0_0_15px_rgba(234,179,8,0.3)]">
                 <Trophy className="w-5 h-5 text-yellow-400" />
               </div>
@@ -75,7 +81,7 @@ export function StoryChapterCard({ chapter, onClick }: StoryChapterCardProps) {
               <span className="text-xs font-bold uppercase tracking-wider text-purple-300">
                 Chapter {chapter.order}
               </span>
-              {chapter.isUnlocked && (
+              {isUnlocked && (
                 <div className="flex items-center gap-1 text-xs text-yellow-400 bg-black/40 px-2 py-0.5 rounded-full border border-white/10">
                   <Star className="w-3 h-3 fill-current" />
                   <span>{chapter.starredStages}</span>
@@ -84,33 +90,33 @@ export function StoryChapterCard({ chapter, onClick }: StoryChapterCardProps) {
             </div>
 
             <h3 className="text-2xl font-bold text-white group-hover:text-purple-200 transition-colors">
-              {chapter.name}
+              {chapterName}
             </h3>
 
             <p className="text-sm text-gray-300 line-clamp-2 min-h-[2.5rem]">
-              {!chapter.isUnlocked
-                ? `Requires Level ${chapter.requiredLevel} to unlock.`
-                : chapter.description}
+              {!isUnlocked
+                ? `Reach level ${chapter.requiredLevel} to unlock.`
+                : chapterDescription}
             </p>
 
             {/* Progress Bar */}
-            {chapter.isUnlocked && (
+            {isUnlocked && (
               <div className="mt-4">
                 <div className="flex justify-between text-xs mb-1.5">
                   <span className="text-gray-400">Progress</span>
                   <span className="text-purple-300">
-                    {Math.round((chapter.completedStages / chapter.totalStages) * 100)}%
+                    {Math.round((completedStages / totalStages) * 100)}%
                   </span>
                 </div>
                 <div className="h-1.5 bg-white/10 rounded-full overflow-hidden backdrop-blur-sm">
                   <div
                     className={cn(
                       "h-full rounded-full transition-all duration-500",
-                      chapter.isCompleted
+                      isCompleted
                         ? "bg-gradient-to-r from-yellow-500 to-amber-300"
                         : "bg-gradient-to-r from-purple-500 to-indigo-400"
                     )}
-                    style={{ width: `${(chapter.completedStages / chapter.totalStages) * 100}%` }}
+                    style={{ width: `${(completedStages / totalStages) * 100}%` }}
                   />
                 </div>
               </div>

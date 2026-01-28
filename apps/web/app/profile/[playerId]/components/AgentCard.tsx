@@ -19,7 +19,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useState } from "react";
-import { useAuth } from "@/components/ConvexAuthProvider";
+import { useAuth } from "@/hooks/auth/useConvexAuthHook";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { api } from "../../../../convex/_generated/api";
@@ -60,7 +60,7 @@ const DECK_COLORS: Record<string, string> = {
 };
 
 export function AgentCard({ agent, onDeleted }: AgentCardProps) {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -74,11 +74,10 @@ export function AgentCard({ agent, onDeleted }: AgentCardProps) {
   const deckColor = DECK_COLORS[agent.starterDeckCode] || "text-slate-400";
 
   const handleRegenerate = async () => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setIsRegenerating(true);
     try {
       const result = await regenerateApiKey({
-        token,
         agentId: agent._id,
       });
       setNewApiKey(result.apiKey);
@@ -90,11 +89,10 @@ export function AgentCard({ agent, onDeleted }: AgentCardProps) {
   };
 
   const handleDelete = async () => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setIsDeleting(true);
     try {
       await deleteAgent({
-        token,
         agentId: agent._id,
       });
       onDeleted();

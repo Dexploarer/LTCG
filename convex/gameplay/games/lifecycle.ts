@@ -1,0 +1,507 @@
+import { v } from "convex/values";
+import type { Id } from "../../_generated/dataModel";
+import { mutation, internalMutation } from "../../_generated/server";
+import type { MutationCtx } from "../../_generated/server";
+import { getCurrentUser, requireAuthQuery, requireAuthMutation } from "../../lib/convexAuth";
+import { ErrorCode, createError } from "../../lib/errorCodes";
+import { updatePlayerStatsAfterGame } from "./stats";
+import { recordEventHelper, recordGameEndHelper } from "../gameEvents";
+import { shuffleArray } from "../../lib/deterministicRandom";
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Update user presence status
+ */
+async function updatePresenceInternal(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  username: string,
+  status: "online" | "in_game" | "idle"
+): Promise<void> {
+  const existing = await ctx.db
+    .query("userPresence")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .first();
+
+  if (existing) {
+    await ctx.db.patch(existing._id, {
+      status,
+      lastActiveAt: Date.now(),
+    });
+  } else {
+    await ctx.db.insert("userPresence", {
+      userId,
+      username,
+      status,
+      lastActiveAt: Date.now(),
+    });
+  }
+}
+
+/**
+ * Helper function to initialize game state
+ * Can be called directly from other mutations to avoid ctx.runMutation overhead
+ */
+export async function initializeGameStateHelper(
+  ctx: MutationCtx,
+  params: {
+    lobbyId: Id<"gameLobbies">;
+    gameId: string;
+    hostId: Id<"users">;
+    opponentId: Id<"users">;
+    currentTurnPlayerId: Id<"users">;
+    gameMode?: "pvp" | "story";
+    isAIOpponent?: boolean;
+    aiDifficulty?: "easy" | "normal" | "hard" | "legendary";
+    aiDeck?: Id<"cardDefinitions">[];
+  }
+): Promise<void> {
+  const {
+    lobbyId,
+    gameId,
+    hostId,
+    opponentId,
+    currentTurnPlayerId,
+    gameMode = "pvp",
+    isAIOpponent = false,
+    aiDifficulty,
+    aiDeck,
+  } = params;
+
+  // Get both players and their decks
+  const host = await ctx.db.get(hostId);
+  const opponent = await ctx.db.get(opponentId);
+
+  if (!host || !opponent) {
+    throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
+      reason: "Player not found",
+    });
+  }
+
+  // Build host deck
+  if (!host.activeDeckId) {
+    throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
+      reason: "Host must have an active deck",
+    });
+  }
+
+  const hostActiveDeckId = host.activeDeckId;
+  const hostDeckCards = await ctx.db
+    .query("deckCards")
+    .withIndex("by_deck", (q) => q.eq("deckId", hostActiveDeckId))
+    .collect();
+
+  const hostFullDeck: Id<"cardDefinitions">[] = [];
+  for (const deckCard of hostDeckCards) {
+    for (let i = 0; i < deckCard.quantity; i++) {
+      hostFullDeck.push(deckCard.cardDefinitionId);
+    }
+  }
+
+  // Build opponent deck - use AI deck if provided (story mode)
+  let opponentFullDeck: Id<"cardDefinitions">[];
+  if (isAIOpponent && aiDeck) {
+    // Story mode: use pre-built AI deck
+    opponentFullDeck = aiDeck;
+  } else {
+    // PvP mode: load from opponent's active deck
+    if (!opponent.activeDeckId) {
+      throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
+        reason: "Opponent must have an active deck",
+      });
+    }
+
+    const opponentActiveDeckId = opponent.activeDeckId;
+    const opponentDeckCards = await ctx.db
+      .query("deckCards")
+      .withIndex("by_deck", (q) => q.eq("deckId", opponentActiveDeckId))
+      .collect();
+
+    opponentFullDeck = [];
+    for (const deckCard of opponentDeckCards) {
+      for (let i = 0; i < deckCard.quantity; i++) {
+        opponentFullDeck.push(deckCard.cardDefinitionId);
+      }
+    }
+  }
+
+  // Shuffle decks using deterministic randomness
+  // Use gameId as seed to ensure consistent shuffles on retry
+  const shuffledHostDeck = shuffleArray(hostFullDeck, `${gameId}-host-deck`);
+  const shuffledOpponentDeck = shuffleArray(opponentFullDeck, `${gameId}-opponent-deck`);
+
+  // Draw initial hands (5 cards each)
+  const INITIAL_HAND_SIZE = 5;
+  const hostHand = shuffledHostDeck.slice(0, INITIAL_HAND_SIZE);
+  const opponentHand = shuffledOpponentDeck.slice(0, INITIAL_HAND_SIZE);
+  const hostDeck = shuffledHostDeck.slice(INITIAL_HAND_SIZE);
+  const opponentDeck = shuffledOpponentDeck.slice(INITIAL_HAND_SIZE);
+
+  // Create initial game state
+  const now = Date.now();
+  await ctx.db.insert("gameStates", {
+    lobbyId,
+    gameId,
+    hostId,
+    opponentId,
+
+    // Initial hands
+    hostHand,
+    opponentHand,
+
+    // Empty monster boards
+    hostBoard: [],
+    opponentBoard: [],
+
+    // Empty spell/trap zones
+    hostSpellTrapZone: [],
+    opponentSpellTrapZone: [],
+
+    // Empty field spell zones
+    hostFieldSpell: undefined,
+    opponentFieldSpell: undefined,
+
+    // Remaining decks
+    hostDeck,
+    opponentDeck,
+
+    // Empty graveyards
+    hostGraveyard: [],
+    opponentGraveyard: [],
+
+    // Empty banished zones
+    hostBanished: [],
+    opponentBanished: [],
+
+    // Initial resources (Yu-Gi-Oh: 8000 LP, no mana system)
+    hostLifePoints: 8000,
+    opponentLifePoints: 8000,
+    hostMana: 0,
+    opponentMana: 0,
+
+    // Turn tracking
+    currentTurnPlayerId,
+    turnNumber: 1,
+
+    // Phase Management (start in Main Phase 1, since starting hand is already dealt)
+    currentPhase: "main1",
+
+    // Turn Flags (no normal summons yet)
+    hostNormalSummonedThisTurn: false,
+    opponentNormalSummonedThisTurn: false,
+
+    // Chain State (empty chain)
+    currentChain: [],
+
+    // Priority System (turn player has priority)
+    currentPriorityPlayer: currentTurnPlayerId,
+
+    // Temporary Modifiers (none at start)
+    temporaryModifiers: [],
+
+    // OPT Tracking (none at start)
+    optUsedThisTurn: [],
+
+    // AI & Story Mode
+    gameMode,
+    isAIOpponent,
+    aiDifficulty,
+
+    // Timestamps
+    lastMoveAt: now,
+    createdAt: now,
+  });
+}
+
+// ============================================================================
+// GAME LIFECYCLE MUTATIONS
+// ============================================================================
+
+/**
+ * Initialize game state for a new game (internal mutation)
+ *
+ * Creates the gameStates document with:
+ * - Loaded and shuffled decks from both players
+ * - Initial 5-card hands
+ * - Empty boards and graveyards
+ * - Starting LP and mana
+ * - Phase/chain/flag initialization
+ */
+export const initializeGameState = internalMutation({
+  args: {
+    lobbyId: v.id("gameLobbies"),
+    gameId: v.string(),
+    hostId: v.id("users"),
+    opponentId: v.id("users"),
+    currentTurnPlayerId: v.id("users"),
+  },
+  handler: async (ctx, params) => {
+    await initializeGameStateHelper(ctx, params);
+  },
+});
+
+/**
+ * Surrender/forfeit the current game (user-initiated)
+ */
+export const surrenderGame = mutation({
+  args: {
+    
+    lobbyId: v.id("gameLobbies"),
+  },
+  handler: async (ctx, args) => {
+    const { userId, username } = await requireAuthMutation(ctx);
+
+    // Get lobby
+    const lobby = await ctx.db.get(args.lobbyId);
+    if (!lobby) {
+      throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
+reason: "Game not found",
+    });
+    }
+
+    // Verify game is active
+    if (lobby.status !== "active") {
+      throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
+reason: "Game is not active",
+    });
+    }
+
+    // Verify user is in this game
+    if (lobby.hostId !== userId && lobby.opponentId !== userId) {
+      throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
+reason: "You are not in this game",
+    });
+    }
+
+    // Determine winner (the player who didn't surrender)
+    const winnerId = userId === lobby.hostId ? lobby.opponentId : lobby.hostId;
+
+    if (!winnerId) {
+      throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
+reason: "Cannot determine winner",
+    });
+    }
+
+    // Update lobby
+    await ctx.db.patch(args.lobbyId, {
+      status: "forfeited",
+      winnerId,
+    });
+
+    // Update both players' presence to online
+    await updatePresenceInternal(ctx, lobby.hostId, lobby.hostUsername, "online");
+
+    if (lobby.opponentId && lobby.opponentUsername) {
+      await updatePresenceInternal(ctx, lobby.opponentId, lobby.opponentUsername, "online");
+    }
+
+    // Update player stats and ratings (surrender counts as a loss)
+    if (lobby.opponentId) {
+      const gameMode = lobby.mode as "ranked" | "casual";
+      await updatePlayerStatsAfterGame(ctx, winnerId, userId, gameMode);
+    }
+
+    // Clean up game state (no longer needed after game ends)
+    const gameState = await ctx.db
+      .query("gameStates")
+      .withIndex("by_lobby", (q) => q.eq("lobbyId", args.lobbyId))
+      .first();
+
+    if (gameState) {
+      await ctx.db.delete(gameState._id);
+    }
+
+    return { success: true };
+  },
+});
+
+/**
+ * Update turn (internal mutation, called by game engine when player makes a move)
+ */
+export const updateTurn = internalMutation({
+  args: {
+    lobbyId: v.id("gameLobbies"),
+    newTurnPlayerId: v.id("users"),
+    turnNumber: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const lobby = await ctx.db.get(args.lobbyId);
+    if (!lobby) {
+      throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
+reason: "Lobby not found",
+    });
+    }
+
+    if (lobby.status !== "active") {
+      throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
+reason: "Game is not active",
+    });
+    }
+
+    const now = Date.now();
+
+    // Update lobby with new turn info
+    await ctx.db.patch(args.lobbyId, {
+      currentTurnPlayerId: args.newTurnPlayerId,
+      turnStartedAt: now,
+      lastMoveAt: now,
+      turnNumber: args.turnNumber,
+    });
+
+    // Record turn start event for spectators
+    if (lobby.gameId) {
+      const currentPlayer = await ctx.db.get(args.newTurnPlayerId);
+      if (currentPlayer) {
+        const username = currentPlayer.username || currentPlayer.name || "Unknown";
+        await recordEventHelper(ctx, {
+          lobbyId: args.lobbyId,
+          gameId: lobby.gameId,
+          turnNumber: args.turnNumber,
+          eventType: "turn_start",
+          playerId: args.newTurnPlayerId,
+          playerUsername: username,
+          description: `Turn ${args.turnNumber} - ${username}'s turn`,
+        });
+      }
+    }
+  },
+});
+
+/**
+ * Forfeit a game due to timeout or manual forfeit
+ */
+export const forfeitGame = internalMutation({
+  args: {
+    lobbyId: v.id("gameLobbies"),
+    forfeitingPlayerId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const lobby = await ctx.db.get(args.lobbyId);
+    if (!lobby) {
+      throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
+reason: "Lobby not found",
+    });
+    }
+
+    if (lobby.status !== "active") {
+      throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
+reason: "Game is not active",
+    });
+    }
+
+    // Determine winner (the player who didn't forfeit)
+    const winnerId =
+      args.forfeitingPlayerId === lobby.hostId ? lobby.opponentId : lobby.hostId;
+
+    if (!winnerId) {
+      throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
+reason: "Cannot determine winner",
+    });
+    }
+
+    // Update lobby
+    await ctx.db.patch(args.lobbyId, {
+      status: "forfeited",
+      winnerId,
+    });
+
+    // Update both players' presence to online
+    await updatePresenceInternal(ctx, lobby.hostId, lobby.hostUsername, "online");
+
+    if (lobby.opponentId && lobby.opponentUsername) {
+      await updatePresenceInternal(ctx, lobby.opponentId, lobby.opponentUsername, "online");
+    }
+
+    // Update player stats and ratings (forfeit counts as a loss)
+    if (lobby.opponentId) {
+      const gameMode = lobby.mode as "ranked" | "casual";
+      await updatePlayerStatsAfterGame(ctx, winnerId, args.forfeitingPlayerId, gameMode);
+    }
+
+    // Clean up game state (no longer needed after game ends)
+    const gameState = await ctx.db
+      .query("gameStates")
+      .withIndex("by_lobby", (q) => q.eq("lobbyId", args.lobbyId))
+      .first();
+
+    if (gameState) {
+      await ctx.db.delete(gameState._id);
+    }
+  },
+});
+
+/**
+ * Complete a game (internal mutation, called by game engine)
+ */
+export const completeGame = internalMutation({
+  args: {
+    lobbyId: v.id("gameLobbies"),
+    winnerId: v.id("users"),
+    finalTurnNumber: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const lobby = await ctx.db.get(args.lobbyId);
+    if (!lobby) {
+      throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
+reason: "Lobby not found",
+    });
+    }
+
+    // Update lobby
+    await ctx.db.patch(args.lobbyId, {
+      status: "completed",
+      turnNumber: args.finalTurnNumber,
+      winnerId: args.winnerId,
+    });
+
+    // Update both players' presence to online
+    const hostUser = await ctx.db.get(lobby.hostId);
+    if (hostUser) {
+      await updatePresenceInternal(ctx, lobby.hostId, lobby.hostUsername, "online");
+    }
+
+    if (lobby.opponentId) {
+      const opponentUser = await ctx.db.get(lobby.opponentId);
+      if (opponentUser && lobby.opponentUsername) {
+        await updatePresenceInternal(ctx, lobby.opponentId, lobby.opponentUsername, "online");
+      }
+    }
+
+    // Update player stats and ratings
+    if (lobby.opponentId) {
+      const loserId = args.winnerId === lobby.hostId ? lobby.opponentId : lobby.hostId;
+      const gameMode = lobby.mode as "ranked" | "casual";
+      await updatePlayerStatsAfterGame(ctx, args.winnerId, loserId, gameMode);
+
+      // Record game end event for spectators
+      if (lobby.gameId) {
+        const winner = await ctx.db.get(args.winnerId);
+        const loser = await ctx.db.get(loserId);
+        if (winner && loser) {
+          await recordGameEndHelper(ctx, {
+            lobbyId: args.lobbyId,
+            gameId: lobby.gameId,
+            turnNumber: args.finalTurnNumber,
+            winnerId: args.winnerId,
+            winnerUsername: winner.username || winner.name || "Unknown",
+            loserId,
+            loserUsername: loser.username || loser.name || "Unknown",
+          });
+        }
+      }
+    }
+
+    // Clean up game state (no longer needed after game ends)
+    const gameState = await ctx.db
+      .query("gameStates")
+      .withIndex("by_lobby", (q) => q.eq("lobbyId", args.lobbyId))
+      .first();
+
+    if (gameState) {
+      await ctx.db.delete(gameState._id);
+    }
+  },
+});

@@ -3,6 +3,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Shield, Sword, X } from "lucide-react";
 import Image from "next/image";
+import { useState, useEffect } from "react";
+import type { Id } from "@convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import type { CardInZone } from "../hooks/useGameBoard";
 
@@ -13,7 +15,9 @@ interface SummonModalProps {
   canSummonDefense: boolean;
   canSet: boolean;
   canActivate?: boolean;
-  onSummon: (position: "attack" | "defense") => void;
+  availableTributes?: CardInZone[];
+  tributesRequired?: number;
+  onSummon: (position: "attack" | "defense", tributeIds?: Id<"cardDefinitions">[]) => void;
   onSet: () => void;
   onActivate?: () => void;
   onClose: () => void;
@@ -26,12 +30,80 @@ export function SummonModal({
   canSummonDefense,
   canSet,
   canActivate = false,
+  availableTributes = [],
+  tributesRequired = 0,
   onSummon,
   onSet,
   onActivate,
   onClose,
 }: SummonModalProps) {
+  const [selectedTributes, setSelectedTributes] = useState<Set<Id<"cardDefinitions">>>(new Set());
+  const [showTributeSelection, setShowTributeSelection] = useState(false);
+  const [pendingSummonPosition, setPendingSummonPosition] = useState<"attack" | "defense" | null>(null);
+
+  // Reset tribute selection state when modal opens/closes or card changes
+  useEffect(() => {
+    if (!isOpen || !card) {
+      setSelectedTributes(new Set());
+      setShowTributeSelection(false);
+      setPendingSummonPosition(null);
+    }
+  }, [isOpen, card?.instanceId]);
+
+  // Debug logging for tribute selection
+  useEffect(() => {
+    if (isOpen && card && tributesRequired > 0) {
+      console.log('[SummonModal] Tribute summon debug:', {
+        cardName: card.name,
+        cardLevel: card.monsterStats?.level,
+        tributesRequired,
+        availableTributes: availableTributes.length,
+        tributesList: availableTributes.map(t => ({ name: t.name, id: t.cardId, instanceId: t.instanceId })),
+        showTributeSelection,
+        selectedTributes: Array.from(selectedTributes),
+      });
+    }
+  }, [isOpen, card, tributesRequired, availableTributes, showTributeSelection, selectedTributes]);
+
   if (!card) return null;
+
+  const hasAnyAction = canSummonAttack || canSummonDefense || canSet || canActivate;
+  const needsTributes = tributesRequired > 0;
+  const hasEnoughTributes = availableTributes.length >= tributesRequired;
+  const canProceedWithSummon = !needsTributes || selectedTributes.size >= tributesRequired;
+  const canAttemptTributeSummon = !needsTributes || hasEnoughTributes;
+
+  const handleSummonClick = (position: "attack" | "defense") => {
+    // Prevent summon if tributes are needed but not available
+    if (needsTributes && !hasEnoughTributes) {
+      return;
+    }
+
+    if (needsTributes && availableTributes.length > 0) {
+      // Show tribute selection screen
+      setPendingSummonPosition(position);
+      setShowTributeSelection(true);
+    } else {
+      // Summon directly (no tributes needed)
+      onSummon(position, []);
+    }
+  };
+
+  const handleConfirmTributes = () => {
+    if (pendingSummonPosition && canProceedWithSummon) {
+      onSummon(pendingSummonPosition, Array.from(selectedTributes));
+    }
+  };
+
+  const toggleTribute = (cardId: Id<"cardDefinitions">) => {
+    const newSelected = new Set(selectedTributes);
+    if (newSelected.has(cardId)) {
+      newSelected.delete(cardId);
+    } else if (newSelected.size < tributesRequired) {
+      newSelected.add(cardId);
+    }
+    setSelectedTributes(newSelected);
+  };
 
   return (
     <AnimatePresence>
@@ -42,7 +114,7 @@ export function SummonModal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-40"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40"
             onClick={onClose}
           />
 
@@ -51,41 +123,83 @@ export function SummonModal({
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-xs"
+            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-md"
           >
-            <div className="bg-background border rounded-xl shadow-2xl p-3">
+            <div className="bg-[#1a1614] border-2 border-[#3d2b1f] rounded-xl shadow-2xl p-6">
               {/* Header */}
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h3 className="font-semibold text-sm">{card.name}</h3>
-                  {card.monsterStats && (
-                    <p className="text-xs text-muted-foreground">
-                      Lv.{card.monsterStats.level} | ATK {card.monsterStats.attack} / DEF{" "}
-                      {card.monsterStats.defense}
-                    </p>
-                  )}
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <h3 className="font-bold text-lg text-[#e8e0d5] mb-1">{card.name}</h3>
+                  <div className="flex items-center gap-3 text-sm">
+                    <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-medium capitalize">
+                      {card.cardType}
+                    </span>
+                    {card.monsterStats && (
+                      <span className="text-[#a89f94]">
+                        Lv.{card.monsterStats.level}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <Button size="icon" variant="ghost" onClick={onClose} className="h-7 w-7">
-                  <X className="h-3 w-3" />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={onClose}
+                  className="h-8 w-8 text-[#a89f94] hover:text-[#e8e0d5] hover:bg-[#3d2b1f]"
+                >
+                  <X className="h-4 w-4" />
                 </Button>
               </div>
 
-              {/* Card Preview */}
-              <div className="flex justify-center mb-3">
-                <div className="w-20 h-28 rounded-lg border-2 overflow-hidden">
+              {/* Card Preview & Stats */}
+              <div className="flex gap-4 mb-4">
+                <div className="w-32 h-44 rounded-lg border-2 border-[#3d2b1f] overflow-hidden shrink-0">
                   {card.imageUrl ? (
                     <Image
                       src={card.imageUrl}
                       alt={card.name}
-                      width={80}
-                      height={112}
+                      width={128}
+                      height={176}
                       className="w-full h-full object-cover"
                     />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-amber-600 to-amber-800 flex items-center justify-center">
-                      <span className="text-[10px] text-white/80 text-center px-2">
+                      <span className="text-sm text-white/80 text-center px-2">
                         {card.name}
                       </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 space-y-3">
+                  {/* Monster Stats */}
+                  {card.monsterStats && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between p-2 bg-red-500/10 border border-red-500/30 rounded">
+                        <div className="flex items-center gap-2">
+                          <Sword className="w-4 h-4 text-red-400" />
+                          <span className="text-xs text-[#a89f94]">Attack</span>
+                        </div>
+                        <span className="font-bold text-red-400">{card.monsterStats.attack}</span>
+                      </div>
+                      <div className="flex items-center justify-between p-2 bg-blue-500/10 border border-blue-500/30 rounded">
+                        <div className="flex items-center gap-2">
+                          <Shield className="w-4 h-4 text-blue-400" />
+                          <span className="text-xs text-[#a89f94]">Defense</span>
+                        </div>
+                        <span className="font-bold text-blue-400">{card.monsterStats.defense}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Card Type Info */}
+                  {!card.monsterStats && (
+                    <div className="p-3 bg-[#3d2b1f]/30 border border-[#3d2b1f] rounded text-center">
+                      <p className="text-xs text-[#a89f94]">
+                        {card.cardType === "spell" && "This spell card can be activated or set face-down"}
+                        {card.cardType === "trap" && "This trap card must be set face-down before activation"}
+                        {card.cardType === "field" && "This field spell affects the entire battlefield"}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -93,105 +207,232 @@ export function SummonModal({
 
               {/* Card Effects */}
               {card.effects && card.effects.length > 0 && (
-                <div className="mb-3 max-h-24 overflow-y-auto space-y-1">
+                <div className="mb-4 max-h-32 overflow-y-auto space-y-2 p-3 bg-[#0d0a09] border border-[#3d2b1f] rounded">
+                  <p className="text-xs font-semibold text-amber-400 mb-2">Card Effects:</p>
                   {card.effects.map((effect, index) => (
-                    <div key={`effect-${effect.name}-${index}`} className="p-2 border rounded-md bg-muted/30 text-xs">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="font-medium">{effect.name}</span>
+                    <div key={`effect-${effect.name}-${index}`} className="text-xs text-[#a89f94]">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-[#e8e0d5]">{effect.name}</span>
                         {effect.effectType && (
-                          <span className="text-[10px] px-1 py-0.5 bg-primary/10 text-primary rounded">
+                          <span className="text-[10px] px-1.5 py-0.5 bg-amber-500/20 text-amber-400 rounded">
                             {effect.effectType}
                           </span>
                         )}
                       </div>
-                      <p className="text-muted-foreground text-[10px]">{effect.description}</p>
+                      <p className="text-[11px] leading-relaxed">{effect.description}</p>
                     </div>
                   ))}
                 </div>
               )}
 
-              {/* Summon Options */}
-              <div className="space-y-1.5">
-                <p className="text-xs text-muted-foreground text-center mb-2">
-                  Choose how to play this card
-                </p>
+              {/* Play Options */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-semibold text-[#e8e0d5]">
+                    How would you like to play this card?
+                  </p>
+                </div>
 
-                {/* Activate */}
+                {!hasAnyAction && (
+                  <div className="p-4 bg-red-500/10 border border-red-500/30 rounded text-center mb-3">
+                    <p className="text-sm text-red-400 font-medium mb-1">Cannot Play Right Now</p>
+                    <p className="text-xs text-[#a89f94]">
+                      This card cannot be played during this phase or you don't have the required resources.
+                    </p>
+                  </div>
+                )}
+
+                {/* Activate Spell/Trap - PRIMARY ACTION */}
                 {canActivate && (
+                  <div className="relative">
+                    <Button
+                      className="w-full justify-start gap-3 h-auto py-4 bg-linear-to-r from-amber-500/30 to-yellow-500/30 hover:from-amber-500/40 hover:to-yellow-500/40 border-2 border-amber-400 hover:border-amber-300 shadow-lg shadow-amber-500/20"
+                      variant="outline"
+                      onClick={() => {
+                        console.log("Activating card:", card.name);
+                        onActivate?.();
+                      }}
+                    >
+                      <div className="h-8 w-8 rounded-full bg-amber-500/50 flex items-center justify-center font-bold text-lg shadow-inner">
+                        ✨
+                      </div>
+                      <div className="text-left flex-1">
+                        <div className="font-bold text-base text-amber-100 flex items-center gap-2">
+                          Activate Effect
+                          <span className="text-[9px] px-1.5 py-0.5 bg-green-500/80 text-white rounded-full font-semibold">
+                            RECOMMENDED
+                          </span>
+                        </div>
+                        <div className="text-xs text-amber-200/90 font-medium">
+                          Play this card and trigger its effects immediately
+                        </div>
+                      </div>
+                    </Button>
+                    {/* Pulsing indicator for primary action */}
+                    <div className="absolute inset-0 rounded-lg border-2 border-amber-400/50 animate-pulse pointer-events-none" />
+                  </div>
+                )}
+
+                {/* Tribute Warning/Error */}
+                {needsTributes && !showTributeSelection && (
+                  <div className={`p-3 border rounded mb-2 ${
+                    hasEnoughTributes
+                      ? "bg-yellow-500/10 border-yellow-500/30"
+                      : "bg-red-500/10 border-red-500/30"
+                  }`}>
+                    <p className={`text-sm font-medium mb-1 ${
+                      hasEnoughTributes ? "text-yellow-400" : "text-red-400"
+                    }`}>
+                      {hasEnoughTributes ? "Tribute Required" : "Cannot Summon"}
+                    </p>
+                    <p className="text-xs text-[#a89f94]">
+                      {hasEnoughTributes
+                        ? `This Level ${card.monsterStats?.level} monster requires ${tributesRequired} tribute${tributesRequired > 1 ? "s" : ""}. Click a summon button to select monsters to tribute.`
+                        : `This Level ${card.monsterStats?.level} monster requires ${tributesRequired} tribute${tributesRequired > 1 ? "s" : ""}, but you only have ${availableTributes.length} monster${availableTributes.length !== 1 ? "s" : ""} on the field. Summon more monsters first.`
+                      }
+                    </p>
+                  </div>
+                )}
+
+                {/* Summon Attack */}
+                {canSummonAttack && !showTributeSelection && (
                   <Button
-                    className="w-full justify-start gap-2 h-auto py-2"
+                    className="w-full justify-start gap-3 h-auto py-3 bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50 hover:border-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     variant="outline"
-                    onClick={onActivate}
+                    onClick={() => handleSummonClick("attack")}
+                    disabled={!canAttemptTributeSummon}
                   >
-                    <div className="h-4 w-4 rounded-full bg-primary/20 flex items-center justify-center font-bold text-[8px]">
-                      ✨
-                    </div>
-                    <div className="text-left">
-                      <div className="font-medium text-xs text-amber-200">Activate Effect</div>
-                      <div className="text-[10px] text-muted-foreground">
-                        Play this card and trigger its effects
+                    <Sword className="h-6 w-6 text-red-400" />
+                    <div className="text-left flex-1">
+                      <div className="font-bold text-sm text-[#e8e0d5]">Attack Position</div>
+                      <div className="text-xs text-[#a89f94]">
+                        Summon face-up (ATK: {card.monsterStats?.attack ?? 0})
+                        {needsTributes && hasEnoughTributes && ` - Select ${tributesRequired} tribute${tributesRequired > 1 ? "s" : ""}`}
                       </div>
                     </div>
                   </Button>
                 )}
 
-                {/* Attack Position */}
-                {canSummonAttack && (
+                {/* Summon Defense */}
+                {canSummonDefense && !showTributeSelection && (
                   <Button
-                    className="w-full justify-start gap-2 h-auto py-2"
+                    className="w-full justify-start gap-3 h-auto py-3 bg-blue-500/20 hover:bg-blue-500/30 border-2 border-blue-500/50 hover:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     variant="outline"
-                    onClick={() => onSummon("attack")}
+                    onClick={() => handleSummonClick("defense")}
+                    disabled={!canAttemptTributeSummon}
                   >
-                    <Sword className="h-4 w-4 text-red-500" />
-                    <div className="text-left">
-                      <div className="font-medium text-xs">Summon in Attack Position</div>
-                      <div className="text-[10px] text-muted-foreground">
-                        ATK: {card.monsterStats?.attack ?? 0}
+                    <Shield className="h-6 w-6 text-blue-400" />
+                    <div className="text-left flex-1">
+                      <div className="font-bold text-sm text-[#e8e0d5]">Defense Position</div>
+                      <div className="text-xs text-[#a89f94]">
+                        Summon face-up (DEF: {card.monsterStats?.defense ?? 0})
+                        {needsTributes && hasEnoughTributes && ` - Select ${tributesRequired} tribute${tributesRequired > 1 ? "s" : ""}`}
                       </div>
                     </div>
                   </Button>
                 )}
 
-                {/* Defense Position */}
-                {canSummonDefense && (
-                  <Button
-                    className="w-full justify-start gap-2 h-auto py-2"
-                    variant="outline"
-                    onClick={() => onSummon("defense")}
-                  >
-                    <Shield className="h-4 w-4 text-blue-500" />
-                    <div className="text-left">
-                      <div className="font-medium text-xs">Summon in Defense Position</div>
-                      <div className="text-[10px] text-muted-foreground">
-                        DEF: {card.monsterStats?.defense ?? 0}
-                      </div>
-                    </div>
-                  </Button>
-                )}
-
-                {/* Set face-down */}
+                {/* Set Face-Down - Secondary Option */}
                 {canSet && (
-                  <Button
-                    className="w-full justify-start gap-2 h-auto py-2"
-                    variant="outline"
-                    onClick={onSet}
-                  >
-                    <div className="h-4 w-4 rounded border-2 border-dashed border-muted-foreground" />
-                    <div className="text-left">
-                      <div className="font-medium text-xs">Set Face-Down</div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {card.cardType === "monster"
-                          ? "Place in defense position face-down"
-                          : "Place face-down in the backrow"}
+                  <>
+                    {canActivate && (
+                      <div className="flex items-center gap-2 my-3">
+                        <div className="flex-1 h-px bg-[#3d2b1f]" />
+                        <span className="text-[10px] text-[#a89f94] uppercase tracking-wider">Or</span>
+                        <div className="flex-1 h-px bg-[#3d2b1f]" />
                       </div>
-                    </div>
-                  </Button>
+                    )}
+                    <Button
+                      className="w-full justify-start gap-3 h-auto py-2.5 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 hover:border-purple-500/40"
+                      variant="outline"
+                      onClick={() => {
+                        console.log("Setting face-down:", card.name);
+                        onSet();
+                      }}
+                    >
+                      <div className="h-5 w-5 rounded border border-dashed border-purple-400/60" />
+                      <div className="text-left flex-1">
+                        <div className="font-medium text-sm text-[#e8e0d5]">Set Face-Down</div>
+                        <div className="text-[11px] text-[#a89f94]">
+                          {card.cardType === "creature"
+                            ? "Place in defense position (hidden)"
+                            : "Save for later - hidden until you choose to activate"}
+                        </div>
+                      </div>
+                    </Button>
+                  </>
                 )}
 
-                {/* Cancel */}
-                <Button className="w-full mt-2" variant="ghost" onClick={onClose} size="sm">
-                  Cancel
-                </Button>
+                {/* Tribute Selection UI */}
+                {showTributeSelection && (
+                  <>
+                    <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded mb-3">
+                      <p className="text-sm text-yellow-400 font-medium mb-2">
+                        Select {tributesRequired} Monster{tributesRequired > 1 ? "s" : ""} to Tribute
+                      </p>
+                      <p className="text-xs text-[#a89f94] mb-3">
+                        Selected: {selectedTributes.size} / {tributesRequired}
+                      </p>
+
+                      <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                        {availableTributes.map((tribute) => {
+                          const isSelected = selectedTributes.has(tribute.cardId);
+                          return (
+                            <button
+                              key={tribute.instanceId}
+                              type="button"
+                              onClick={() => toggleTribute(tribute.cardId)}
+                              className={`p-2 rounded border-2 transition-all ${
+                                isSelected
+                                  ? "border-yellow-500 bg-yellow-500/20"
+                                  : "border-[#3d2b1f] bg-[#3d2b1f]/30 hover:bg-[#3d2b1f]/50"
+                              }`}
+                            >
+                              <p className="text-xs font-medium text-[#e8e0d5] truncate">
+                                {tribute.name}
+                              </p>
+                              <p className="text-[10px] text-[#a89f94]">
+                                Lv.{tribute.monsterStats?.level} - ATK:{tribute.monsterStats?.attack}
+                              </p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <Button
+                      className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold mb-2"
+                      onClick={handleConfirmTributes}
+                      disabled={!canProceedWithSummon}
+                    >
+                      Confirm Tribute Summon
+                    </Button>
+
+                    <Button
+                      className="w-full bg-[#3d2b1f] hover:bg-[#4d3b2f] text-[#e8e0d5] font-medium"
+                      onClick={() => {
+                        setShowTributeSelection(false);
+                        setSelectedTributes(new Set());
+                        setPendingSummonPosition(null);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                )}
+
+                {/* Back to Hand */}
+                {!showTributeSelection && (
+                  <Button
+                    className="w-full mt-3 bg-[#3d2b1f] hover:bg-[#4d3b2f] text-[#e8e0d5] font-medium"
+                    onClick={() => {
+                      console.log("Closing card modal - back to hand");
+                      onClose();
+                    }}
+                  >
+                    Back to Hand
+                  </Button>
+                )}
               </div>
             </div>
           </motion.div>

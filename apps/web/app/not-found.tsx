@@ -16,7 +16,7 @@ export default function NotFound() {
   return (
     <div className="min-h-screen bg-[#0d0a09] relative overflow-hidden flex items-center justify-center">
       {/* Background Effects */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-purple-900/20 via-[#0d0a09] to-[#0d0a09]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,var(--tw-gradient-stops))] from-purple-900/20 via-[#0d0a09] to-[#0d0a09]" />
       <div className="absolute inset-0 bg-[url('/assets/backgrounds/noise.png')] opacity-5" />
 
       {/* Floating particles - only render on client to avoid hydration mismatch */}
@@ -52,7 +52,7 @@ export default function NotFound() {
           transition={{ duration: 0.5 }}
           className="relative mb-8"
         >
-          <span className="text-[150px] sm:text-[200px] font-black text-transparent bg-clip-text bg-gradient-to-b from-[#d4af37] to-[#8b4513] opacity-20 leading-none">
+          <span className="text-[150px] sm:text-[200px] font-black text-transparent bg-clip-text bg-linear-to-b from-[#d4af37] to-[#8b4513] opacity-20 leading-none">
             404
           </span>
           <div className="absolute inset-0 flex items-center justify-center">
@@ -89,7 +89,7 @@ export default function NotFound() {
         >
           <Button
             asChild
-            className="w-full sm:w-auto bg-gradient-to-r from-[#8b4513] via-[#d4af37] to-[#8b4513] hover:from-[#a0522d] hover:via-[#f9e29f] hover:to-[#a0522d] text-white font-bold px-8 py-6"
+            className="w-full sm:w-auto bg-linear-to-r from-[#8b4513] via-[#d4af37] to-[#8b4513] hover:from-[#a0522d] hover:via-[#f9e29f] hover:to-[#a0522d] text-white font-bold px-8 py-6"
           >
             <Link href="/">
               <Home className="w-5 h-5 mr-2" />

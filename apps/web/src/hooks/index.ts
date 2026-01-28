@@ -6,7 +6,7 @@
  */
 
 // Auth Hooks
-export { useSession } from "./auth/useSession";
+// Use useAuthActions from "@convex-dev/auth/react" and Authenticated/Unauthenticated from "convex/react" directly
 
 // Game Hooks
 export { useGameLobby } from "./game/useGameLobby";
@@ -35,3 +35,7 @@ export { useFriends } from "./social/useFriends";
 export { useStoryProgress } from "./story/useStoryProgress";
 export { usePlayerXP } from "./story/usePlayerXP";
 export { useBadges } from "./story/useBadges";
+
+// Progression Hooks
+export { useQuests } from "./progression/useQuests";
+export { useAchievements } from "./progression/useAchievements";

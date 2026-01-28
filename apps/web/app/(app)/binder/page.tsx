@@ -22,6 +22,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { Authenticated, AuthLoading } from "convex/react";
 import { cn } from "@/lib/utils";
 import {
   BinderCard,
@@ -71,6 +72,26 @@ const ELEMENT_CONFIG: Record<Element, { icon: typeof Flame; color: string }> = {
 };
 
 export default function BinderPage() {
+  return (
+    <>
+      <AuthLoading>
+        <div className="min-h-screen flex items-center justify-center bg-[#0d0a09]">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="w-10 h-10 text-[#d4af37] animate-spin" />
+            <p className="text-[#a89f94] text-sm uppercase tracking-widest font-bold">
+              Opening the Binder...
+            </p>
+          </div>
+        </div>
+      </AuthLoading>
+      <Authenticated>
+        <BinderContent />
+      </Authenticated>
+    </>
+  );
+}
+
+function BinderContent() {
   const { profile: currentUser } = useProfile();
   const { userCards, toggleFavorite: toggleFavoriteAction } = useCardBinder();
   const {
@@ -109,8 +130,9 @@ export default function BinderPage() {
 
   // Convert API data to CardData format
   const cards: CardData[] = useMemo(() => {
+    console.log("🎴 Raw userCards from API:", userCards);
     if (!userCards) return [];
-    return userCards.map((card) => ({
+    const converted = userCards.map((card: (typeof userCards)[number]) => ({
       id: card.id,
       cardDefinitionId: card.cardDefinitionId,
       name: card.name,
@@ -126,12 +148,18 @@ export default function BinderPage() {
       owned: card.owned,
       isFavorite: card.isFavorite,
     }));
+    console.log("🎴 Converted cards:", converted.length, "cards");
+    console.log("🎴 First card sample:", converted[0]);
+    console.log("🖼️ First card imageUrl:", converted[0]?.imageUrl);
+    console.log("🖼️ ImageUrl type:", typeof converted[0]?.imageUrl);
+    console.log("🖼️ ImageUrl value (raw):", JSON.stringify(converted[0]?.imageUrl));
+    return converted;
   }, [userCards]);
 
   // Get selected deck details
   const selectedDeck = useMemo(() => {
     if (!selectedDeckId || !userDecks) return null;
-    return userDecks.find((d) => d.id === selectedDeckId) || null;
+    return userDecks.find((d: (typeof userDecks)[number]) => d.id === selectedDeckId) || null;
   }, [selectedDeckId, userDecks]);
 
   // Reset scroll on mount
@@ -141,6 +169,7 @@ export default function BinderPage() {
 
   // Filter and sort cards
   const filteredCards = useMemo(() => {
+    console.log("🔍 Starting filter with", cards.length, "cards");
     let filtered = [...cards];
 
     if (searchQuery) {
@@ -399,19 +428,6 @@ export default function BinderPage() {
       console.error("Failed to set active deck:", error);
     }
   };
-
-  if (!currentUser) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0d0a09]">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-10 h-10 text-[#d4af37] animate-spin" />
-          <p className="text-[#a89f94] text-sm uppercase tracking-widest font-bold">
-            Opening the Binder...
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-collection">

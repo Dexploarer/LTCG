@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { useAuth } from "@/components/ConvexAuthProvider";
+import { useAuth } from "../auth/useConvexAuthHook";
 
 /**
  * useBadges Hook
@@ -12,11 +12,11 @@ import { useAuth } from "@/components/ConvexAuthProvider";
  * - Get badge count
  */
 export function useBadges() {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   const badgesData = useQuery(
     api.story.getPlayerBadges,
-    token ? { token } : "skip"
+    isAuthenticated ? {} : "skip"
   );
 
   return {

@@ -16,6 +16,12 @@ import type { SupportedImageFormat } from "../lib/types";
 // =============================================================================
 
 const SUPPORTED_FORMATS = ["image/png", "image/jpeg", "image/webp"] as const;
+
+// Type guard for supported image formats
+function isSupportedFormat(contentType: string | null | undefined): contentType is SupportedImageFormat {
+  if (!contentType) return false;
+  return SUPPORTED_FORMATS.some(format => format === contentType);
+}
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_THUMBNAIL_SIZE = 1 * 1024 * 1024; // 1MB
 
@@ -113,7 +119,7 @@ export const saveCardImage = mutation({
     }
 
     // Validate file type
-    if (!SUPPORTED_FORMATS.includes(storageFile.contentType as SupportedImageFormat)) {
+    if (!isSupportedFormat(storageFile.contentType)) {
       throw new Error(`Unsupported format: ${storageFile.contentType}`);
     }
 

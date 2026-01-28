@@ -2,7 +2,6 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { useAuth } from "@/components/ConvexAuthProvider";
 import { toast } from "sonner";
 import type { Id } from "@convex/_generated/dataModel";
 
@@ -10,21 +9,15 @@ import type { Id } from "@convex/_generated/dataModel";
  * useSpectator Hook
  *
  * Provides spectator features for watching active games.
- * Features:
- * - Browse spectatable games
- * - Join/leave as spectator
- * - Get sanitized spectator view (no private data)
+ * Should only be used inside <Authenticated> component.
  */
 export function useSpectator(lobbyId?: Id<"gameLobbies">) {
-  const { token } = useAuth();
-
-  // List spectatable games
+  // No auth check needed - use inside <Authenticated>
   const activeGames = useQuery(api.games.listActiveGames, {
     mode: "all",
     limit: 50,
   });
 
-  // Get spectator view
   const spectatorView = useQuery(
     api.games.getGameSpectatorView,
     lobbyId ? { lobbyId } : "skip"
@@ -36,7 +29,7 @@ export function useSpectator(lobbyId?: Id<"gameLobbies">) {
 
   const joinAsSpectator = async (lobbyId: Id<"gameLobbies">) => {
     try {
-      await joinMutation({ lobbyId, token: token ?? undefined });
+      await joinMutation({ lobbyId });
       toast.success("Now spectating game");
     } catch (error: any) {
       toast.error(error.message || "Failed to join as spectator");
@@ -46,7 +39,7 @@ export function useSpectator(lobbyId?: Id<"gameLobbies">) {
 
   const leaveAsSpectator = async (lobbyId: Id<"gameLobbies">) => {
     try {
-      await leaveMutation({ lobbyId, token: token ?? undefined });
+      await leaveMutation({ lobbyId });
       toast.info("Stopped spectating");
     } catch (error: any) {
       toast.error(error.message || "Failed to leave spectator mode");

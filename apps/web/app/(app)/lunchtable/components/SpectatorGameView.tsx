@@ -133,7 +133,7 @@ export function SpectatorGameView({ lobbyId, onExit }: SpectatorGameViewProps) {
               }}
             >
               {gameEvents && gameEvents.length > 0 ? (
-                gameEvents.map((event) => (
+                gameEvents.map((event: NonNullable<typeof gameEvents>[number]) => (
                   <div
                     key={event.eventId}
                     className="p-2 rounded bg-black/20 border border-[#3d2b1f]/50 hover:border-[#d4af37]/30 transition-colors"

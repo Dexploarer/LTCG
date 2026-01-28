@@ -52,7 +52,10 @@ export function PlayerProfileDialog({ isOpen, onClose, username }: PlayerProfile
   const [showChallengeDialog, setShowChallengeDialog] = useState(false);
 
   // Fetch comprehensive user profile
-  const userData = useQuery(api.users.getUserProfile, { username });
+  const userData = useQuery(api.core.users.getUserProfile, { username });
+
+  // Fetch user's unlocked achievements
+  const unlockedAchievements = useQuery(api.progression.achievements.getUnlockedAchievements, { username });
 
   const handleChallengeConfirm = (mode: "casual" | "ranked") => {
     console.log(`Challenging ${username} to ${mode} match`);
@@ -163,8 +166,27 @@ export function PlayerProfileDialog({ isOpen, onClose, username }: PlayerProfile
           timesPlayed: 0,
         },
         callingCard: null,
-        badges: [],
-        achievements: [],
+        badges: unlockedAchievements
+          ? unlockedAchievements.map((ach: NonNullable<typeof unlockedAchievements>[number]) => ({
+              id: ach.achievementId,
+              name: ach.name,
+              description: ach.description,
+              icon: ach.icon,
+              earnedAt: ach.unlockedAt || Date.now(),
+            }))
+          : [],
+        achievements: unlockedAchievements
+          ? unlockedAchievements.map((ach: NonNullable<typeof unlockedAchievements>[number]) => ({
+              id: ach.achievementId,
+              name: ach.name,
+              description: ach.description,
+              icon: ach.icon,
+              progress: 100,
+              maxProgress: 100,
+              howToComplete: ach.description,
+              reward: "",
+            }))
+          : [],
         joinedAt: userData.createdAt || Date.now(),
         status: "online",
       }

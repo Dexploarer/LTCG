@@ -100,7 +100,7 @@ export function WelcomeGuideDialog({
   const selectedDeckInfo = STARTER_DECKS.find((d) => d.id === selectedDeck);
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center">
+    <div className="fixed inset-0 z-110 flex items-center justify-center">
       {/* Backdrop with magical particles */}
       <div className="absolute inset-0 bg-black/90 backdrop-blur-md">
         {/* Floating particles */}

@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { useAuth } from "@/components/ConvexAuthProvider";
+import { useAuth } from "../auth/useConvexAuthHook";
 import { toast } from "sonner";
 import type { Id } from "@convex/_generated/dataModel";
 
@@ -16,27 +16,27 @@ import type { Id } from "@convex/_generated/dataModel";
  * - Surrender functionality
  */
 export function useGameState(lobbyId?: Id<"gameLobbies">) {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   // Check for active game (reconnection)
   const activeGame = useQuery(
     api.games.checkForActiveGame,
-    token ? { token } : "skip"
+    isAuthenticated ? {} : "skip"
   );
 
   // Get detailed game state
   const gameState = useQuery(
     api.games.getGameStateForPlayer,
-    token && lobbyId ? { token, lobbyId } : "skip"
+    isAuthenticated && lobbyId ? { lobbyId } : "skip"
   );
 
   // Game actions
   const surrenderMutation = useMutation(api.games.surrenderGame);
 
   const surrender = async () => {
-    if (!token || !lobbyId) throw new Error("No active game");
+    if (!isAuthenticated || !lobbyId) throw new Error("No active game");
     try {
-      await surrenderMutation({ token, lobbyId });
+      await surrenderMutation({ lobbyId });
       toast.info("You surrendered the game");
     } catch (error: any) {
       toast.error(error.message || "Failed to surrender");

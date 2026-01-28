@@ -5,7 +5,9 @@
  * 45 cards per deck (30 monsters, 10 spells, 5 traps)
  */
 
-export const INFERNAL_DRAGONS_CARDS = [
+import type { CardSeed } from "./types";
+
+export const INFERNAL_DRAGONS_CARDS: readonly CardSeed[] = [
   // Monsters (30)
   { name: "Ember Wyrmling", rarity: "common", cardType: "creature", archetype: "infernal_dragons", cost: 3, attack: 1200, defense: 800 },
   { name: "Infernal Hatchling", rarity: "common", cardType: "creature", archetype: "infernal_dragons", cost: 2, attack: 800, defense: 600 },
@@ -58,7 +60,7 @@ export const INFERNAL_DRAGONS_CARDS = [
   { name: "Dragon's Wrath", rarity: "epic", cardType: "trap", archetype: "infernal_dragons", cost: 5 },
 ] as const;
 
-export const ABYSSAL_DEPTHS_CARDS = [
+export const ABYSSAL_DEPTHS_CARDS: readonly CardSeed[] = [
   // Monsters (30)
   { name: "Reef Crab", rarity: "common", cardType: "creature", archetype: "abyssal_horrors", cost: 2, attack: 600, defense: 800 },
   { name: "Coral Serpent", rarity: "common", cardType: "creature", archetype: "abyssal_horrors", cost: 3, attack: 1000, defense: 600 },
@@ -111,7 +113,7 @@ export const ABYSSAL_DEPTHS_CARDS = [
   { name: "Depth Rejection", rarity: "epic", cardType: "trap", archetype: "abyssal_horrors", cost: 5 },
 ] as const;
 
-export const IRON_LEGION_CARDS = [
+export const IRON_LEGION_CARDS: readonly CardSeed[] = [
   // Monsters (30)
   { name: "Iron Soldier", rarity: "common", cardType: "creature", archetype: "nature_spirits", cost: 3, attack: 1000, defense: 1200 },
   { name: "Bronze Centurion", rarity: "common", cardType: "creature", archetype: "nature_spirits", cost: 3, attack: 1200, defense: 1000 },
@@ -164,7 +166,7 @@ export const IRON_LEGION_CARDS = [
   { name: "Impenetrable Wall", rarity: "epic", cardType: "trap", archetype: "nature_spirits", cost: 5 },
 ] as const;
 
-export const STORM_RIDERS_CARDS = [
+export const STORM_RIDERS_CARDS: readonly CardSeed[] = [
   // Monsters (30)
   { name: "Zephyr Falcon", rarity: "common", cardType: "creature", archetype: "storm_elementals", cost: 3, attack: 1000, defense: 600 },
   { name: "Wind Sprite", rarity: "common", cardType: "creature", archetype: "storm_elementals", cost: 1, attack: 600, defense: 400 },

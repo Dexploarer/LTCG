@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { STARTER_DECKS, VALID_DECK_CODES, type StarterDeckCode } from "./seeds/starterDecks";
+import { getCurrentUser, requireAuthMutation, requireAuthQuery } from "./lib/convexAuth";
 
 const MAX_AGENTS_PER_USER = 3;
 
@@ -82,22 +83,14 @@ export const getStarterDecks = query({
  * Get all agents for the authenticated user
  */
 export const getUserAgents = query({
-  args: { token: v.string() },
+  args: {},
   handler: async (ctx, args) => {
-    // Validate session
-    const session = await ctx.db
-      .query("sessions")
-      .withIndex("token", (q) => q.eq("token", args.token))
-      .first();
-
-    if (!session || session.expiresAt < Date.now()) {
-      return [];
-    }
+    const { userId } = await requireAuthQuery(ctx);
 
     // Get all active agents for this user
     const agents = await ctx.db
       .query("agents")
-      .withIndex("by_user", (q) => q.eq("userId", session.userId))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
     // Filter to only active agents and get their API key prefixes
@@ -126,20 +119,16 @@ export const getUserAgents = query({
  * Get the count of active agents for a user
  */
 export const getAgentCount = query({
-  args: { token: v.string() },
+  args: {},
   handler: async (ctx, args) => {
-    const session = await ctx.db
-      .query("sessions")
-      .withIndex("token", (q) => q.eq("token", args.token))
-      .first();
-
-    if (!session || session.expiresAt < Date.now()) {
+    const auth = await getCurrentUser(ctx);
+    if (!auth) {
       return 0;
     }
 
     const agents = await ctx.db
       .query("agents")
-      .withIndex("by_user", (q) => q.eq("userId", session.userId))
+      .withIndex("by_user", (q) => q.eq("userId", auth.userId))
       .collect();
 
     return agents.filter((a) => a.isActive).length;
@@ -151,22 +140,17 @@ export const getAgentCount = query({
  */
 export const getAgent = query({
   args: {
-    token: v.string(),
     agentId: v.id("agents"),
   },
   handler: async (ctx, args) => {
-    const session = await ctx.db
-      .query("sessions")
-      .withIndex("token", (q) => q.eq("token", args.token))
-      .first();
-
-    if (!session || session.expiresAt < Date.now()) {
+    const auth = await getCurrentUser(ctx);
+    if (!auth) {
       return null;
     }
 
     const agent = await ctx.db.get(args.agentId);
 
-    if (!agent || agent.userId !== session.userId || !agent.isActive) {
+    if (!agent || agent.userId !== auth.userId || !agent.isActive) {
       return null;
     }
 
@@ -192,27 +176,18 @@ export const getAgent = query({
  */
 export const registerAgent = mutation({
   args: {
-    token: v.string(),
     name: v.string(),
     profilePictureUrl: v.optional(v.string()),
     socialLink: v.optional(v.string()),
     starterDeckCode: v.string(),
   },
   handler: async (ctx, args) => {
-    // 1. Validate session
-    const session = await ctx.db
-      .query("sessions")
-      .withIndex("token", (q) => q.eq("token", args.token))
-      .first();
+    const { userId } = await requireAuthMutation(ctx);
 
-    if (!session || session.expiresAt < Date.now()) {
-      throw new Error("Invalid or expired session");
-    }
-
-    // 2. Check agent limit
+    // Check agent limit
     const existingAgents = await ctx.db
       .query("agents")
-      .withIndex("by_user", (q) => q.eq("userId", session.userId))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
     const activeCount = existingAgents.filter((a) => a.isActive).length;
@@ -268,7 +243,7 @@ export const registerAgent = mutation({
 
     // 6. Create agent record
     const agentId = await ctx.db.insert("agents", {
-      userId: session.userId,
+      userId: userId,
       name: trimmedName,
       profilePictureUrl: args.profilePictureUrl,
       socialLink: args.socialLink,
@@ -289,7 +264,7 @@ export const registerAgent = mutation({
 
     await ctx.db.insert("apiKeys", {
       agentId,
-      userId: session.userId,
+      userId: userId,
       keyHash,
       keyPrefix,
       isActive: true,
@@ -310,24 +285,15 @@ export const registerAgent = mutation({
  */
 export const regenerateApiKey = mutation({
   args: {
-    token: v.string(),
     agentId: v.id("agents"),
   },
   handler: async (ctx, args) => {
-    // Validate session
-    const session = await ctx.db
-      .query("sessions")
-      .withIndex("token", (q) => q.eq("token", args.token))
-      .first();
-
-    if (!session || session.expiresAt < Date.now()) {
-      throw new Error("Invalid or expired session");
-    }
+    const { userId } = await requireAuthMutation(ctx);
 
     // Verify agent ownership
     const agent = await ctx.db.get(args.agentId);
 
-    if (!agent || agent.userId !== session.userId) {
+    if (!agent || agent.userId !== userId) {
       throw new Error("Agent not found");
     }
 
@@ -354,7 +320,7 @@ export const regenerateApiKey = mutation({
 
     await ctx.db.insert("apiKeys", {
       agentId: args.agentId,
-      userId: session.userId,
+      userId: userId,
       keyHash,
       keyPrefix,
       isActive: true,
@@ -373,27 +339,22 @@ export const regenerateApiKey = mutation({
  */
 export const updateAgent = mutation({
   args: {
-    token: v.string(),
     agentId: v.id("agents"),
     name: v.optional(v.string()),
     profilePictureUrl: v.optional(v.string()),
     socialLink: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Validate session
-    const session = await ctx.db
-      .query("sessions")
-      .withIndex("token", (q) => q.eq("token", args.token))
-      .first();
-
-    if (!session || session.expiresAt < Date.now()) {
-      throw new Error("Invalid or expired session");
+    // Get authenticated user
+    const auth = await getCurrentUser(ctx);
+    if (!auth) {
+      throw new Error("Not authenticated");
     }
 
     // Verify agent ownership
     const agent = await ctx.db.get(args.agentId);
 
-    if (!agent || agent.userId !== session.userId) {
+    if (!agent || agent.userId !== auth.userId) {
       throw new Error("Agent not found");
     }
 
@@ -424,7 +385,7 @@ export const updateAgent = mutation({
       // Check uniqueness (excluding current agent)
       const existingAgents = await ctx.db
         .query("agents")
-        .withIndex("by_user", (q) => q.eq("userId", session.userId))
+        .withIndex("by_user", (q) => q.eq("userId", auth.userId))
         .collect();
 
       const duplicateName = existingAgents.find(
@@ -475,24 +436,15 @@ export const updateAgent = mutation({
  */
 export const deleteAgent = mutation({
   args: {
-    token: v.string(),
     agentId: v.id("agents"),
   },
   handler: async (ctx, args) => {
-    // Validate session
-    const session = await ctx.db
-      .query("sessions")
-      .withIndex("token", (q) => q.eq("token", args.token))
-      .first();
-
-    if (!session || session.expiresAt < Date.now()) {
-      throw new Error("Invalid or expired session");
-    }
+    const { userId } = await requireAuthMutation(ctx);
 
     // Verify agent ownership
     const agent = await ctx.db.get(args.agentId);
 
-    if (!agent || agent.userId !== session.userId) {
+    if (!agent || agent.userId !== userId) {
       throw new Error("Agent not found");
     }
 

@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { useAuth } from "@/components/ConvexAuthProvider";
+import { useAuth } from "../auth/useConvexAuthHook";
 import { toast } from "sonner";
 import type { Id } from "@convex/_generated/dataModel";
 
@@ -16,12 +16,12 @@ import type { Id } from "@convex/_generated/dataModel";
  * - Retrieve deck details with cards
  */
 export function useDeckBuilder() {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   // Queries
   const decks = useQuery(
     api.decks.getUserDecks,
-    token ? { token } : "skip"
+    isAuthenticated ? {} : "skip"
   );
 
   // Mutations
@@ -36,7 +36,7 @@ export function useDeckBuilder() {
   const useDeck = (deckId: Id<"userDecks"> | null) => {
     return useQuery(
       api.decks.getDeckWithCards,
-      token && deckId ? { token, deckId } : "skip"
+      isAuthenticated && deckId ? { deckId } : "skip"
     );
   };
 
@@ -44,15 +44,15 @@ export function useDeckBuilder() {
   const useValidateDeck = (deckId: Id<"userDecks"> | null) => {
     return useQuery(
       api.decks.validateDeck,
-      token && deckId ? { token, deckId } : "skip"
+      isAuthenticated && deckId ? { deckId } : "skip"
     );
   };
 
   // Actions
   const createDeck = async (name: string) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!isAuthenticated) throw new Error("Not authenticated");
     try {
-      const deckId = await createMutation({ token, name });
+      const deckId = await createMutation({ name });
       toast.success(`Deck "${name}" created`);
       return deckId;
     } catch (error: any) {
@@ -65,9 +65,9 @@ export function useDeckBuilder() {
     deckId: Id<"userDecks">,
     cards: Array<{ cardDefinitionId: Id<"cardDefinitions">; quantity: number }>
   ) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!isAuthenticated) throw new Error("Not authenticated");
     try {
-      await saveMutation({ token, deckId, cards });
+      await saveMutation({ deckId, cards });
       toast.success("Deck saved");
     } catch (error: any) {
       toast.error(error.message || "Failed to save deck");
@@ -76,9 +76,9 @@ export function useDeckBuilder() {
   };
 
   const renameDeck = async (deckId: Id<"userDecks">, newName: string) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!isAuthenticated) throw new Error("Not authenticated");
     try {
-      await renameMutation({ token, deckId, newName });
+      await renameMutation({ deckId, newName });
       toast.success(`Deck renamed to "${newName}"`);
     } catch (error: any) {
       toast.error(error.message || "Failed to rename deck");
@@ -87,9 +87,9 @@ export function useDeckBuilder() {
   };
 
   const deleteDeck = async (deckId: Id<"userDecks">) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!isAuthenticated) throw new Error("Not authenticated");
     try {
-      await deleteMutation({ token, deckId });
+      await deleteMutation({ deckId });
       toast.success("Deck deleted");
     } catch (error: any) {
       toast.error(error.message || "Failed to delete deck");
@@ -98,14 +98,13 @@ export function useDeckBuilder() {
   };
 
   const duplicateDeck = async (deckId: Id<"userDecks">, newName?: string) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!isAuthenticated) throw new Error("Not authenticated");
     try {
       // Find source deck to generate a name if not provided
-      const sourceDeck = decks?.find(d => d.id === deckId);
+      const sourceDeck = decks?.find((d: NonNullable<typeof decks>[number]) => d.id === deckId);
       const duplicateName = newName || (sourceDeck ? `${sourceDeck.name} (Copy)` : "Deck Copy");
 
       const newDeckId = await duplicateMutation({
-        token,
         newName: duplicateName,
         sourceDeckId: deckId
       });
@@ -118,9 +117,9 @@ export function useDeckBuilder() {
   };
 
   const setActiveDeck = async (deckId: Id<"userDecks">) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!isAuthenticated) throw new Error("Not authenticated");
     try {
-      await setActiveMutation({ token, deckId });
+      await setActiveMutation({ deckId });
       toast.success("Active deck updated");
     } catch (error: any) {
       toast.error(error.message || "Failed to set active deck");

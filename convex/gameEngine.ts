@@ -20,4 +20,4 @@ export {
   activateSpell,
   activateTrap,
   endTurn,
-} from "./gameEngine/index";
+} from "./gameplay/gameEngine/index";

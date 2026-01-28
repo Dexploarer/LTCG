@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
-import { useAuth } from "@/components/ConvexAuthProvider";
+import { useAuth } from "../auth/useConvexAuthHook";
 import { toast } from "sonner";
 
 /**
@@ -16,7 +16,7 @@ import { toast } from "sonner";
  * - View pack opening history
  */
 export function useShop() {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   // Queries
   const products = useQuery(
@@ -26,7 +26,7 @@ export function useShop() {
 
   const packHistory = useQuery(
     api.shop.getPackOpeningHistory,
-    token ? { token } : "skip"
+    isAuthenticated ? {} : "skip"
   );
 
   // Mutations
@@ -39,10 +39,9 @@ export function useShop() {
     productId: string,
     useGems: boolean
   ) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!isAuthenticated) throw new Error("Not authenticated");
     try {
       const result = await purchasePackMutation({
-        token,
         productId,
         useGems,
       });
@@ -58,10 +57,9 @@ export function useShop() {
     productId: string,
     useGems: boolean
   ) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!isAuthenticated) throw new Error("Not authenticated");
     try {
       const result = await purchaseBoxMutation({
-        token,
         productId,
         useGems,
       });
@@ -74,9 +72,9 @@ export function useShop() {
   };
 
   const purchaseBundle = async (productId: string) => {
-    if (!token) throw new Error("Not authenticated");
+    if (!isAuthenticated) throw new Error("Not authenticated");
     try {
-      const result = await purchaseBundleMutation({ token, productId });
+      const result = await purchaseBundleMutation({ productId });
       toast.success(`Bundle purchased! You got ${result.goldReceived} gold`);
       return result;
     } catch (error: any) {

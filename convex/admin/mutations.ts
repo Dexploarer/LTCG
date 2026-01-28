@@ -7,7 +7,8 @@
 
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
-import { validateSession } from "../lib/validators";
+import { requireAuthQuery, requireAuthMutation } from "../lib/convexAuth";
+import { ErrorCode, createError } from "../lib/errorCodes";
 import type { SharedCtx } from "../lib/types";
 import type { Id } from "../_generated/dataModel";
 
@@ -21,7 +22,9 @@ async function requireAdmin(ctx: SharedCtx, userId: Id<"users">) {
     .first();
 
   if (!adminRole) {
-    throw new Error("Access denied: Admin role required");
+    throw createError(ErrorCode.AUTHZ_INSUFFICIENT_PERMISSIONS, {
+      reason: "Admin role required",
+    });
   }
 
   return adminRole;
@@ -33,12 +36,11 @@ async function requireAdmin(ctx: SharedCtx, userId: Id<"users">) {
  */
 export const deleteUserByEmail = mutation({
   args: {
-    token: v.string(),
     email: v.string(),
   },
   handler: async (ctx, args) => {
     // Validate admin session
-    const { userId } = await validateSession(ctx, args.token);
+    const { userId } = await requireAuthMutation(ctx);
     await requireAdmin(ctx, userId);
 
     // Find user by email
@@ -51,9 +53,9 @@ export const deleteUserByEmail = mutation({
       return { success: false, message: `User ${args.email} not found` };
     }
 
-    // Delete sessions for this user
+    // Delete auth sessions for this user
     const sessions = await ctx.db
-      .query("sessions")
+      .query("authSessions")
       .withIndex("userId", (q) => q.eq("userId", user._id))
       .collect();
 
@@ -73,11 +75,10 @@ export const deleteUserByEmail = mutation({
  */
 export const deleteTestUsers = mutation({
   args: {
-    token: v.string(),
   },
   handler: async (ctx, args) => {
     // Validate admin session
-    const { userId } = await validateSession(ctx, args.token);
+    const { userId } = await requireAuthMutation(ctx);
     await requireAdmin(ctx, userId);
 
     const allUsers = await ctx.db.query("users").collect();
@@ -85,9 +86,9 @@ export const deleteTestUsers = mutation({
     let deletedCount = 0;
     for (const user of allUsers) {
       if (user.email?.includes("testuser")) {
-        // Delete sessions
+        // Delete auth sessions
         const sessions = await ctx.db
-          .query("sessions")
+          .query("authSessions")
           .withIndex("userId", (q) => q.eq("userId", user._id))
           .collect();
 
@@ -113,12 +114,11 @@ export const deleteTestUsers = mutation({
  */
 export const getUserAnalytics = query({
   args: {
-    token: v.string(),
     userId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
     // Validate admin session
-    const { userId: adminId } = await validateSession(ctx, args.token);
+    const { userId: adminId } = await requireAuthQuery(ctx);
     await requireAdmin(ctx, adminId);
 
     const targetUserId = args.userId;
@@ -197,11 +197,10 @@ export const getUserAnalytics = query({
  */
 export const getAllTestUsers = query({
   args: {
-    token: v.string(),
   },
   handler: async (ctx, args) => {
     // Validate admin session
-    const { userId } = await validateSession(ctx, args.token);
+    const { userId } = await requireAuthQuery(ctx);
     await requireAdmin(ctx, userId);
 
     const allUsers = await ctx.db.query("users").collect();
@@ -216,5 +215,78 @@ export const getAllTestUsers = query({
       username: user.username,
       createdAt: user.createdAt,
     }));
+  },
+});
+
+/**
+ * Add gold to current user (dev operation)
+ * For development and testing purposes
+ */
+export const addGoldToCurrentUser = mutation({
+  args: {
+    amount: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = await requireAuthMutation(ctx);
+
+    // Get or create user's gold field
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Update user's gold field
+    const currentGold = user.gold ?? 0;
+    await ctx.db.patch(userId, {
+      gold: currentGold + args.amount,
+    });
+
+    return {
+      success: true,
+      previousGold: currentGold,
+      newGold: currentGold + args.amount,
+      amountAdded: args.amount,
+    };
+  },
+});
+
+/**
+ * Force close any active game for current user (dev operation)
+ */
+export const forceCloseMyGame = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const { userId } = await requireAuthMutation(ctx);
+
+    // Find user's active lobby
+    const lobbies = await ctx.db
+      .query("gameLobbies")
+      .filter((q) =>
+        q.and(
+          q.or(q.eq(q.field("hostId"), userId), q.eq(q.field("opponentId"), userId)),
+          q.or(q.eq(q.field("status"), "active"), q.eq(q.field("status"), "waiting"))
+        )
+      )
+      .collect();
+
+    for (const lobby of lobbies) {
+      await ctx.db.patch(lobby._id, {
+        status: "completed",
+      });
+    }
+
+    // Update user presence to online
+    const presence = await ctx.db
+      .query("userPresence")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    if (presence) {
+      await ctx.db.patch(presence._id, {
+        status: "online",
+      });
+    }
+
+    return { success: true, closedLobbies: lobbies.length };
   },
 });
