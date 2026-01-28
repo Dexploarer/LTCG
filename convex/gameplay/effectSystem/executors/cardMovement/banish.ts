@@ -1,5 +1,5 @@
-import type { MutationCtx } from "../../../_generated/server";
-import type { Id, Doc } from "../../../_generated/dataModel";
+import type { Doc, Id } from "../../../../_generated/dataModel";
+import type { MutationCtx } from "../../../../_generated/server";
 
 /**
  * Execute Banish effect - Remove card from play to banished zone
@@ -33,8 +33,8 @@ export async function executeBanish(
 
   // Find card in specified location
   if (fromLocation === "board") {
-    const onHostBoard = gameState.hostBoard.some(bc => bc.cardId === targetCardId);
-    const onOpponentBoard = gameState.opponentBoard.some(bc => bc.cardId === targetCardId);
+    const onHostBoard = gameState.hostBoard.some((bc) => bc.cardId === targetCardId);
+    const onOpponentBoard = gameState.opponentBoard.some((bc) => bc.cardId === targetCardId);
 
     if (!onHostBoard && !onOpponentBoard) {
       return { success: false, message: "Card not found on field" };
@@ -42,8 +42,8 @@ export async function executeBanish(
 
     targetIsHost = onHostBoard;
     sourceZone = targetIsHost
-      ? gameState.hostBoard.map(bc => bc.cardId)
-      : gameState.opponentBoard.map(bc => bc.cardId);
+      ? gameState.hostBoard.map((bc) => bc.cardId)
+      : gameState.opponentBoard.map((bc) => bc.cardId);
     sourceField = targetIsHost ? "hostBoard" : "opponentBoard";
   } else if (fromLocation === "graveyard") {
     const inHostGY = gameState.hostGraveyard.includes(targetCardId);
@@ -82,9 +82,12 @@ export async function executeBanish(
   }
 
   // Remove from source zone
-  const newSourceZone = fromLocation === "board"
-    ? (targetIsHost ? gameState.hostBoard : gameState.opponentBoard).filter(bc => bc.cardId !== targetCardId)
-    : sourceZone.filter(c => c !== targetCardId);
+  const newSourceZone =
+    fromLocation === "board"
+      ? (targetIsHost ? gameState.hostBoard : gameState.opponentBoard).filter(
+          (bc) => bc.cardId !== targetCardId
+        )
+      : sourceZone.filter((c) => c !== targetCardId);
 
   // Add to banished zone
   const banishedZone = targetIsHost ? gameState.hostBanished : gameState.opponentBanished;

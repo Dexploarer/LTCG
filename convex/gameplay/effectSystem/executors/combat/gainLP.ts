@@ -1,18 +1,17 @@
-import type { MutationCtx } from "../../../_generated/server";
-import type { Id, Doc } from "../../../_generated/dataModel";
-import { recordEventHelper } from "../../gameEvents";
+import type { Doc, Id } from "../../../../_generated/dataModel";
+import type { MutationCtx } from "../../../../_generated/server";
+import { recordEventHelper } from "../../../gameEvents";
 
-export async function executeDamage(
+export async function executeGainLP(
   ctx: MutationCtx,
   gameState: Doc<"gameStates">,
   lobbyId: Id<"gameLobbies">,
   targetPlayerId: Id<"users">,
-  damage: number
+  amount: number
 ): Promise<{ success: boolean; message: string }> {
-
   const isHost = targetPlayerId === gameState.hostId;
   const currentLP = isHost ? gameState.hostLifePoints : gameState.opponentLifePoints;
-  const newLP = Math.max(0, currentLP - damage);
+  const newLP = currentLP + amount;
 
   await ctx.db.patch(gameState._id, {
     [isHost ? "hostLifePoints" : "opponentLifePoints"]: newLP,
@@ -29,14 +28,9 @@ export async function executeDamage(
     eventType: "lp_changed",
     playerId: targetPlayerId,
     playerUsername: user?.username || "Unknown",
-    description: `${user?.username} takes ${damage} damage (${currentLP} -> ${newLP} LP)`,
-    metadata: { previousLP: currentLP, newLP, change: -damage },
+    description: `${user?.username} gains ${amount} LP (${currentLP} -> ${newLP} LP)`,
+    metadata: { previousLP: currentLP, newLP, change: amount },
   });
 
-  // Check for game end
-  if (newLP <= 0) {
-    return { success: true, message: `Dealt ${damage} damage - GAME OVER` };
-  }
-
-  return { success: true, message: `Dealt ${damage} damage` };
+  return { success: true, message: `Gained ${amount} LP` };
 }

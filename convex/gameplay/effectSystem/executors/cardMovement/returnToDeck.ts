@@ -1,6 +1,6 @@
-import type { MutationCtx } from "../../../_generated/server";
-import type { Id, Doc } from "../../../_generated/dataModel";
-import { recordEventHelper } from "../../gameEvents";
+import type { Doc, Id } from "../../../../_generated/dataModel";
+import type { MutationCtx } from "../../../../_generated/server";
+import { recordEventHelper } from "../../../gameEvents";
 
 /**
  * Execute Return to Deck effect - Return card from field/hand/GY to deck
@@ -37,8 +37,8 @@ export async function executeReturnToDeck(
   let deckField: string;
 
   if (fromLocation === "board") {
-    const onHostBoard = gameState.hostBoard.some(bc => bc.cardId === targetCardId);
-    const onOpponentBoard = gameState.opponentBoard.some(bc => bc.cardId === targetCardId);
+    const onHostBoard = gameState.hostBoard.some((bc) => bc.cardId === targetCardId);
+    const onOpponentBoard = gameState.opponentBoard.some((bc) => bc.cardId === targetCardId);
 
     if (!onHostBoard && !onOpponentBoard) {
       return { success: false, message: "Card not found on field" };
@@ -50,7 +50,7 @@ export async function executeReturnToDeck(
 
     // Remove from board
     const board = targetIsHost ? gameState.hostBoard : gameState.opponentBoard;
-    const newBoard = board.filter(bc => bc.cardId !== targetCardId);
+    const newBoard = board.filter((bc) => bc.cardId !== targetCardId);
 
     // Add to deck at specified position
     const deck = targetIsHost ? gameState.hostDeck : gameState.opponentDeck;
@@ -83,7 +83,7 @@ export async function executeReturnToDeck(
 
     // Remove from hand
     const hand = targetIsHost ? gameState.hostHand : gameState.opponentHand;
-    const newHand = hand.filter(c => c !== targetCardId);
+    const newHand = hand.filter((c) => c !== targetCardId);
 
     // Add to deck at specified position
     const deck = targetIsHost ? gameState.hostDeck : gameState.opponentDeck;
@@ -116,7 +116,7 @@ export async function executeReturnToDeck(
 
     // Remove from graveyard
     const graveyard = targetIsHost ? gameState.hostGraveyard : gameState.opponentGraveyard;
-    const newGraveyard = graveyard.filter(c => c !== targetCardId);
+    const newGraveyard = graveyard.filter((c) => c !== targetCardId);
 
     // Add to deck at specified position
     const deck = targetIsHost ? gameState.hostDeck : gameState.opponentDeck;
@@ -152,5 +152,8 @@ export async function executeReturnToDeck(
   });
 
   const positionText = position === "shuffle" ? "and shuffled" : `(${position})`;
-  return { success: true, message: `Returned ${card.name} from ${fromLocation} to deck ${positionText}` };
+  return {
+    success: true,
+    message: `Returned ${card.name} from ${fromLocation} to deck ${positionText}`,
+  };
 }

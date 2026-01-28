@@ -1,9 +1,7 @@
-import type { MutationCtx } from "../../../_generated/server";
-import type { Id, Doc } from "../../../_generated/dataModel";
-import { parseAbility } from "../parser";
-import { recordEventHelper } from "../../gameEvents";
-// Note: executeEffect creates circular dependency - on_destroy triggers disabled
-// TODO: Handle on_destroy triggers in executor.ts or pass as callback
+import type { Doc, Id } from "../../../../_generated/dataModel";
+import type { MutationCtx } from "../../../../_generated/server";
+import { recordEventHelper } from "../../../gameEvents";
+import { parseAbility } from "../../parser";
 
 export async function executeDestroy(
   ctx: MutationCtx,
@@ -11,16 +9,21 @@ export async function executeDestroy(
   lobbyId: Id<"gameLobbies">,
   targetCardId: Id<"cardDefinitions">,
   playerId: Id<"users">
-): Promise<{ success: boolean; message: string }> {
-
+): Promise<{
+  success: boolean;
+  message: string;
+  destroyedCardId?: Id<"cardDefinitions">;
+  destroyedCardOwnerId?: Id<"users">;
+  hadDestroyTrigger?: boolean;
+}> {
   const isHost = playerId === gameState.hostId;
 
   // Check both boards for target
   const hostBoard = gameState.hostBoard;
   const opponentBoard = gameState.opponentBoard;
 
-  const onHostBoard = hostBoard.some(bc => bc.cardId === targetCardId);
-  const onOpponentBoard = opponentBoard.some(bc => bc.cardId === targetCardId);
+  const onHostBoard = hostBoard.some((bc) => bc.cardId === targetCardId);
+  const onOpponentBoard = opponentBoard.some((bc) => bc.cardId === targetCardId);
 
   if (!onHostBoard && !onOpponentBoard) {
     return { success: false, message: "Target not found on field" };
@@ -33,24 +36,27 @@ export async function executeDestroy(
   const graveyard = targetIsHost ? gameState.hostGraveyard : gameState.opponentGraveyard;
 
   // Check for "Cannot be destroyed by effects" protection
-  const boardCard = board.find(bc => bc.cardId === targetCardId);
+  const boardCard = board.find((bc) => bc.cardId === targetCardId);
   if (boardCard?.cannotBeDestroyedByEffects) {
     const card = await ctx.db.get(targetCardId);
     return {
       success: false,
-      message: `${card?.name || "Card"} cannot be destroyed by card effects`
+      message: `${card?.name || "Card"} cannot be destroyed by card effects`,
     };
   }
 
   // Get card details for trigger check
   const card = await ctx.db.get(targetCardId);
 
-  // Note: on_destroy trigger handling has been temporarily disabled to avoid circular dependency
-  // This should be handled by the caller (executor.ts) when destroy is called
-  // TODO: Refactor to pass executeEffect as a parameter or use event system
+  // Check if card has on_destroy trigger (will be handled by executor.ts)
+  let hadDestroyTrigger = false;
+  if (card?.ability) {
+    const parsedEffect = parseAbility(card.ability);
+    hadDestroyTrigger = parsedEffect?.trigger === "on_destroy";
+  }
 
   // Remove from board
-  const newBoard = board.filter(bc => bc.cardId !== targetCardId);
+  const newBoard = board.filter((bc) => bc.cardId !== targetCardId);
 
   // Add to graveyard
   const newGraveyard = [...graveyard, targetCardId];
@@ -75,5 +81,11 @@ export async function executeDestroy(
     metadata: { cardId: targetCardId, reason: "effect_destroy" },
   });
 
-  return { success: true, message: `Destroyed ${card?.name || "target"}` };
+  return {
+    success: true,
+    message: `Destroyed ${card?.name || "target"}`,
+    destroyedCardId: targetCardId,
+    destroyedCardOwnerId: targetOwnerId,
+    hadDestroyTrigger,
+  };
 }

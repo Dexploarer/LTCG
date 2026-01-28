@@ -1,5 +1,5 @@
-import type { MutationCtx } from "../../../_generated/server";
-import type { Id, Doc } from "../../../_generated/dataModel";
+import type { Doc, Id } from "../../../../_generated/dataModel";
+import type { MutationCtx } from "../../../../_generated/server";
 
 export async function executeSpecialSummon(
   ctx: MutationCtx,
@@ -8,7 +8,6 @@ export async function executeSpecialSummon(
   playerId: Id<"users">,
   fromLocation: "hand" | "graveyard" | "deck" | "board"
 ): Promise<{ success: boolean; message: string }> {
-
   const isHost = playerId === gameState.hostId;
   const board = isHost ? gameState.hostBoard : gameState.opponentBoard;
 
@@ -42,7 +41,7 @@ export async function executeSpecialSummon(
     return { success: false, message: `Card not found in ${fromLocation}` };
   }
 
-  const newSourceZone = sourceZone.filter(c => c !== targetCardId);
+  const newSourceZone = sourceZone.filter((c) => c !== targetCardId);
 
   // Add to board
   const newBoardCard = {
@@ -60,8 +59,12 @@ export async function executeSpecialSummon(
   await ctx.db.patch(gameState._id, {
     [isHost ? "hostBoard" : "opponentBoard"]: newBoard,
     [fromLocation === "hand"
-      ? (isHost ? "hostHand" : "opponentHand")
-      : (isHost ? "hostGraveyard" : "opponentGraveyard")]: newSourceZone,
+      ? isHost
+        ? "hostHand"
+        : "opponentHand"
+      : isHost
+        ? "hostGraveyard"
+        : "opponentGraveyard"]: newSourceZone,
   });
 
   return { success: true, message: `Special Summoned ${card.name} from ${fromLocation}` };

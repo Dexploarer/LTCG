@@ -1,6 +1,6 @@
-import type { MutationCtx } from "../../../_generated/server";
-import type { Id, Doc } from "../../../_generated/dataModel";
-import { recordEventHelper } from "../../gameEvents";
+import type { Doc, Id } from "../../../../_generated/dataModel";
+import type { MutationCtx } from "../../../../_generated/server";
+import { recordEventHelper } from "../../../gameEvents";
 
 /**
  * Execute Send to Graveyard effect - Move card to GY without triggering destroy effects
@@ -41,8 +41,8 @@ export async function executeSendToGraveyard(
   let graveyardField: string;
 
   if (fromLocation === "board") {
-    const onHostBoard = gameState.hostBoard.some(bc => bc.cardId === targetCardId);
-    const onOpponentBoard = gameState.opponentBoard.some(bc => bc.cardId === targetCardId);
+    const onHostBoard = gameState.hostBoard.some((bc) => bc.cardId === targetCardId);
+    const onOpponentBoard = gameState.opponentBoard.some((bc) => bc.cardId === targetCardId);
 
     if (!onHostBoard && !onOpponentBoard) {
       return { success: false, message: "Card not found on field" };
@@ -54,7 +54,7 @@ export async function executeSendToGraveyard(
 
     // Remove from board
     const board = targetIsHost ? gameState.hostBoard : gameState.opponentBoard;
-    const newBoard = board.filter(bc => bc.cardId !== targetCardId);
+    const newBoard = board.filter((bc) => bc.cardId !== targetCardId);
 
     // Add to graveyard
     const graveyard = targetIsHost ? gameState.hostGraveyard : gameState.opponentGraveyard;
@@ -78,7 +78,7 @@ export async function executeSendToGraveyard(
 
     // Remove from hand
     const hand = targetIsHost ? gameState.hostHand : gameState.opponentHand;
-    const newHand = hand.filter(c => c !== targetCardId);
+    const newHand = hand.filter((c) => c !== targetCardId);
 
     // Add to graveyard
     const graveyard = targetIsHost ? gameState.hostGraveyard : gameState.opponentGraveyard;
@@ -103,7 +103,7 @@ export async function executeSendToGraveyard(
 
     // Remove from deck
     const deck = targetIsHost ? gameState.hostDeck : gameState.opponentDeck;
-    const newDeck = deck.filter(c => c !== targetCardId);
+    const newDeck = deck.filter((c) => c !== targetCardId);
 
     // Add to graveyard
     const graveyard = targetIsHost ? gameState.hostGraveyard : gameState.opponentGraveyard;

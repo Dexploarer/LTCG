@@ -1,17 +1,20 @@
-import type { MutationCtx } from "../../../_generated/server";
-import type { Id, Doc } from "../../../_generated/dataModel";
-// Import the ParsedEffect type from the parent module
-import type { ParsedEffect } from "../types";
+import type { Doc, Id } from "../../../../_generated/dataModel";
+import type { MutationCtx } from "../../../../_generated/server";
+import type { EffectResult, ParsedEffect } from "../../types";
 
 /**
  * Execute Search effect - Search deck for cards matching criteria
+ *
+ * Two-step process:
+ * 1. If no selectedCardId: Return matching cards for player selection
+ * 2. If selectedCardId provided: Complete the search by adding card to hand
  *
  * @param ctx - Mutation context
  * @param gameState - Current game state
  * @param playerId - Player searching their deck
  * @param effect - Parsed search effect with targetType, targetCount, condition
  * @param selectedCardId - Optional: Card selected from search results
- * @returns Success status, message, and matching cards if no selection made yet
+ * @returns Effect result with selection data or completion status
  */
 export async function executeSearch(
   ctx: MutationCtx,
@@ -19,7 +22,7 @@ export async function executeSearch(
   playerId: Id<"users">,
   effect: ParsedEffect,
   selectedCardId?: Id<"cardDefinitions">
-): Promise<{ success: boolean; message: string; matchingCards?: Id<"cardDefinitions">[] }> {
+): Promise<EffectResult> {
   const isHost = gameState.hostId === playerId;
   const deck = isHost ? gameState.hostDeck : gameState.opponentDeck;
 
@@ -33,10 +36,16 @@ export async function executeSearch(
   const archetype = effect.condition?.replace("_search", "");
 
   // Filter deck by target type and archetype
+  // Batch fetch all deck cards to avoid N+1 queries
+  const deckCards = await Promise.all(deck.map(id => ctx.db.get(id)));
+  const deckCardMap = new Map(
+    deckCards.filter((c): c is NonNullable<typeof c> => c !== null).map(c => [c._id, c])
+  );
+
   const matchingCards: Id<"cardDefinitions">[] = [];
 
   for (const cardId of deck) {
-    const card = await ctx.db.get(cardId);
+    const card = deckCardMap.get(cardId);
     if (!card) continue;
 
     // Check type filter
@@ -80,10 +89,39 @@ export async function executeSearch(
 
   // If no card selected yet, return matching cards for selection
   if (!selectedCardId) {
+    // Use already-fetched card data for frontend display
+    const availableTargets = matchingCards.slice(0, 10).map((cardId) => {
+      const card = deckCardMap.get(cardId);
+      if (!card) return null;
+
+      return {
+        cardId,
+        name: card.name,
+        cardType: card.cardType,
+        imageUrl: card.imageUrl,
+        monsterStats:
+          card.cardType === "creature"
+            ? {
+                attack: card.attack || 0,
+                defense: card.defense || 0,
+                level: card.cost, // Level is derived from cost
+              }
+            : undefined,
+      };
+    }).filter((t): t is NonNullable<typeof t> => t !== null);
+
+    const archetypeText = archetype ? ` ${archetype}` : "";
+    const typeText = targetType === "any" ? "card" : targetType;
+
     return {
       success: true,
       message: `Found ${matchingCards.length} matching card(s)`,
-      matchingCards: matchingCards.slice(0, 10), // Return up to 10 for selection
+      requiresSelection: true,
+      selectionSource: "deck",
+      availableTargets,
+      minSelections: 1,
+      maxSelections: 1,
+      selectionPrompt: `Select 1${archetypeText} ${typeText} to add to your hand`,
     };
   }
 

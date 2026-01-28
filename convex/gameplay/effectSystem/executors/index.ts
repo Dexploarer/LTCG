@@ -2,18 +2,28 @@
  * Effect Executors
  *
  * Individual executor functions for each effect type.
- * These are extracted from the main effectSystem for better organization.
+ * Organized into logical categories for better maintainability.
  */
 
-export { executeDraw } from "./draw";
-export { executeDestroy } from "./destroy";
-export { executeDamage } from "./damage";
-export { executeGainLP } from "./gainLP";
-export { executeToHand } from "./toHand";
-export { executeModifyATK } from "./modifyATK";
-export { executeSpecialSummon } from "./summon";
-export { executeSearch } from "./search";
-export { executeNegate } from "./negate";
-export { executeBanish } from "./banish";
-export { executeSendToGraveyard } from "./toGraveyard";
-export { executeReturnToDeck } from "./returnToDeck";
+// Combat executors
+export { executeDamage } from "./combat/damage";
+export { executeGainLP } from "./combat/gainLP";
+export { executeModifyATK } from "./combat/modifyATK";
+export { executeModifyDEF } from "./combat/modifyDEF";
+
+// Card movement executors
+export { executeDraw } from "./cardMovement/draw";
+export { executeSearch } from "./cardMovement/search";
+export { executeToHand } from "./cardMovement/toHand";
+export { executeSendToGraveyard } from "./cardMovement/toGraveyard";
+export { executeBanish } from "./cardMovement/banish";
+export { executeReturnToDeck } from "./cardMovement/returnToDeck";
+export { executeMill } from "./cardMovement/mill";
+export { executeDiscard } from "./cardMovement/discard";
+
+// Summon executors
+export { executeSpecialSummon } from "./summon/summon";
+export { executeDestroy } from "./summon/destroy";
+
+// Utility executors
+export { executeNegate } from "./utility/negate";

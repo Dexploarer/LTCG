@@ -1,5 +1,5 @@
-import type { MutationCtx } from "../../../_generated/server";
-import type { Id, Doc } from "../../../_generated/dataModel";
+import type { Doc, Id } from "../../../../_generated/dataModel";
+import type { MutationCtx } from "../../../../_generated/server";
 
 export async function executeDraw(
   ctx: MutationCtx,
@@ -7,7 +7,6 @@ export async function executeDraw(
   playerId: Id<"users">,
   count: number
 ): Promise<{ success: boolean; message: string }> {
-
   const isHost = playerId === gameState.hostId;
   const deck = isHost ? gameState.hostDeck : gameState.opponentDeck;
   const hand = isHost ? gameState.hostHand : gameState.opponentHand;

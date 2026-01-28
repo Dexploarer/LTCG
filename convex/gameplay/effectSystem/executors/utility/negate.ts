@@ -1,7 +1,7 @@
-import type { MutationCtx } from "../../../_generated/server";
-import type { Id, Doc } from "../../../_generated/dataModel";
+import type { Doc, Id } from "../../../../_generated/dataModel";
+import type { MutationCtx } from "../../../../_generated/server";
 // Import the ParsedEffect type from the parent module
-import type { ParsedEffect } from "../types";
+import type { ParsedEffect } from "../../types";
 
 /**
  * Execute Negate effect - Negate activation or effect of a card
@@ -53,13 +53,29 @@ export async function executeNegate(
   const isActivationNegate = effect.condition === "activation";
   const negationType = isActivationNegate ? "activation" : "effect";
 
-  // In a full implementation, this would:
-  // 1. Check if target card is currently activating (on chain)
-  // 2. Remove it from the chain
-  // 3. Send to GY if activation negation
-  // 4. Record negate event
+  // Check if target card is on the chain
+  const currentChain = gameState.currentChain || [];
+  const targetChainIndex = currentChain.findIndex((link) => link.cardId === targetCardId);
 
-  // For now, return success with message indicating what was negated
+  if (targetChainIndex === -1) {
+    return {
+      success: false,
+      message: `${targetCard.name} is not currently on the chain`,
+    };
+  }
+
+  // Mark the chain link as negated
+  const updatedChain = [...currentChain];
+  updatedChain[targetChainIndex] = {
+    ...updatedChain[targetChainIndex]!,
+    negated: true,
+  };
+
+  // Update game state with negated chain
+  await ctx.db.patch(gameState._id, {
+    currentChain: updatedChain,
+  });
+
   return {
     success: true,
     message: `Negated ${negationType} of ${targetCard.name}`,
