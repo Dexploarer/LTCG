@@ -56,6 +56,7 @@ export function ProfileHeader({ profile, onChallenge }: ProfileHeaderProps) {
           <div className="flex items-center gap-3 mb-2">
             {/* Ranked */}
             <div
+              data-testid="player-rank"
               className={cn(
                 "flex items-center gap-1.5 px-2 py-1 rounded-lg border",
                 rankColors.bg,

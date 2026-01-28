@@ -11,8 +11,9 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { mutation } from "../_generated/server";
-import { ErrorCode, createError } from "../lib/errorCodes";
+import type { MutationCtx } from "../_generated/server";
 import { requireAuthMutation } from "../lib/convexAuth";
+import { ErrorCode, createError } from "../lib/errorCodes";
 import {
   applyContinuousEffects,
   applyDamage,
@@ -77,7 +78,7 @@ export const declareAttack = mutation({
     // 4. Get game state
     const gameState = await ctx.db
       .query("gameStates")
-      .withIndex("by_lobby", (q: any) => q.eq("lobbyId", args.lobbyId))
+      .withIndex("by_lobby", (q) => q.eq("lobbyId", args.lobbyId))
       .first();
 
     if (!gameState) {
@@ -288,10 +289,17 @@ export const declareAttack = mutation({
       });
     }
 
+    // Validate game state for event recording
+    if (!lobby.gameId || lobby.turnNumber === undefined) {
+      throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
+        reason: "Game ID or turn number not found",
+      });
+    }
+
     await recordEventHelper(ctx, {
       lobbyId: args.lobbyId,
-      gameId: lobby.gameId!,
-      turnNumber: lobby.turnNumber!,
+      gameId: lobby.gameId,
+      turnNumber: lobby.turnNumber,
       eventType: "attack_declared",
       playerId: user.userId,
       playerUsername: user.username,
@@ -313,7 +321,7 @@ export const declareAttack = mutation({
       ctx,
       args.lobbyId,
       gameState,
-      lobby.turnNumber!,
+      lobby.turnNumber,
       user.userId,
       opponentId,
       effectiveAttacker,
@@ -351,7 +359,7 @@ export const declareAttack = mutation({
  * Handles all battle scenarios and records appropriate events.
  */
 async function resolveBattle(
-  ctx: any,
+  ctx: MutationCtx,
   lobbyId: Id<"gameLobbies">,
   gameState: Doc<"gameStates">,
   turnNumber: number,
@@ -417,7 +425,7 @@ async function resolveBattle(
       if (parsedEffect && parsedEffect.trigger === "on_battle_damage") {
         const refreshedState = await ctx.db
           .query("gameStates")
-          .withIndex("by_lobby", (q: any) => q.eq("lobbyId", lobbyId))
+          .withIndex("by_lobby", (q) => q.eq("lobbyId", lobbyId))
           .first();
 
         if (refreshedState) {
@@ -468,7 +476,7 @@ async function resolveBattle(
     if (parsedEffect && parsedEffect.trigger === "on_battle_attacked") {
       const refreshedState = await ctx.db
         .query("gameStates")
-        .withIndex("by_lobby", (q: any) => q.eq("lobbyId", lobbyId))
+        .withIndex("by_lobby", (q) => q.eq("lobbyId", lobbyId))
         .first();
 
       if (refreshedState) {
@@ -554,7 +562,7 @@ async function resolveBattle(
         if (parsedEffect && parsedEffect.trigger === "on_battle_destroy") {
           const refreshedState = await ctx.db
             .query("gameStates")
-            .withIndex("by_lobby", (q: any) => q.eq("lobbyId", lobbyId))
+            .withIndex("by_lobby", (q) => q.eq("lobbyId", lobbyId))
             .first();
 
           if (refreshedState) {
@@ -590,7 +598,7 @@ async function resolveBattle(
         if (parsedEffect && parsedEffect.trigger === "on_battle_damage") {
           const refreshedState = await ctx.db
             .query("gameStates")
-            .withIndex("by_lobby", (q: any) => q.eq("lobbyId", lobbyId))
+            .withIndex("by_lobby", (q) => q.eq("lobbyId", lobbyId))
             .first();
 
           if (refreshedState) {
@@ -726,7 +734,7 @@ async function resolveBattle(
           if (parsedEffect && parsedEffect.trigger === "on_battle_damage") {
             const refreshedState = await ctx.db
               .query("gameStates")
-              .withIndex("by_lobby", (q: any) => q.eq("lobbyId", lobbyId))
+              .withIndex("by_lobby", (q) => q.eq("lobbyId", lobbyId))
               .first();
 
             if (refreshedState) {
@@ -763,7 +771,7 @@ async function resolveBattle(
         if (parsedEffect && parsedEffect.trigger === "on_battle_destroy") {
           const refreshedState = await ctx.db
             .query("gameStates")
-            .withIndex("by_lobby", (q: any) => q.eq("lobbyId", lobbyId))
+            .withIndex("by_lobby", (q) => q.eq("lobbyId", lobbyId))
             .first();
 
           if (refreshedState) {
@@ -819,12 +827,22 @@ async function resolveBattle(
  * Records card_destroyed_battle and card_to_graveyard events.
  */
 async function destroyCard(
-  ctx: any,
+  ctx: MutationCtx,
   lobbyId: Id<"gameLobbies">,
   gameState: Doc<"gameStates">,
   turnNumber: number,
   cardId: Id<"cardDefinitions">,
-  board: any[],
+  board: Array<{
+    cardId: Id<"cardDefinitions">;
+    position: number;
+    attack: number;
+    defense: number;
+    hasAttacked: boolean;
+    isFaceDown: boolean;
+    cannotBeDestroyedByBattle?: boolean;
+    cannotBeDestroyedByEffects?: boolean;
+    cannotBeTargeted?: boolean;
+  }>,
   ownerId: Id<"users">,
   isAttacker: boolean
 ): Promise<void> {
@@ -890,7 +908,7 @@ async function destroyCard(
     if (parsedEffect && parsedEffect.trigger === "on_destroy") {
       const refreshedState = await ctx.db
         .query("gameStates")
-        .withIndex("by_lobby", (q: any) => q.eq("lobbyId", lobbyId))
+        .withIndex("by_lobby", (q) => q.eq("lobbyId", lobbyId))
         .first();
 
       if (refreshedState) {

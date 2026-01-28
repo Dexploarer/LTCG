@@ -54,7 +54,7 @@ export default function QuestsPage() {
         {/* Level Progress */}
         <div className="mb-8 p-6 rounded-xl bg-black/40 border border-[#3d2b1f]">
           <div className="flex items-center justify-between mb-4">
-            <div>
+            <div data-testid="player-rank">
               <h2 className="text-2xl font-bold text-[#e8e0d5]">
                 Level {profile.level ?? 1}
               </h2>
@@ -171,7 +171,7 @@ export default function QuestsPage() {
               <>
                 {/* Active Quests */}
                 {activeQuests.length > 0 && (
-                  <div className="space-y-4">
+                  <div data-testid="quests-list" className="space-y-4">
                     <h3 className="text-lg font-bold text-[#e8e0d5]">Active Quests</h3>
                     {activeQuests.map((quest: (typeof activeQuests)[number]) => {
                       const progress = Math.min(
@@ -205,7 +205,7 @@ export default function QuestsPage() {
                               <p className="text-sm text-[#a89f94] mb-3">{quest.description}</p>
 
                               {/* Progress Bar */}
-                              <div className="mb-2">
+                              <div data-testid="quest-progress" className="mb-2">
                                 <div className="flex items-center justify-between mb-1 text-xs">
                                   <span className="text-[#a89f94]">Progress</span>
                                   <span className="text-[#e8e0d5] font-bold">
@@ -334,6 +334,7 @@ export default function QuestsPage() {
                     return (
                       <div
                         key={achievement.achievementId}
+                        data-testid="achievement"
                         className={cn(
                           "p-4 rounded-xl border transition-all",
                           achievement.isUnlocked
@@ -378,7 +379,7 @@ export default function QuestsPage() {
 
                             {/* Progress */}
                             {!achievement.isUnlocked && (
-                              <div className="mb-2">
+                              <div data-testid="achievement-progress" className="mb-2">
                                 <div className="flex items-center justify-between mb-1 text-xs">
                                   <span className="text-[#a89f94]">Progress</span>
                                   <span className="text-[#e8e0d5] font-bold">
@@ -391,7 +392,7 @@ export default function QuestsPage() {
 
                             {/* Rewards */}
                             {achievement.rewards && (
-                              <div className="flex items-center gap-3 text-xs">
+                              <div data-testid="achievement-reward" className="flex items-center gap-3 text-xs">
                                 {achievement.rewards.gold && (
                                   <span className="text-[#d4af37]">
                                     +{achievement.rewards.gold} Gold

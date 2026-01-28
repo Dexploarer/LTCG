@@ -136,7 +136,7 @@ export default function ChapterPage({ params }: ChapterPageProps) {
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
       {/* Background Image */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-0" data-testid="chapter-artwork">
         <Image
           src={`/assets/story/${assetName}.png`}
           alt={chapter.title}
@@ -178,13 +178,13 @@ export default function ChapterPage({ params }: ChapterPageProps) {
             </div>
 
             <div className="flex items-center gap-6 text-center">
-              <div>
+              <div data-testid="chapter-progress">
                 <div className="text-3xl font-bold text-[#e8e0d5]">
                   {completedStages}/{stages.length}
                 </div>
                 <div className="text-xs text-[#a89f94] uppercase tracking-wider">Stages</div>
               </div>
-              <div>
+              <div data-testid="stage-stars">
                 <div className="flex items-center gap-1 text-3xl font-bold text-yellow-400">
                   <Star className="w-7 h-7 fill-yellow-400" />
                   {starCount}
@@ -240,7 +240,7 @@ export default function ChapterPage({ params }: ChapterPageProps) {
                 Stage {selectedStage.stageNumber}: {selectedStage.name}
               </DialogTitle>
 
-              <p className="text-[#a89f94] mb-6">{selectedStage.description}</p>
+              <p className="text-[#a89f94] mb-6" data-testid="story-dialogue">{selectedStage.description}</p>
 
               {/* Rewards */}
               <div className="space-y-3 mb-6">
@@ -281,6 +281,7 @@ export default function ChapterPage({ params }: ChapterPageProps) {
                           ? "bg-red-500/20 text-red-400"
                           : "bg-purple-500/20 text-purple-400"
                   )}
+                  data-testid="stage-difficulty"
                 >
                   {selectedStage.aiDifficulty}
                 </span>

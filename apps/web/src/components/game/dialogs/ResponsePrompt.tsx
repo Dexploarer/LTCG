@@ -96,7 +96,7 @@ export function ResponsePrompt({
             exit={{ opacity: 0, y: 100 }}
             className="fixed bottom-2 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-2"
           >
-            <div className="bg-background/95 backdrop-blur-md border-2 border-yellow-500/50 rounded-xl shadow-2xl shadow-yellow-500/20 p-3">
+            <div className="bg-background/95 backdrop-blur-md border-2 border-yellow-500/50 rounded-xl shadow-2xl shadow-yellow-500/20 p-3" data-testid="response-prompt">
               {/* Header with timer */}
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-1.5">
@@ -141,6 +141,7 @@ export function ResponsePrompt({
                         "w-full flex items-center gap-2 p-2 rounded-lg border-2 transition-all",
                         "border-slate-700 bg-slate-800/50 hover:border-yellow-500/50 hover:bg-slate-800"
                       )}
+                      data-testid="chain-link"
                     >
                       <div className="w-8 h-11 rounded border bg-linear-to-br from-purple-600 to-purple-800 shrink-0 overflow-hidden">
                         {response.card?.imageUrl ? (

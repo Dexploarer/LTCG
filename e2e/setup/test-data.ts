@@ -187,7 +187,7 @@ export const SELECTORS = {
   GAME_BATTLE_PHASE: '[data-phase="battle"]',
 
   // Shop
-  SHOP_BUY_PACK_BUTTON: 'button:has-text("Buy Pack")',
+  SHOP_BUY_PACK_BUTTON: '[data-testid="pack-item"] button:first-of-type',
   SHOP_OPEN_PACK_BUTTON: 'button:has-text("Open Pack")',
 
   // Story

@@ -336,7 +336,7 @@ export function GlobalChat() {
   };
 
   return (
-    <div className="h-full flex flex-col rounded-2xl tcg-chat-leather overflow-hidden shadow-2xl border border-[#3d2b1f]">
+    <div data-testid="global-chat" className="h-full flex flex-col rounded-2xl tcg-chat-leather overflow-hidden shadow-2xl border border-[#3d2b1f]">
       {/* Header */}
       <div className="p-4 border-b border-[#3d2b1f] bg-linear-to-r from-[#1a1614] to-[#261f1c]">
         <div className="flex items-center justify-between">
@@ -585,6 +585,7 @@ export function GlobalChat() {
       <div className="p-4 border-t border-[#3d2b1f] bg-linear-to-r from-[#1a1614] to-[#261f1c]">
         <div className="flex gap-2">
           <input
+            data-testid="chat-input"
             type="text"
             value={message}
             onChange={(e) => setMessage(e.target.value)}

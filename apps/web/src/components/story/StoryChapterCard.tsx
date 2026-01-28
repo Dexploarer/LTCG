@@ -49,7 +49,7 @@ export function StoryChapterCard({ chapter, onClick }: StoryChapterCardProps) {
         noPadding
       >
         {/* Background Image */}
-        <div className="absolute inset-0">
+        <div className="absolute inset-0" data-testid="chapter-artwork">
           <Image
             src={`/assets/story/${assetName}.png`}
             alt={chapterName}
@@ -83,7 +83,7 @@ export function StoryChapterCard({ chapter, onClick }: StoryChapterCardProps) {
                 Chapter {chapter.order}
               </span>
               {isUnlocked && (
-                <div className="flex items-center gap-1 text-xs text-yellow-400 bg-black/40 px-2 py-0.5 rounded-full border border-white/10">
+                <div className="flex items-center gap-1 text-xs text-yellow-400 bg-black/40 px-2 py-0.5 rounded-full border border-white/10" data-testid="stage-stars">
                   <Star className="w-3 h-3 fill-current" />
                   <span>{chapter.starredStages}</span>
                 </div>
@@ -100,10 +100,10 @@ export function StoryChapterCard({ chapter, onClick }: StoryChapterCardProps) {
 
             {/* Progress Bar */}
             {isUnlocked && (
-              <div className="mt-4">
+              <div className="mt-4" data-testid="chapter-progress">
                 <div className="flex justify-between text-xs mb-1.5">
                   <span className="text-gray-400">Progress</span>
-                  <span className="text-purple-300">
+                  <span className="text-purple-300" data-testid="completion-percentage">
                     {Math.round((completedStages / totalStages) * 100)}%
                   </span>
                 </div>

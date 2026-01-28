@@ -38,6 +38,7 @@ export function SpellTrapZone({
               card={card}
               size="xs"
               showStats={false}
+              isOpponent={isOpponent}
               isSelected={selectedCard === card.instanceId}
               isActivatable={activatableCards?.has(card.instanceId) ?? false}
               onClick={() => onCardClick?.(card)}

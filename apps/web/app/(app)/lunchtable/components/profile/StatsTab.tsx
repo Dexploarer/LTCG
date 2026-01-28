@@ -25,13 +25,13 @@ export function StatsTab({ profile, onAchievementClick }: StatsTabProps) {
   return (
     <div className="space-y-4">
       {/* Main Stats */}
-      <div className="grid grid-cols-4 gap-3">
+      <div data-testid="player-stats" className="grid grid-cols-4 gap-3">
         <div className="text-center p-3 rounded-xl bg-black/30 border border-[#3d2b1f]">
           <p className="text-2xl font-black text-[#d4af37]">{profile.stats.totalGames}</p>
           <p className="text-[10px] text-[#a89f94] uppercase tracking-wider">Games</p>
         </div>
-        <div className="text-center p-3 rounded-xl bg-black/30 border border-[#3d2b1f]">
-          <p className="text-2xl font-black text-green-400">{profile.stats.wins}</p>
+        <div className="text-center p-3 rounded-xl bg-black/30 border border-[#3d2b1f]" data-testid="player-wins">
+          <p className="text-2xl font-black text-green-400" data-testid="win-count">{profile.stats.wins}</p>
           <p className="text-[10px] text-[#a89f94] uppercase tracking-wider">Wins</p>
         </div>
         <div className="text-center p-3 rounded-xl bg-black/30 border border-[#3d2b1f]">
@@ -67,7 +67,7 @@ export function StatsTab({ profile, onAchievementClick }: StatsTabProps) {
       </div>
 
       {/* Achievements Progress */}
-      <div className="space-y-2">
+      <div data-testid="player-badges" className="space-y-2">
         <h4 className="text-xs font-bold text-[#a89f94] uppercase tracking-wider">Achievements</h4>
         {profile.achievements.map((ach) => {
           const Icon = BADGE_ICONS[ach.icon] || Star;
@@ -81,6 +81,7 @@ export function StatsTab({ profile, onAchievementClick }: StatsTabProps) {
             <button
               type="button"
               key={ach.id}
+              data-testid="achievement"
               onClick={() => onAchievementClick(ach)}
               className="w-full flex items-center gap-3 p-3 rounded-xl bg-black/20 border border-[#3d2b1f]/50 text-left hover:border-[#d4af37]/30 transition-all hover:scale-[1.01] active:scale-[0.99]"
             >
@@ -98,7 +99,7 @@ export function StatsTab({ profile, onAchievementClick }: StatsTabProps) {
                 </div>
                 <p className="text-[10px] text-[#a89f94] mb-1">{ach.description}</p>
                 {hasProgress && (
-                  <div className="h-1.5 rounded-full bg-black/50 overflow-hidden">
+                  <div data-testid="achievement-progress" className="h-1.5 rounded-full bg-black/50 overflow-hidden">
                     <div
                       className="h-full rounded-full bg-linear-to-r from-[#d4af37] to-[#f4d03f] transition-all"
                       style={{ width: `${progressPercent}%` }}

@@ -36,6 +36,7 @@ export function BadgesTab({ profile, onBadgeClick }: BadgesTabProps) {
           <button
             type="button"
             key={badge.id}
+            data-testid="achievement"
             onClick={() => onBadgeClick(badge)}
             className="w-full flex items-center gap-3 p-4 rounded-xl bg-black/30 border border-[#3d2b1f] hover:border-[#d4af37]/30 transition-all text-left hover:scale-[1.01] active:scale-[0.99]"
           >

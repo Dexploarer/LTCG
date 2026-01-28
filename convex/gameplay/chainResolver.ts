@@ -20,6 +20,16 @@ import { createError, ErrorCode } from "../lib/errorCodes";
 import { executeEffect, parseAbility } from "./effectSystem/index";
 import { recordEventHelper } from "./gameEvents";
 
+// Type definitions for chain links
+interface ChainLink {
+  cardId: Id<"cardDefinitions">;
+  playerId: Id<"users">;
+  spellSpeed: number;
+  effect: string;
+  targets?: Id<"cardDefinitions">[];
+  negated?: boolean;
+}
+
 /**
  * Helper function to add effect to chain without mutation overhead
  *
@@ -77,7 +87,7 @@ export async function addToChainHelper(
   }
 
   // 3. Get current chain (or initialize empty)
-  const currentChain = gameState.currentChain || [];
+  const currentChain: ChainLink[] = gameState.currentChain || [];
 
   // 4. Validate spell speed
   if (currentChain.length > 0) {
@@ -92,7 +102,7 @@ export async function addToChainHelper(
   }
 
   // 5. Create new chain link
-  const newChainLink = {
+  const newChainLink: ChainLink = {
     cardId: args.cardId,
     playerId: args.playerId,
     spellSpeed: args.spellSpeed,
@@ -113,10 +123,17 @@ export async function addToChainHelper(
   const card = await ctx.db.get(args.cardId);
 
   // 8. Record chain_link_added event
+  if (!lobby.gameId || lobby.turnNumber === undefined) {
+    throw createError(ErrorCode.GAME_STATE_NOT_FOUND, {
+      reason: "Game not properly initialized",
+      lobbyId: args.lobbyId,
+    });
+  }
+
   await recordEventHelper(ctx, {
     lobbyId: args.lobbyId,
-    gameId: lobby.gameId!,
-    turnNumber: lobby.turnNumber!,
+    gameId: lobby.gameId,
+    turnNumber: lobby.turnNumber,
     eventType: "chain_link_added",
     playerId: args.playerId,
     playerUsername: args.playerUsername,
@@ -214,7 +231,7 @@ export async function resolveChainHelper(
   }
 
   // 3. Get current chain
-  const currentChain = gameState.currentChain || [];
+  const currentChain: ChainLink[] = gameState.currentChain || [];
 
   if (currentChain.length === 0) {
     throw createError(ErrorCode.GAME_NO_CHAIN, {
@@ -232,10 +249,17 @@ export async function resolveChainHelper(
   }
 
   // 4. Record chain_resolving event
+  if (!lobby.gameId || lobby.turnNumber === undefined) {
+    throw createError(ErrorCode.GAME_STATE_NOT_FOUND, {
+      reason: "Game not properly initialized",
+      lobbyId: args.lobbyId,
+    });
+  }
+
   await recordEventHelper(ctx, {
     lobbyId: args.lobbyId,
-    gameId: lobby.gameId!,
-    turnNumber: lobby.turnNumber!,
+    gameId: lobby.gameId,
+    turnNumber: lobby.turnNumber,
     eventType: "chain_resolving",
     playerId: firstChainLink.playerId,
     playerUsername: "System",
@@ -261,8 +285,8 @@ export async function resolveChainHelper(
     if (chainLink.negated) {
       await recordEventHelper(ctx, {
         lobbyId: args.lobbyId,
-        gameId: lobby.gameId!,
-        turnNumber: lobby.turnNumber!,
+        gameId: lobby.gameId,
+        turnNumber: lobby.turnNumber,
         eventType: "activation_negated",
         playerId: chainLink.playerId,
         playerUsername: "System",
@@ -316,8 +340,8 @@ export async function resolveChainHelper(
         // Record effect resolution
         await recordEventHelper(ctx, {
           lobbyId: args.lobbyId,
-          gameId: lobby.gameId!,
-          turnNumber: lobby.turnNumber!,
+          gameId: lobby.gameId,
+          turnNumber: lobby.turnNumber,
           eventType: "effect_activated",
           playerId: chainLink.playerId,
           playerUsername: "System",
@@ -335,8 +359,8 @@ export async function resolveChainHelper(
       // Couldn't parse effect - log warning
       await recordEventHelper(ctx, {
         lobbyId: args.lobbyId,
-        gameId: lobby.gameId!,
-        turnNumber: lobby.turnNumber!,
+        gameId: lobby.gameId,
+        turnNumber: lobby.turnNumber,
         eventType: "effect_activated",
         playerId: chainLink.playerId,
         playerUsername: "System",
@@ -376,8 +400,8 @@ export async function resolveChainHelper(
   // 7. Record chain_resolved event
   await recordEventHelper(ctx, {
     lobbyId: args.lobbyId,
-    gameId: lobby.gameId!,
-    turnNumber: lobby.turnNumber!,
+    gameId: lobby.gameId,
+    turnNumber: lobby.turnNumber,
     eventType: "chain_resolved",
     playerId: firstChainLink.playerId,
     playerUsername: "System",
@@ -446,7 +470,7 @@ export const passPriority = mutation({
     }
 
     // 4. Check if there's a chain to respond to
-    const currentChain = gameState.currentChain || [];
+    const currentChain: ChainLink[] = gameState.currentChain || [];
 
     if (currentChain.length === 0) {
       throw createError(ErrorCode.GAME_NO_CHAIN, {
@@ -509,7 +533,7 @@ export const getCurrentChain = query({
       };
     }
 
-    const currentChain = gameState.currentChain || [];
+    const currentChain: ChainLink[] = gameState.currentChain || [];
 
     // Enrich with card names
     const enrichedChain = await Promise.all(
@@ -531,7 +555,7 @@ export const getCurrentChain = query({
 
     return {
       chain: enrichedChain,
-      priorityPlayer: gameState.currentPriorityPlayer,
+      priorityPlayer: gameState.currentPriorityPlayer || null,
     };
   },
 });

@@ -394,7 +394,7 @@ export default function PackOpeningPage() {
                 <p className="text-[#a89f94]">Click each card to reveal, or reveal all at once</p>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-8">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-8" data-testid="pack-results">
                 {cards.map((card, index) => {
                   const isRevealed = revealedCards.has(index);
                   const config = RARITY_CONFIG[card.rarity];

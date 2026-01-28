@@ -166,6 +166,7 @@ export default function MatchHistoryPage() {
               return (
                 <div
                   key={match.id}
+                  data-testid="match-entry"
                   className={cn("p-4 rounded-xl border transition-all hover:bg-white/5", config.bg)}
                 >
                   <div className="flex items-center gap-4">

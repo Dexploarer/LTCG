@@ -272,7 +272,7 @@ export function GameLobby() {
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div data-testid="game-lobby" className="h-full flex flex-col">
       {/* Header with Create Button */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>
@@ -449,7 +449,7 @@ export function GameLobby() {
       </div>
 
       {/* Game List */}
-      <div className="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-[#3d2b1f] scrollbar-track-transparent">
+      <div data-testid="lobby-players" className="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-[#3d2b1f] scrollbar-track-transparent">
         {activeTab === "join" ? (
           waitingGames.length > 0 ? (
             waitingGames.map((game) => (
@@ -503,7 +503,7 @@ function WaitingGameCard({ game, onJoin }: { game: GameLobbyEntry; onJoin: () =>
   const ArchetypeIcon = archetype.icon;
 
   return (
-    <div className="group relative p-4 rounded-xl tcg-chat-leather border border-[#3d2b1f] hover:border-[#d4af37]/50 transition-all shadow-lg hover:shadow-xl overflow-hidden">
+    <div data-testid="lobby-player" data-lobby-id={game.id} className="group relative p-4 rounded-xl tcg-chat-leather border border-[#3d2b1f] hover:border-[#d4af37]/50 transition-all shadow-lg hover:shadow-xl overflow-hidden">
       <div className="ornament-corner ornament-corner-tl opacity-30" />
       <div className="ornament-corner ornament-corner-tr opacity-30" />
 
@@ -523,7 +523,7 @@ function WaitingGameCard({ game, onJoin }: { game: GameLobbyEntry; onJoin: () =>
 
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-black text-[#e8e0d5] truncate">{game.hostName}</span>
+              <span data-testid="host-indicator" className="font-black text-[#e8e0d5] truncate">{game.hostName}</span>
               <span
                 className={cn(
                   "text-[10px] font-bold uppercase tracking-wider",
@@ -544,7 +544,7 @@ function WaitingGameCard({ game, onJoin }: { game: GameLobbyEntry; onJoin: () =>
                 {game.mode}
               </span>
             </div>
-            <div className="flex items-center gap-2 text-[11px] text-[#a89f94]">
+            <div data-testid="player-ready" className="flex items-center gap-2 text-[11px] text-[#a89f94]">
               <Clock className="w-3 h-3" />
               <span>Waiting {formatWaitTime(game.createdAt)}</span>
             </div>
@@ -576,7 +576,7 @@ function ActiveGameCard({
   const ArchetypeIcon = archetype.icon;
 
   return (
-    <div className="group relative p-4 rounded-xl tcg-chat-leather border border-[#3d2b1f] hover:border-[#d4af37]/50 transition-all shadow-lg hover:shadow-xl overflow-hidden">
+    <div data-testid="lobby-player" data-lobby-id={game.id} className="group relative p-4 rounded-xl tcg-chat-leather border border-[#3d2b1f] hover:border-[#d4af37]/50 transition-all shadow-lg hover:shadow-xl overflow-hidden">
       <div className="ornament-corner ornament-corner-tl opacity-30" />
       <div className="ornament-corner ornament-corner-tr opacity-30" />
 
@@ -604,7 +604,7 @@ function ActiveGameCard({
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1 text-sm">
-              <span className="font-black text-[#e8e0d5] truncate">{game.hostName}</span>
+              <span data-testid="host-indicator" className="font-black text-[#e8e0d5] truncate">{game.hostName}</span>
               <span className="text-[#a89f94] font-bold">vs</span>
               <span className="font-black text-[#e8e0d5] truncate">{game.opponentName}</span>
             </div>

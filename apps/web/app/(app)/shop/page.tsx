@@ -829,7 +829,7 @@ export default function ShopPage() {
 // Shop Item Card Component
 function ShopItemCard({ item, onPurchase }: { item: ShopItem; onPurchase: () => void }) {
   return (
-    <div data-testid="pack-item" className="p-4 rounded-xl border border-[#3d2b1f] bg-black/40 hover:bg-black/60 transition-all">
+    <div data-testid="pack-product" className="p-4 rounded-xl border border-[#3d2b1f] bg-black/40 hover:bg-black/60 transition-all">
       <div className="aspect-square rounded-lg bg-[#d4af37]/10 flex items-center justify-center mb-4">
         {item.type === "pack" && <Package className="w-16 h-16 text-[#d4af37]" />}
         {item.type === "box" && <Box className="w-16 h-16 text-[#d4af37]" />}
@@ -844,6 +844,7 @@ function ShopItemCard({ item, onPurchase }: { item: ShopItem; onPurchase: () => 
             variant="outline"
             className="w-full justify-between border-yellow-500/30 text-yellow-300 hover:bg-yellow-500/10"
             size="sm"
+            data-testid="pack-price"
           >
             <Coins className="w-4 h-4" />
             <span>{item.goldPrice.toLocaleString()}</span>
@@ -855,6 +856,7 @@ function ShopItemCard({ item, onPurchase }: { item: ShopItem; onPurchase: () => 
             variant="outline"
             className="w-full justify-between border-purple-500/30 text-purple-300 hover:bg-purple-500/10"
             size="sm"
+            data-testid="pack-price"
           >
             <Gem className="w-4 h-4" />
             <span>{item.gemPrice.toLocaleString()}</span>
@@ -904,6 +906,7 @@ function MarketListingCard({
   return (
     <button
       type="button"
+      data-testid="marketplace-card"
       className={cn(
         "relative p-3 rounded-xl border border-[#3d2b1f] bg-black/40 hover:bg-black/60 transition-all cursor-pointer text-left w-full",
         isSelected && "ring-2 ring-purple-500"

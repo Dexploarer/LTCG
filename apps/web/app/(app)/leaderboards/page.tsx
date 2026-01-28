@@ -248,7 +248,7 @@ export default function LeaderboardsPage() {
         )}
 
         {/* Leaderboard Table */}
-        <div className="rounded-xl bg-black/40 border border-[#3d2b1f] overflow-hidden">
+        <div data-testid="leaderboard" className="rounded-xl bg-black/40 border border-[#3d2b1f] overflow-hidden">
           {/* Header */}
           <div className="grid grid-cols-12 gap-4 p-4 border-b border-[#3d2b1f] text-xs font-bold text-[#a89f94] uppercase tracking-wider">
             <div className="col-span-1">Rank</div>
@@ -272,6 +272,7 @@ export default function LeaderboardsPage() {
                 return (
                   <div
                     key={player.userId}
+                    data-testid="leaderboard-entry"
                     className={cn(
                       "grid grid-cols-12 gap-4 p-4 items-center hover:bg-white/5 transition-colors",
                       isCurrentUser && "bg-[#d4af37]/10 hover:bg-[#d4af37]/15"

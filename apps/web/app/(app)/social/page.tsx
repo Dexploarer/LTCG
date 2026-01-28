@@ -234,6 +234,7 @@ export default function SocialPage() {
               incomingRequests?.map((request: NonNullable<typeof incomingRequests>[number]) => (
                 <div
                   key={request.userId}
+                  data-testid="friend-request"
                   className="flex items-center gap-4 p-4 rounded-xl bg-black/40 border border-[#3d2b1f]"
                 >
                   <Avatar className="w-12 h-12 border border-[#3d2b1f]">
@@ -364,6 +365,7 @@ function FriendCard({
           </AvatarFallback>
         </Avatar>
         <div
+          data-testid="online-status"
           className={cn(
             "absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#1a1614]",
             statusColors[friend.status]

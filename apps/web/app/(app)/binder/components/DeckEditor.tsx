@@ -92,7 +92,7 @@ export function DeckEditor({
   }, [deckCards, deckCardCount]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="deck-editor">
       {/* Deck Header */}
       <div className="tcg-chat-leather rounded-2xl p-6 border border-[#3d2b1f]">
         <div className="flex items-center justify-between mb-4">
@@ -175,6 +175,7 @@ export function DeckEditor({
                 "text-2xl font-black",
                 deckCardCount >= DECK_MIN_SIZE ? "text-green-400" : "text-[#d4af37]"
               )}
+              data-testid="deck-count"
             >
               {deckCardCount}
             </p>
@@ -220,6 +221,7 @@ export function DeckEditor({
                 <div
                   key={card.id}
                   className="flex items-center gap-3 p-2 rounded-lg bg-black/30 border border-[#3d2b1f]"
+                  data-testid="deck-card"
                 >
                   <div
                     className={cn(
@@ -270,6 +272,7 @@ export function DeckEditor({
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="w-full pl-10 pr-4 py-2 bg-[#1a1510] border border-[#3d2b1f] rounded-lg text-[#e8e0d5] placeholder:text-[#a89f94]/40 focus:outline-none focus:border-[#d4af37]/50 text-sm"
+            data-testid="deck-search"
           />
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-[600px] overflow-y-auto">

@@ -105,6 +105,7 @@ export function DeckList({
                     : "bg-black/30 border-[#3d2b1f] hover:border-[#d4af37]/50"
                 )}
                 onClick={() => onSelectDeck(deck.id)}
+                data-testid="deck-card"
               >
                 <div
                   className={cn(
@@ -129,7 +130,7 @@ export function DeckList({
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-[#a89f94]">
+                  <p className="text-xs text-[#a89f94]" data-testid="deck-count">
                     {deck.cardCount} cards
                     {!isValidDeck && " - Incomplete (min 30)"}
                   </p>

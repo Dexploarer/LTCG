@@ -6,7 +6,8 @@
  */
 
 import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
 import { createError, ErrorCode } from "../lib/errorCodes";
 import { requireAuthMutation } from "../lib/convexAuth";
@@ -101,7 +102,7 @@ export const advancePhase = mutation({
     }
 
     // 5. Get current phase (default to draw if not set)
-    let currentPhase: GamePhase = (gameState.currentPhase as GamePhase) || "draw";
+    let currentPhase: GamePhase = gameState.currentPhase || "draw";
     let nextPhase = getNextPhase(currentPhase);
 
     if (!nextPhase) {
@@ -121,11 +122,18 @@ export const advancePhase = mutation({
         currentPhase: nextPhase,
       });
 
+      // Validate required lobby fields
+      if (!lobby.gameId || lobby.turnNumber === undefined) {
+        throw createError(ErrorCode.GAME_NOT_STARTED, {
+          reason: "Game not started or missing game data",
+        });
+      }
+
       // Record phase change
       await recordEventHelper(ctx, {
         lobbyId: args.lobbyId,
-        gameId: lobby.gameId!,
-        turnNumber: lobby.turnNumber!,
+        gameId: lobby.gameId,
+        turnNumber: lobby.turnNumber,
         eventType: "phase_changed",
         playerId: user.userId,
         playerUsername: user.username,
@@ -144,7 +152,7 @@ export const advancePhase = mutation({
         gameState._id,
         nextPhase,
         user.userId,
-        lobby.turnNumber!
+        lobby.turnNumber
       );
 
       // Move to next phase
@@ -170,12 +178,19 @@ export const advancePhase = mutation({
       currentPhase: nextPhase,
     });
 
-    // 8. Record final phase change if not already recorded
+    // 8. Validate required lobby fields for final phase
+    if (!lobby.gameId || lobby.turnNumber === undefined) {
+      throw createError(ErrorCode.GAME_NOT_STARTED, {
+        reason: "Game not started or missing game data",
+      });
+    }
+
+    // 9. Record final phase change if not already recorded
     if (!shouldAutoAdvancePhase(nextPhase)) {
       await recordEventHelper(ctx, {
         lobbyId: args.lobbyId,
-        gameId: lobby.gameId!,
-        turnNumber: lobby.turnNumber!,
+        gameId: lobby.gameId,
+        turnNumber: lobby.turnNumber,
         eventType: "phase_changed",
         playerId: user.userId,
         playerUsername: user.username,
@@ -188,17 +203,17 @@ export const advancePhase = mutation({
       });
     }
 
-    // 9. Execute final phase logic
+    // 10. Execute final phase logic
     await executePhaseLogic(
       ctx,
       args.lobbyId,
       gameState._id,
       nextPhase,
       user.userId,
-      lobby.turnNumber!
+      lobby.turnNumber
     );
 
-    // 10. Return new phase and available actions
+    // 11. Return new phase and available actions
     return {
       newPhase: nextPhase,
       phasesVisited,
@@ -222,7 +237,7 @@ function shouldAutoAdvancePhase(phase: GamePhase): boolean {
  * Execute phase-specific logic
  */
 async function executePhaseLogic(
-  ctx: any,
+  ctx: MutationCtx,
   lobbyId: Id<"gameLobbies">,
   gameStateId: Id<"gameStates">,
   phase: GamePhase,
@@ -251,11 +266,18 @@ async function executePhaseLogic(
       break;
 
     case "battle_start":
+      // Validate required lobby fields
+      if (!lobby.gameId) {
+        throw createError(ErrorCode.GAME_NOT_STARTED, {
+          reason: "Game not started or missing game ID",
+        });
+      }
+
       // Record battle_phase_entered event
       const user = await ctx.db.get(playerId);
       await recordEventHelper(ctx, {
         lobbyId,
-        gameId: lobby.gameId!,
+        gameId: lobby.gameId,
         turnNumber,
         eventType: "battle_phase_entered",
         playerId,
@@ -293,24 +315,43 @@ async function executePhaseLogic(
  * and executes them automatically.
  */
 async function executePhaseTriggeredEffects(
-  ctx: any,
+  ctx: MutationCtx,
   lobbyId: Id<"gameLobbies">,
-  gameState: any,
+  gameState: Doc<"gameStates">,
   playerId: Id<"users">,
   phase: "battle_start" | "end"
 ): Promise<void> {
   const lobby = await ctx.db.get(lobbyId);
   if (!lobby) return;
 
+  // Validate required lobby fields
+  if (!lobby.gameId || lobby.turnNumber === undefined) {
+    return; // Cannot proceed without game data
+  }
+
   const isHost = playerId === gameState.hostId;
   const playerBoard = isHost ? gameState.hostBoard : gameState.opponentBoard;
   const opponentBoard = isHost ? gameState.opponentBoard : gameState.hostBoard;
   const opponentId = isHost ? gameState.opponentId : gameState.hostId;
 
+  interface BoardCardWithOwner {
+    cardId: Id<"cardDefinitions">;
+    position: number;
+    attack: number;
+    defense: number;
+    hasAttacked: boolean;
+    isFaceDown: boolean;
+    cannotBeDestroyedByBattle?: boolean;
+    cannotBeDestroyedByEffects?: boolean;
+    cannotBeTargeted?: boolean;
+    ownerId: Id<"users">;
+    isOwner: boolean;
+  }
+
   // Combine all boards to check all cards
-  const allBoards = [
-    ...playerBoard.map((bc: any) => ({ ...bc, ownerId: playerId, isOwner: true })),
-    ...opponentBoard.map((bc: any) => ({ ...bc, ownerId: opponentId, isOwner: false })),
+  const allBoards: BoardCardWithOwner[] = [
+    ...playerBoard.map((bc) => ({ ...bc, ownerId: playerId, isOwner: true })),
+    ...opponentBoard.map((bc) => ({ ...bc, ownerId: opponentId, isOwner: false })),
   ];
 
   // Batch fetch all board card definitions to avoid N+1 queries
@@ -341,7 +382,7 @@ async function executePhaseTriggeredEffects(
       // Get refreshed game state
       const refreshedState = await ctx.db
         .query("gameStates")
-        .withIndex("by_lobby", (q: any) => q.eq("lobbyId", lobbyId))
+        .withIndex("by_lobby", (q) => q.eq("lobbyId", lobbyId))
         .first();
 
       if (!refreshedState) continue;
@@ -362,8 +403,8 @@ async function executePhaseTriggeredEffects(
         const user = await ctx.db.get(boardCard.ownerId);
         await recordEventHelper(ctx, {
           lobbyId,
-          gameId: lobby.gameId!,
-          turnNumber: lobby.turnNumber!,
+          gameId: lobby.gameId,
+          turnNumber: lobby.turnNumber,
           eventType: "effect_activated",
           playerId: boardCard.ownerId,
           playerUsername: user?.username || "Unknown",
@@ -399,12 +440,14 @@ export const getPhaseActions = query({
         canSummon: false,
         canSetCard: false,
         canActivateSpell: false,
-        canEnterBattle: false,
+        canActivateTrap: false,
+        canDeclareAttack: false,
+        canChangePosition: false,
         canEndPhase: true,
       };
     }
 
-    const currentPhase: GamePhase = (gameState.currentPhase as GamePhase) || "draw";
+    const currentPhase: GamePhase = gameState.currentPhase || "draw";
 
     return getAvailableActionsForPhase(currentPhase, gameState);
   },
@@ -415,7 +458,7 @@ export const getPhaseActions = query({
  */
 function getAvailableActionsForPhase(
   phase: GamePhase,
-  _gameState: any
+  _gameState: Doc<"gameStates">
 ): {
   canSummon: boolean;
   canSetCard: boolean;
@@ -561,11 +604,18 @@ export const initializeTurnPhase = mutation({
       currentPhase: "draw",
     });
 
+    // Validate required lobby fields
+    if (!lobby.gameId) {
+      throw createError(ErrorCode.GAME_NOT_STARTED, {
+        reason: "Game not started or missing game ID",
+      });
+    }
+
     // Record phase_changed event
     const user = await ctx.db.get(args.playerId);
     await recordEventHelper(ctx, {
       lobbyId: args.lobbyId,
-      gameId: lobby.gameId!,
+      gameId: lobby.gameId,
       turnNumber: args.turnNumber,
       eventType: "phase_changed",
       playerId: args.playerId,

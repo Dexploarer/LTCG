@@ -17,6 +17,7 @@ interface BoardCardProps {
   onAttack?: () => void;
   size?: "xs" | "sm" | "md" | "lg";
   showStats?: boolean;
+  isOpponent?: boolean;
 }
 
 const RARITY_COLORS: Record<string, string> = {
@@ -46,6 +47,7 @@ export function BoardCard({
   onAttack,
   size = "md",
   showStats = true,
+  isOpponent = false,
 }: BoardCardProps) {
   const isDefensePosition = card.position === "defense" || card.position === "setDefense";
   const isFaceDown = card.isFaceDown;
@@ -65,8 +67,15 @@ export function BoardCard({
     ? (card.monsterStats.defense ?? 0) + (card.defenseModifier ?? 0)
     : 0;
 
+  // Determine test ID based on card type and owner
+  const isMonster = card.cardType === "monster" || card.cardType === "creature" || card.monsterStats;
+  const testId = isMonster
+    ? (isOpponent ? "opponent-monster" : "player-monster")
+    : (isOpponent ? "opponent-spell-trap" : "player-spell-trap");
+
   return (
     <motion.button
+      data-testid={testId}
       onClick={onClick}
       whileHover={{ scale: 1.05, y: -1 }}
       whileTap={{ scale: 0.98 }}

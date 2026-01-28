@@ -96,7 +96,7 @@ export function CollectionView({
   onFavoriteToggle,
 }: CollectionViewProps) {
   return (
-    <>
+    <div data-testid="collection-view">
       {/* Rarity Quick Filters */}
       <div className="flex flex-wrap gap-2 mb-6">
         {(["legendary", "epic", "rare", "uncommon", "common"] as Rarity[]).map((rarity) => {
@@ -142,6 +142,7 @@ export function CollectionView({
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               className="w-full pl-12 pr-10 py-4 bg-[#1a1510] border border-[#3d2b1f] rounded-xl text-[#e8e0d5] placeholder:text-[#a89f94]/40 focus:outline-none focus:border-[#d4af37]/50"
+              data-testid="collection-search"
             />
             {searchQuery && (
               <button
@@ -406,6 +407,6 @@ export function CollectionView({
           ))}
         </div>
       )}
-    </>
+    </div>
   );
 }

@@ -71,7 +71,7 @@ export function StoryBattleCompleteDialog({
           <div className="space-y-6">
             {/* Stars Earned */}
             <FantasyFrame variant="gold" className="p-6 text-center">
-              <div className="flex items-center justify-center gap-2 mb-3">
+              <div className="flex items-center justify-center gap-2 mb-3" data-testid="stage-stars">
                 {[1, 2, 3].map((star) => (
                   <motion.div
                     key={star}
@@ -88,7 +88,7 @@ export function StoryBattleCompleteDialog({
                   </motion.div>
                 ))}
               </div>
-              <p className="text-sm text-[#a89f94]">
+              <p className="text-sm text-[#a89f94]" data-testid="story-dialogue">
                 {starsEarned === 3
                   ? "Perfect Victory!"
                   : starsEarned === 2

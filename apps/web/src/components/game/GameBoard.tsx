@@ -719,7 +719,7 @@ export function GameBoard({
             <div className="flex flex-col items-center gap-2 mt-2">
               <p className="text-xs text-[#a89f94]">Private Game Code:</p>
               <div className="px-4 py-2 rounded-lg bg-[#d4af37]/20 border border-[#d4af37]/30">
-                <p className="text-2xl font-mono font-bold text-[#d4af37] tracking-wider">
+                <p className="text-2xl font-mono font-bold text-[#d4af37] tracking-wider" data-testid="game-code">
                   {lobbyDetails.joinCode}
                 </p>
               </div>

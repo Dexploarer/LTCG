@@ -244,12 +244,14 @@ export default function StoryModePage() {
                 value: stats.starredStages,
                 color: "text-yellow-400",
                 icon: Star,
+                testId: "stage-stars",
               },
               { label: "Badges", value: badges, color: "text-green-400", icon: Trophy },
             ].map((stat) => (
               <div
                 key={stat.label}
                 className="bg-black/40 border border-[#3d2b1f] rounded-xl p-4 backdrop-blur-sm flex flex-col items-center"
+                data-testid={(stat as any).testId}
               >
                 <stat.icon className={cn("w-6 h-6 mb-2", stat.color)} />
                 <div className={cn("text-2xl font-bold", stat.color)}>{stat.value}</div>

@@ -120,7 +120,7 @@ export type OptionalExcept<T, K extends keyof T> = Partial<T> & Pick<T, K>;
  */
 export type DeepReadonly<T> = {
   readonly [P in keyof T]: T[P] extends object
-    ? T[P] extends Function
+    ? T[P] extends (...args: never[]) => unknown
       ? T[P]
       : DeepReadonly<T[P]>
     : T[P];
@@ -292,9 +292,8 @@ type _TupleOf<T, N extends number, R extends unknown[]> = R["length"] extends N
  * type UserResult = AsyncReturnType<typeof fetchUser>; // User
  * ```
  */
-// Intentional 'any' - generic constraint for variadic function parameters
-export type AsyncReturnType<T extends (...args: any) => Promise<any>> = T extends (
-  ...args: any
+export type AsyncReturnType<T extends (...args: never[]) => Promise<unknown>> = T extends (
+  ...args: never[]
 ) => Promise<infer R>
   ? R
   : never;
@@ -307,8 +306,7 @@ export type AsyncReturnType<T extends (...args: any) => Promise<any>> = T extend
  * type Params = FunctionParams<typeof greet>; // [string, number]
  * ```
  */
-// Intentional 'any' - generic constraint for variadic function parameters
-export type FunctionParams<T extends (...args: any) => any> = Parameters<T>;
+export type FunctionParams<T extends (...args: never[]) => unknown> = Parameters<T>;
 
 /**
  * Create a function type with void return
@@ -318,8 +316,7 @@ export type FunctionParams<T extends (...args: any) => any> = Parameters<T>;
  * // (args_0: string, args_1: number) => void
  * ```
  */
-// Intentional 'any[]' - generic constraint for tuple/array parameters with default
-export type VoidFunction<P extends any[] = []> = (...args: P) => void;
+export type VoidFunction<P extends unknown[] = []> = (...args: P) => void;
 
 /**
  * Create an async function type
@@ -329,8 +326,7 @@ export type VoidFunction<P extends any[] = []> = (...args: P) => void;
  * // (args_0: string) => Promise<User>
  * ```
  */
-// Intentional 'any[]' - generic constraint for tuple/array parameters
-export type AsyncFunction<P extends any[], R> = (...args: P) => Promise<R>;
+export type AsyncFunction<P extends unknown[], R> = (...args: P) => Promise<R>;
 
 /**
  * Extract the first parameter type from a function
@@ -340,8 +336,7 @@ export type AsyncFunction<P extends any[], R> = (...args: P) => Promise<R>;
  * type FirstParam = FirstParameter<typeof process>; // string
  * ```
  */
-// Intentional 'any' - generic constraint for variadic function parameters
-export type FirstParameter<T extends (...args: any) => any> = Parameters<T>[0];
+export type FirstParameter<T extends (...args: never[]) => unknown> = Parameters<T>[0];
 
 // =============================================================================
 // Union & Intersection Utilities
@@ -398,8 +393,7 @@ export type Exhaustive<T extends string, U extends T = T> = U;
  * type Combined = UnionToIntersection<A | B>; // { a: string } & { b: number }
  * ```
  */
-// Intentional 'any' - distributive conditional check required for union distribution
-export type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
+export type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) extends (
   k: infer I
 ) => void
   ? I
@@ -591,7 +585,7 @@ export function isUndefined(value: unknown): value is undefined {
  * }
  * ```
  */
-export function isFunction(value: unknown): value is Function {
+export function isFunction(value: unknown): value is (...args: never[]) => unknown {
   return typeof value === "function";
 }
 

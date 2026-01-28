@@ -53,7 +53,7 @@ export function SpectatorGameView({ lobbyId, onExit }: SpectatorGameViewProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#0d0a09] relative">
+    <div className="min-h-screen bg-[#0d0a09] relative" data-testid="spectator-view">
       {/* Header */}
       <div className="border-b border-[#3d2b1f] bg-black/40 px-4 py-3">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
