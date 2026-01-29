@@ -1,22 +1,65 @@
-import { logger, type IAgentRuntime, type Project, type ProjectAgent } from '@elizaos/core';
-import starterPlugin from './plugin.js';
-import { character } from './character.js';
+/**
+ * LTCG ElizaOS Plugin
+ *
+ * Main entry point for the LTCG card game plugin.
+ * This plugin enables AI agents to play the Legendary Trading Card Game
+ * with full gameplay capabilities, real-time updates, and customizable personalities.
+ */
 
-const initCharacter = ({ runtime }: { runtime: IAgentRuntime }) => {
-  logger.info('Initializing character');
-  logger.info({ name: character.name }, 'Name:');
-};
+// Main plugin export
+export { default } from './plugin.js';
+export { default as ltcgPlugin } from './plugin.js';
 
-export const projectAgent: ProjectAgent = {
-  character,
-  init: async (runtime: IAgentRuntime) => await initCharacter({ runtime }),
-  // plugins: [starterPlugin], <-- Import custom plugins here
-};
+// Actions - Core gameplay commands
+export { ltcgActions } from './actions';
+export {
+  // Game Management
+  registerAgentAction,
+  findGameAction,
+  createLobbyAction,
+  joinLobbyAction,
+  surrenderAction,
+  // Gameplay
+  summonAction,
+  setCardAction,
+  activateSpellAction,
+  activateTrapAction,
+  endTurnAction,
+  attackAction,
+  changePositionAction,
+  flipSummonAction,
+  chainResponseAction,
+  // Personality & Chat
+  trashTalkAction,
+  reactToPlayAction,
+  ggAction,
+} from './actions';
 
-const project: Project = {
-  agents: [projectAgent],
-};
+// Providers - Context data for LLM
+export { ltcgProviders } from './providers';
+export {
+  gameStateProvider,
+  handProvider,
+  boardAnalysisProvider,
+  legalActionsProvider,
+  strategyProvider,
+} from './providers';
 
-export { character } from './character.js';
+// Evaluators - Response filtering
+export { ltcgEvaluators } from './evaluators';
+export { emotionalStateEvaluator, strategyEvaluator } from './evaluators';
 
-export default project;
+// Clients - API and real-time connections
+export { LTCGApiClient } from './client/LTCGApiClient';
+export { ConvexRealtimeClient } from './client/realtimeClient';
+export * from './client/events';
+export * from './client/errors';
+
+// Types - TypeScript definitions
+export * from './types/api';
+export * from './types/game';
+export * from './types/plugin';
+
+// Configuration
+export * from './config';
+export * from './constants';

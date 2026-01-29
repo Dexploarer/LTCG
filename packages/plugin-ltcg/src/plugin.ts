@@ -18,23 +18,51 @@ import {
 } from '@elizaos/core';
 import { z } from 'zod';
 
+// Import LTCG actions, providers, and evaluators
+import { ltcgActions } from './actions';
+import { ltcgProviders } from './providers';
+import { ltcgEvaluators } from './evaluators';
+
 /**
- * Define the configuration schema for the plugin with the following properties:
+ * Define the configuration schema for the LTCG plugin
  *
- * @param {string} EXAMPLE_PLUGIN_VARIABLE - The name of the plugin (min length of 1, optional)
- * @returns {object} - The configured schema object
+ * Required:
+ * - LTCG_API_KEY: Authentication key for LTCG API
+ * - CONVEX_URL: Convex backend URL for real-time updates
+ *
+ * Optional:
+ * - LTCG_BASE_URL: Override API base URL (defaults to production)
+ * - LTCG_AUTO_MATCHMAKING: Automatically find and join games (true/false)
  */
 const configSchema = z.object({
-  EXAMPLE_PLUGIN_VARIABLE: z
+  LTCG_API_KEY: z
     .string()
-    .min(1, 'Example plugin variable is not provided')
+    .min(1, 'LTCG_API_KEY is required for authentication')
     .optional()
     .transform((val) => {
       if (!val) {
-        console.warn('Warning: Example plugin variable is not provided');
+        console.warn('Warning: LTCG_API_KEY is not provided - agent will not be able to play games');
       }
       return val;
     }),
+  CONVEX_URL: z
+    .string()
+    .min(1, 'CONVEX_URL is required for real-time game updates')
+    .optional()
+    .transform((val) => {
+      if (!val) {
+        console.warn('Warning: CONVEX_URL is not provided - real-time updates will not work');
+      }
+      return val;
+    }),
+  LTCG_BASE_URL: z
+    .string()
+    .url('LTCG_BASE_URL must be a valid URL')
+    .optional(),
+  LTCG_AUTO_MATCHMAKING: z
+    .string()
+    .transform((val) => val === 'true')
+    .optional(),
 });
 
 /**
@@ -186,30 +214,40 @@ export class StarterService extends Service {
 }
 
 const plugin: Plugin = {
-  name: 'starter',
-  description: 'A starter plugin for Eliza',
+  name: 'ltcg',
+  description: 'LTCG card game plugin - enables AI agents to play the Legendary Trading Card Game with full gameplay capabilities, real-time updates, and customizable personalities',
   // Set lowest priority so real models take precedence
   priority: -1000,
   config: {
-    EXAMPLE_PLUGIN_VARIABLE: process.env.EXAMPLE_PLUGIN_VARIABLE,
+    LTCG_API_KEY: process.env.LTCG_API_KEY,
+    CONVEX_URL: process.env.CONVEX_URL,
+    LTCG_BASE_URL: process.env.LTCG_BASE_URL,
+    LTCG_AUTO_MATCHMAKING: process.env.LTCG_AUTO_MATCHMAKING,
   },
   async init(config: Record<string, string>) {
-    logger.info('*** Initializing starter plugin ***');
+    logger.info('*** Initializing LTCG plugin ***');
     try {
       const validatedConfig = await configSchema.parseAsync(config);
 
       // Set all environment variables at once
       for (const [key, value] of Object.entries(validatedConfig)) {
-        if (value) process.env[key] = value;
+        if (value !== undefined) process.env[key] = String(value);
       }
+
+      // Log configuration status (without sensitive data)
+      logger.info({
+        hasApiKey: !!validatedConfig.LTCG_API_KEY,
+        hasConvexUrl: !!validatedConfig.CONVEX_URL,
+        autoMatchmaking: validatedConfig.LTCG_AUTO_MATCHMAKING,
+      }, 'LTCG plugin configured');
     } catch (error) {
       if (error instanceof z.ZodError) {
         const errorMessages =
           error.issues?.map((e) => e.message)?.join(', ') || 'Unknown validation error';
-        throw new Error(`Invalid plugin configuration: ${errorMessages}`);
+        throw new Error(`Invalid LTCG plugin configuration: ${errorMessages}`);
       }
       throw new Error(
-        `Invalid plugin configuration: ${error instanceof Error ? error.message : String(error)}`
+        `Invalid LTCG plugin configuration: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   },
@@ -278,8 +316,9 @@ const plugin: Plugin = {
     ],
   },
   services: [StarterService],
-  actions: [helloWorldAction],
-  providers: [helloWorldProvider],
+  actions: [helloWorldAction, ...ltcgActions],
+  providers: [helloWorldProvider, ...ltcgProviders],
+  evaluators: [...ltcgEvaluators],
 };
 
 export default plugin;

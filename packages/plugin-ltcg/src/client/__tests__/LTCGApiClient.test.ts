@@ -31,10 +31,15 @@ describe('LTCGApiClient', () => {
       maxRetries: 3,
     });
     mockFetch.mockClear();
+    if (vi.isFakeTimers()) {
+      vi.useRealTimers();
+    }
   });
 
   afterEach(() => {
-    vi.clearAllTimers();
+    if (vi.isFakeTimers()) {
+      vi.useRealTimers();
+    }
   });
 
   // ============================================================================

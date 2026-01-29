@@ -41,6 +41,8 @@ import {
   AuthenticationError,
   NetworkError,
   RateLimitError,
+  ValidationError,
+  GameError,
   parseErrorResponse,
 } from './errors';
 
@@ -152,8 +154,15 @@ export class LTCGApiClient {
       } catch (error) {
         lastError = error as Error;
 
-        // Don't retry on authentication errors
-        if (error instanceof AuthenticationError) {
+        // Don't retry on API errors that are intentionally thrown (non-retryable)
+        if (error instanceof AuthenticationError ||
+            error instanceof ValidationError ||
+            error instanceof GameError) {
+          throw error;
+        }
+
+        // Don't retry on rate limit or other API errors that already went through retry logic
+        if (error instanceof RateLimitError) {
           throw error;
         }
 

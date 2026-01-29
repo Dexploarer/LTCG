@@ -1,14 +1,19 @@
 {
-  "name": "plugin",
-  "description": "Project starter for elizaOS",
-  "version": "0.1.0",
+  "name": "plugin-ltcg",
+  "description": "LTCG ElizaOS Plugin - enables AI agents to play the Legendary Trading Card Game",
+  "version": "1.0.0",
   "type": "module",
-  "main": "dist/src/index.js",
-  "module": "dist/src/index.js",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "keywords": [
-    "project",
-    "elizaos"
+    "elizaos",
+    "ltcg",
+    "card-game",
+    "ai-agent",
+    "game-automation",
+    "real-time",
+    "convex"
   ],
   "repository": {
     "type": "git",
@@ -19,7 +24,7 @@
     ".": {
       "import": {
         "types": "./dist/index.d.ts",
-        "default": "./dist/src/index.js"
+        "default": "./dist/index.js"
       }
     }
   },
@@ -37,6 +42,7 @@
     "@elizaos/server": "1.7.0",
     "@tanstack/react-query": "^5.67.2",
     "clsx": "^2.1.1",
+    "convex": "^1.31.6",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tailwind-merge": "^3.3.1",
