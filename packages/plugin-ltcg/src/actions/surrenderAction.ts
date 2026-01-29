@@ -131,8 +131,9 @@ Respond with JSON: { "confirm": true or false }`;
           if (!parsed.confirm) {
             await callback({
               text: 'Surrender cancelled. Continuing the game.',
-              action: 'SURRENDER',
+              actions: ['SURRENDER'],
               source: message.content.source,
+              thought: 'Evaluated game state and decided to continue fighting instead of surrendering',
             } as Content);
 
             return {
@@ -154,8 +155,9 @@ Respond with JSON: { "confirm": true or false }`;
 
       await callback({
         text: `Surrendered the game. ${result.message}`,
-        action: 'SURRENDER',
+        actions: ['SURRENDER'],
         source: message.content.source,
+        thought: 'Decided to surrender as game state is unwinnable or continuation would waste resources',
       } as Content);
 
       return {
@@ -185,6 +187,7 @@ Respond with JSON: { "confirm": true or false }`;
       await callback({
         text: `Failed to surrender: ${error instanceof Error ? error.message : String(error)}`,
         error: true,
+        thought: 'Surrender attempt failed due to API error or game already ended, but cleaning up local state',
       } as Content);
 
       return {

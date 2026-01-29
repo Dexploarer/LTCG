@@ -49,6 +49,9 @@ export {
 export { ltcgEvaluators } from './evaluators';
 export { emotionalStateEvaluator, strategyEvaluator } from './evaluators';
 
+// Services - Background services and lifecycle management
+export { LTCGRealtimeService } from './services/LTCGRealtimeService';
+
 // Clients - API and real-time connections
 export { LTCGApiClient } from './client/LTCGApiClient';
 export { ConvexRealtimeClient } from './client/realtimeClient';

@@ -179,8 +179,9 @@ Respond with JSON: { "handIndex": <index>, "reasoning": "<brief explanation>" }`
 
       await callback({
         text: responseText,
-        action: 'SET_CARD',
+        actions: ['SET_CARD'],
         source: message.content.source,
+        thought: `Setting ${selectedCard.name} face-down in ${zone} zone to ${selectedCard.type === 'monster' ? 'protect LP with defense' : 'prepare reactive play for future turns'}`,
       } as Content);
 
       return {
@@ -204,6 +205,7 @@ Respond with JSON: { "handIndex": <index>, "reasoning": "<brief explanation>" }`
       await callback({
         text: `Failed to set card: ${error instanceof Error ? error.message : String(error)}`,
         error: true,
+        thought: 'Set card action failed, zone may be full or card selection invalid for current game state',
       } as Content);
 
       return {

@@ -22,6 +22,7 @@ import { z } from 'zod';
 import { ltcgActions } from './actions';
 import { ltcgProviders } from './providers';
 import { ltcgEvaluators } from './evaluators';
+import { LTCGRealtimeService } from './services/LTCGRealtimeService';
 
 /**
  * Define the configuration schema for the LTCG plugin
@@ -33,6 +34,7 @@ import { ltcgEvaluators } from './evaluators';
  * Optional:
  * - LTCG_BASE_URL: Override API base URL (defaults to production)
  * - LTCG_AUTO_MATCHMAKING: Automatically find and join games (true/false)
+ * - LTCG_DEBUG_MODE: Enable debug logging for real-time client (true/false)
  */
 const configSchema = z.object({
   LTCG_API_KEY: z
@@ -60,6 +62,10 @@ const configSchema = z.object({
     .url('LTCG_BASE_URL must be a valid URL')
     .optional(),
   LTCG_AUTO_MATCHMAKING: z
+    .string()
+    .transform((val) => val === 'true')
+    .optional(),
+  LTCG_DEBUG_MODE: z
     .string()
     .transform((val) => val === 'true')
     .optional(),
@@ -183,35 +189,6 @@ const helloWorldProvider: Provider = {
   },
 };
 
-export class StarterService extends Service {
-  static serviceType = 'starter';
-  capabilityDescription =
-    'This is a starter service which is attached to the agent through the starter plugin.';
-
-  constructor(runtime: IAgentRuntime) {
-    super(runtime);
-  }
-
-  static async start(runtime: IAgentRuntime) {
-    logger.info('*** Starting starter service ***');
-    const service = new StarterService(runtime);
-    return service;
-  }
-
-  static async stop(runtime: IAgentRuntime) {
-    logger.info('*** Stopping starter service ***');
-    // get the service from the runtime
-    const service = runtime.getService(StarterService.serviceType);
-    if (!service) {
-      throw new Error('Starter service not found');
-    }
-    service.stop();
-  }
-
-  async stop() {
-    logger.info('*** Stopping starter service instance ***');
-  }
-}
 
 const plugin: Plugin = {
   name: 'ltcg',
@@ -223,6 +200,7 @@ const plugin: Plugin = {
     CONVEX_URL: process.env.CONVEX_URL,
     LTCG_BASE_URL: process.env.LTCG_BASE_URL,
     LTCG_AUTO_MATCHMAKING: process.env.LTCG_AUTO_MATCHMAKING,
+    LTCG_DEBUG_MODE: process.env.LTCG_DEBUG_MODE,
   },
   async init(config: Record<string, string>) {
     logger.info('*** Initializing LTCG plugin ***');
@@ -315,7 +293,7 @@ const plugin: Plugin = {
       },
     ],
   },
-  services: [StarterService],
+  services: [LTCGRealtimeService],
   actions: [helloWorldAction, ...ltcgActions],
   providers: [helloWorldProvider, ...ltcgProviders],
   evaluators: [...ltcgEvaluators],

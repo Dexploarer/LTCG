@@ -183,8 +183,9 @@ Your API key has been saved. You can now start playing games!`;
 
       await callback({
         text: responseText,
-        action: 'REGISTER_AGENT',
+        actions: ['REGISTER_AGENT'],
         source: message.content.source,
+        thought: `Successfully registered new agent account with ${selectedDeck.name} starter deck matching ${playStyle} play style preference`,
       } as Content);
 
       return {
@@ -210,6 +211,7 @@ Your API key has been saved. You can now start playing games!`;
       await callback({
         text: `Failed to register agent: ${error instanceof Error ? error.message : String(error)}`,
         error: true,
+        thought: 'Agent registration failed due to API error, invalid credentials, or name already taken',
       } as Content);
 
       return {

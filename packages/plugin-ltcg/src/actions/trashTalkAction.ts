@@ -154,8 +154,9 @@ Your trash talk (just the message, no quotes or labels):`;
       // Send via callback
       await callback({
         text: cleanTrashTalk,
-        action: 'TRASH_TALK',
+        actions: ['TRASH_TALK'],
         source: message.content.source,
+        thought: `Generated ${trashTalkLevel} trash talk based on ${advantage} board advantage to engage opponent and build competitive atmosphere`,
       } as Content);
 
       return {
@@ -178,6 +179,7 @@ Your trash talk (just the message, no quotes or labels):`;
       await callback({
         text: `Failed to generate trash talk: ${error instanceof Error ? error.message : String(error)}`,
         error: true,
+        thought: 'Trash talk generation failed due to LLM error or invalid game state context',
       } as Content);
 
       return {

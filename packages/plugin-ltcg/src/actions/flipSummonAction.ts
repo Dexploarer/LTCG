@@ -172,8 +172,9 @@ Respond with JSON: { "monsterIndex": <index>, "reasoning": "<brief explanation>"
 
       await callback({
         text: responseText,
-        action: 'FLIP_SUMMON',
+        actions: ['FLIP_SUMMON'],
         source: message.content.source,
+        thought: `Flip summoning ${selectedMonster.name} to trigger flip effect and transition to attack position for offensive pressure`,
       } as Content);
 
       return {
@@ -198,6 +199,7 @@ Respond with JSON: { "monsterIndex": <index>, "reasoning": "<brief explanation>"
       await callback({
         text: `Failed to flip summon: ${error instanceof Error ? error.message : String(error)}`,
         error: true,
+        thought: 'Flip summon failed, monster may not have been set for required duration or normal summon already used',
       } as Content);
 
       return {

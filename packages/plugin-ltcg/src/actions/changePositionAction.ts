@@ -165,8 +165,9 @@ Respond with JSON: { "monsterIndex": <index>, "reasoning": "<brief explanation>"
 
       await callback({
         text: responseText,
-        action: 'CHANGE_POSITION',
+        actions: ['CHANGE_POSITION'],
         source: message.content.source,
+        thought: `Switching ${selected.monster.name} to ${newPosition} position to ${newPosition === 'defense' ? 'protect against stronger opponent monsters' : 'prepare for offensive battle phase'}`,
       } as Content);
 
       return {
@@ -190,6 +191,7 @@ Respond with JSON: { "monsterIndex": <index>, "reasoning": "<brief explanation>"
       await callback({
         text: `Failed to change position: ${error instanceof Error ? error.message : String(error)}`,
         error: true,
+        thought: 'Position change failed, monster may have already changed position this turn or invalid selection',
       } as Content);
 
       return {

@@ -164,8 +164,9 @@ Respond with JSON: { "shouldActivate": true/false, "trapIndex": <index if activa
         // Agent decided not to activate trap
         await callback({
           text: `I'll hold my traps for now. ${parsed.reasoning || ''}`,
-          action: 'ACTIVATE_TRAP',
+          actions: ['ACTIVATE_TRAP'],
           source: message.content.source,
+          thought: 'Choosing not to activate trap now to save resources for more critical moment or better activation window',
         } as Content);
 
         return {
@@ -201,8 +202,9 @@ Respond with JSON: { "shouldActivate": true/false, "trapIndex": <index if activa
 
       await callback({
         text: responseText,
-        action: 'ACTIVATE_TRAP',
+        actions: ['ACTIVATE_TRAP'],
         source: message.content.source,
+        thought: `Activating ${selectedTrap.name} now to counter opponent's play and prevent potential damage or board loss`,
       } as Content);
 
       return {
@@ -226,6 +228,7 @@ Respond with JSON: { "shouldActivate": true/false, "trapIndex": <index if activa
       await callback({
         text: `Failed to activate trap: ${error instanceof Error ? error.message : String(error)}`,
         error: true,
+        thought: 'Trap activation failed due to invalid timing window, missing activation conditions, or incorrect targeting',
       } as Content);
 
       return {

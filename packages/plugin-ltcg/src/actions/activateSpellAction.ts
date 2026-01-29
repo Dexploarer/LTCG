@@ -176,8 +176,9 @@ Respond with JSON: { "location": "hand" or "field", "index": <index>, "targets":
 
       await callback({
         text: responseText,
-        action: 'ACTIVATE_SPELL',
+        actions: ['ACTIVATE_SPELL'],
         source: message.content.source,
+        thought: `Activating ${selectedCard.name} from ${parsed.location} to leverage spell effect at optimal timing for board control`,
       } as Content);
 
       return {
@@ -199,6 +200,7 @@ Respond with JSON: { "location": "hand" or "field", "index": <index>, "targets":
       await callback({
         text: `Failed to activate spell: ${error instanceof Error ? error.message : String(error)}`,
         error: true,
+        thought: 'Spell activation failed due to invalid targeting, timing restrictions, or missing activation conditions',
       } as Content);
 
       return {

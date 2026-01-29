@@ -171,8 +171,9 @@ Respond with JSON: { "attackerIndex": <index>, "targetIndex": <index or null for
 
       await callback({
         text: responseText,
-        action: 'ATTACK',
+        actions: ['ATTACK'],
         source: message.content.source,
+        thought: `Attacking ${parsed.targetIndex !== null ? 'opponent monster to remove board threat' : 'directly to reduce opponent life points'} with ${attacker.name} (${attacker.atk} ATK)`,
       } as Content);
 
       return {
@@ -197,6 +198,7 @@ Respond with JSON: { "attackerIndex": <index>, "targetIndex": <index or null for
       await callback({
         text: `Failed to attack: ${error instanceof Error ? error.message : String(error)}`,
         error: true,
+        thought: 'Attack action failed, likely due to invalid target or battle phase timing restrictions',
       } as Content);
 
       return {

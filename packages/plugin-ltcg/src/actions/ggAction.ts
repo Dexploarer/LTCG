@@ -117,8 +117,9 @@ Your message (just the message, no quotes or labels):`;
       // Send via callback
       await callback({
         text: cleanMessage,
-        action: 'GG',
+        actions: ['GG'],
         source: message.content.source,
+        thought: `Sending ${outcome.result === 'WON' ? 'gracious victory' : outcome.result === 'LOST' ? 'respectful defeat' : 'friendly game end'} message to show sportsmanship`,
       } as Content);
 
       return {
@@ -141,6 +142,7 @@ Your message (just the message, no quotes or labels):`;
       await callback({
         text: `Failed to send GG message: ${error instanceof Error ? error.message : String(error)}`,
         error: true,
+        thought: 'GG message generation failed due to LLM error or unable to determine game outcome',
       } as Content);
 
       return {

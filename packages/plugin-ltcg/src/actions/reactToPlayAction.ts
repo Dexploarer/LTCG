@@ -122,8 +122,9 @@ Your reaction (just the message, no quotes or labels):`;
       // Send via callback
       await callback({
         text: cleanReaction,
-        action: 'REACT_TO_PLAY',
+        actions: ['REACT_TO_PLAY'],
         source: message.content.source,
+        thought: `Reacting to opponent's ${classification.type.toLowerCase()} with ${classification.threatLevel.toLowerCase()} threat level to acknowledge play and maintain engagement`,
       } as Content);
 
       return {
@@ -147,6 +148,7 @@ Your reaction (just the message, no quotes or labels):`;
       await callback({
         text: `Failed to react to play: ${error instanceof Error ? error.message : String(error)}`,
         error: true,
+        thought: 'Reaction generation failed due to LLM error or missing opponent action context',
       } as Content);
 
       return {

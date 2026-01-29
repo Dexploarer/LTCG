@@ -128,8 +128,9 @@ export const joinLobbyAction: Action = {
 
       await callback({
         text: responseText,
-        action: 'JOIN_LOBBY',
+        actions: ['JOIN_LOBBY'],
         source: message.content.source,
+        thought: `Successfully joined lobby ${joinCode ? 'using private join code' : 'by lobby ID'} and matched with opponent`,
       } as Content);
 
       return {
@@ -152,6 +153,7 @@ export const joinLobbyAction: Action = {
       await callback({
         text: `Failed to join lobby: ${error instanceof Error ? error.message : String(error)}`,
         error: true,
+        thought: 'Join lobby failed due to invalid lobby ID/code, lobby full, or connection error',
       } as Content);
 
       return {

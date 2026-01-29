@@ -186,8 +186,9 @@ Respond with JSON: { "isPrivate": true or false }`;
 
       await callback({
         text: responseText,
-        action: 'CREATE_LOBBY',
+        actions: ['CREATE_LOBBY'],
         source: message.content.source,
+        thought: `Created ${mode} lobby (${isPrivate ? 'private with join code for specific opponent' : 'public for quick matchmaking'})`,
       } as Content);
 
       return {
@@ -214,6 +215,7 @@ Respond with JSON: { "isPrivate": true or false }`;
       await callback({
         text: `Failed to create lobby: ${error instanceof Error ? error.message : String(error)}`,
         error: true,
+        thought: 'Lobby creation failed due to API error, invalid deck selection, or server connection issue',
       } as Content);
 
       return {

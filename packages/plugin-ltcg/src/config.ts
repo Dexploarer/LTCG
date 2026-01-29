@@ -4,25 +4,34 @@
 
 import { z } from 'zod';
 import type { LTCGPluginConfig, NormalizedLTCGConfig } from './types/plugin';
+import { LTCG_PRODUCTION_CONFIG } from './constants';
 
 /**
  * Zod schema for validating plugin configuration
+ *
+ * Note: LTCG_API_URL and LTCG_CONVEX_URL default to production values.
+ * Users only need to provide LTCG_API_KEY. URLs can be overridden for dev/testing.
  */
 export const configSchema = z.object({
-  // Required
+  // Required - API key for authentication
   LTCG_API_KEY: z
     .string()
     .min(1, 'LTCG_API_KEY is required')
     .startsWith('ltcg_', 'LTCG_API_KEY must start with ltcg_'),
 
+  // Optional - defaults to production
+  LTCG_API_URL: z
+    .string()
+    .url('LTCG_API_URL must be a valid URL')
+    .optional()
+    .default(LTCG_PRODUCTION_CONFIG.API_URL),
+
   LTCG_CONVEX_URL: z
     .string()
-    .min(1, 'LTCG_CONVEX_URL is required')
     .url('LTCG_CONVEX_URL must be a valid URL')
-    .refine((url) => url.includes('convex'), 'LTCG_CONVEX_URL must be a Convex deployment URL'),
-
-  // Optional
-  LTCG_API_URL: z.string().url().optional(),
+    .refine((url) => url.includes('convex'), 'LTCG_CONVEX_URL must be a Convex deployment URL')
+    .optional()
+    .default(LTCG_PRODUCTION_CONFIG.CONVEX_URL),
 
   LTCG_PLAY_STYLE: z.enum(['aggressive', 'defensive', 'control', 'balanced']).optional(),
 
@@ -53,8 +62,13 @@ export const configSchema = z.object({
 
 /**
  * Default configuration values
+ *
+ * Note: LTCG_API_URL and LTCG_CONVEX_URL default to production URLs
+ * from LTCG_PRODUCTION_CONFIG. Users only need to provide LTCG_API_KEY.
  */
-export const DEFAULT_CONFIG: Omit<NormalizedLTCGConfig, 'LTCG_API_KEY' | 'LTCG_CONVEX_URL'> = {
+export const DEFAULT_CONFIG: Omit<NormalizedLTCGConfig, 'LTCG_API_KEY'> = {
+  LTCG_API_URL: LTCG_PRODUCTION_CONFIG.API_URL,
+  LTCG_CONVEX_URL: LTCG_PRODUCTION_CONFIG.CONVEX_URL,
   LTCG_PLAY_STYLE: 'balanced',
   LTCG_RISK_TOLERANCE: 'medium',
   LTCG_AUTO_MATCHMAKING: false,
@@ -68,16 +82,19 @@ export const DEFAULT_CONFIG: Omit<NormalizedLTCGConfig, 'LTCG_API_KEY' | 'LTCG_C
 
 /**
  * Validate and normalize plugin configuration
+ *
+ * URLs default to production values if not provided.
+ * Users only need to configure LTCG_API_KEY.
  */
 export function validateConfig(config: Record<string, any>): NormalizedLTCGConfig {
   try {
     const validated = configSchema.parse(config);
 
-    // Apply defaults
+    // Apply defaults (URLs already have defaults from schema)
     const normalized: NormalizedLTCGConfig = {
       LTCG_API_KEY: validated.LTCG_API_KEY,
-      LTCG_CONVEX_URL: validated.LTCG_CONVEX_URL,
-      LTCG_API_URL: validated.LTCG_API_URL,
+      LTCG_API_URL: validated.LTCG_API_URL ?? DEFAULT_CONFIG.LTCG_API_URL,
+      LTCG_CONVEX_URL: validated.LTCG_CONVEX_URL ?? DEFAULT_CONFIG.LTCG_CONVEX_URL,
       LTCG_PLAY_STYLE: validated.LTCG_PLAY_STYLE ?? DEFAULT_CONFIG.LTCG_PLAY_STYLE,
       LTCG_RISK_TOLERANCE: validated.LTCG_RISK_TOLERANCE ?? DEFAULT_CONFIG.LTCG_RISK_TOLERANCE,
       LTCG_AUTO_MATCHMAKING: validated.LTCG_AUTO_MATCHMAKING ?? DEFAULT_CONFIG.LTCG_AUTO_MATCHMAKING,

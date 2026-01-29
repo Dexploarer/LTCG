@@ -3,6 +3,30 @@
  */
 
 /**
+ * Production deployment URLs
+ *
+ * IMPORTANT: Update these URLs before publishing the plugin to NPM.
+ * These are the centralized LTCG game service URLs that all agents connect to.
+ *
+ * Users can override these in their .env for development/testing:
+ * - LTCG_API_URL - Override API base URL
+ * - LTCG_CONVEX_URL - Override Convex deployment URL
+ */
+export const LTCG_PRODUCTION_CONFIG = {
+  /**
+   * Production API URL
+   * TODO: Update this to your deployed LTCG API URL before publishing
+   */
+  API_URL: process.env.LTCG_PRODUCTION_API_URL || 'https://ltcg-production.vercel.app',
+
+  /**
+   * Production Convex deployment URL
+   * TODO: Update this to your production Convex deployment URL before publishing
+   */
+  CONVEX_URL: process.env.LTCG_PRODUCTION_CONVEX_URL || 'https://calm-pelican-123.convex.cloud',
+} as const;
+
+/**
  * HTTP API endpoints
  */
 export const API_ENDPOINTS = {

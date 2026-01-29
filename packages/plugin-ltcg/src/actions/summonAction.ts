@@ -216,8 +216,9 @@ Respond with JSON: { "handIndex": <index>, "position": "attack" or "defense", "t
 
       await callback({
         text: responseText,
-        action: 'SUMMON_MONSTER',
+        actions: ['SUMMON_MONSTER'],
         source: message.content.source,
+        thought: `Selected ${selectedCard.name} (${selectedCard.atk} ATK) for optimal field presence${tributeIndices.length > 0 ? ` after tributing ${tributeIndices.length} weaker monster(s)` : ' without tributes'}`,
       } as Content);
 
       return {
@@ -244,6 +245,7 @@ Respond with JSON: { "handIndex": <index>, "position": "attack" or "defense", "t
       await callback({
         text: `Failed to summon monster: ${error instanceof Error ? error.message : String(error)}`,
         error: true,
+        thought: 'Summon action failed, likely due to invalid tribute selection or game state constraints preventing the summon',
       } as Content);
 
       return {

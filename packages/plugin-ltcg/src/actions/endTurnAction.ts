@@ -93,8 +93,9 @@ export const endTurnAction: Action = {
 
       await callback({
         text: responseText,
-        action: 'END_TURN',
+        actions: ['END_TURN'],
         source: message.content.source,
+        thought: 'Ending turn as all available moves have been evaluated and executed for optimal board position',
       } as Content);
 
       return {
@@ -114,6 +115,7 @@ export const endTurnAction: Action = {
       await callback({
         text: `Failed to end turn: ${error instanceof Error ? error.message : String(error)}`,
         error: true,
+        thought: 'End turn action failed due to API communication error or game state inconsistency',
       } as Content);
 
       return {

@@ -78,6 +78,7 @@ export const findGameAction: Action = {
         await callback({
           text: 'Auto-matchmaking is disabled. Please enable it or use CREATE_LOBBY instead.',
           error: true,
+          thought: 'Cannot proceed with matchmaking as auto-matchmaking is disabled in settings',
         } as Content);
 
         return {
@@ -152,8 +153,9 @@ Respond with JSON: { "lobbyIndex": <index> }`;
 
         await callback({
           text: `Joined game with ${joinResult.opponentName}! Game ID: ${gameId.slice(0, 8)}...`,
-          action: 'FIND_GAME',
+          actions: ['FIND_GAME'],
           source: message.content.source,
+          thought: `Found existing ${mode} lobby and joined to start game immediately with available opponent`,
         } as Content);
       } else {
         // No lobbies available, create new one
@@ -168,15 +170,17 @@ Respond with JSON: { "lobbyIndex": <index> }`;
 
           await callback({
             text: `Instantly matched! Game ID: ${gameId.slice(0, 8)}...`,
-            action: 'FIND_GAME',
+            actions: ['FIND_GAME'],
             source: message.content.source,
+            thought: `No existing lobbies found but matchmaking instantly paired with opponent, starting game now`,
           } as Content);
         } else {
           // Waiting in lobby
           await callback({
             text: `Created new ${mode} lobby. Waiting for opponent... Lobby ID: ${matchmakingResult.lobbyId.slice(0, 8)}...`,
-            action: 'FIND_GAME',
+            actions: ['FIND_GAME'],
             source: message.content.source,
+            thought: `No existing lobbies found and no instant match, created new ${mode} lobby and waiting for opponent to join`,
           } as Content);
 
           // Store lobby ID for potential cancellation
@@ -221,6 +225,7 @@ Respond with JSON: { "lobbyIndex": <index> }`;
       await callback({
         text: `Failed to find game: ${error instanceof Error ? error.message : String(error)}`,
         error: true,
+        thought: 'Matchmaking failed due to API error, no available decks, or lobby connection issue',
       } as Content);
 
       return {

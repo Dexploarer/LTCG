@@ -187,8 +187,9 @@ Respond with JSON: { "shouldChain": true/false, "location": "hand"/"field", "car
         // Agent decided not to chain
         await callback({
           text: `I'll let it resolve. ${parsed.reasoning || ''}`,
-          action: 'CHAIN_RESPONSE',
+          actions: ['CHAIN_RESPONSE'],
           source: message.content.source,
+          thought: 'Declining to chain, saving resources for more critical moment or opponent effect not threatening enough to warrant response',
         } as Content);
 
         // Make API call to decline chain
@@ -243,8 +244,9 @@ Respond with JSON: { "shouldChain": true/false, "location": "hand"/"field", "car
 
       await callback({
         text: responseText,
-        action: 'CHAIN_RESPONSE',
+        actions: ['CHAIN_RESPONSE'],
         source: message.content.source,
+        thought: `Chaining ${selectedCard.name} to negate or counter opponent's activation and protect board advantage`,
       } as Content);
 
       return {
@@ -269,6 +271,7 @@ Respond with JSON: { "shouldChain": true/false, "location": "hand"/"field", "car
       await callback({
         text: `Failed to respond to chain: ${error instanceof Error ? error.message : String(error)}`,
         error: true,
+        thought: 'Chain response failed due to invalid chain window, card cannot chain to this effect type, or timing restrictions',
       } as Content);
 
       return {
