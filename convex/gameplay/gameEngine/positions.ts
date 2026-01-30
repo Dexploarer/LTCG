@@ -35,12 +35,7 @@ export const changePosition = mutation({
       throw createError(ErrorCode.NOT_FOUND_LOBBY);
     }
 
-    // 3. Validate it's the current player's turn
-    if (lobby.currentTurnPlayerId !== user.userId) {
-      throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
-    }
-
-    // 4. Get game state
+    // 3. Get game state (single source of truth for turn state)
     const gameState = await ctx.db
       .query("gameStates")
       .withIndex("by_lobby", (q) => q.eq("lobbyId", args.lobbyId))
@@ -48,6 +43,11 @@ export const changePosition = mutation({
 
     if (!gameState) {
       throw createError(ErrorCode.GAME_STATE_NOT_FOUND);
+    }
+
+    // 4. Validate it's the current player's turn
+    if (gameState.currentTurnPlayerId !== user.userId) {
+      throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
     }
 
     // 5. Validate position change
@@ -94,8 +94,8 @@ export const changePosition = mutation({
     // 8. Record position_changed event
     await recordEventHelper(ctx, {
       lobbyId: args.lobbyId,
-      gameId: lobby.gameId ?? "",
-      turnNumber: lobby.turnNumber ?? 0,
+      gameId: gameState.gameId ?? "",
+      turnNumber: gameState.turnNumber ?? 0,
       eventType: "position_changed",
       playerId: user.userId,
       playerUsername: user.username,

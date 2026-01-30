@@ -221,7 +221,8 @@ export async function addToChainHelper(
   const card = await ctx.db.get(args.cardId);
 
   // 8. Record chain_link_added event
-  if (!lobby.gameId || lobby.turnNumber === undefined) {
+  // Note: lobby is only used for gameId; turn state comes from gameState
+  if (!lobby.gameId || gameState.turnNumber === undefined) {
     throw createError(ErrorCode.GAME_STATE_NOT_FOUND, {
       reason: "Game not properly initialized",
       lobbyId: args.lobbyId,
@@ -231,7 +232,7 @@ export async function addToChainHelper(
   await recordEventHelper(ctx, {
     lobbyId: args.lobbyId,
     gameId: lobby.gameId,
-    turnNumber: lobby.turnNumber,
+    turnNumber: gameState.turnNumber,
     eventType: "chain_link_added",
     playerId: args.playerId,
     playerUsername: args.playerUsername,
@@ -359,7 +360,8 @@ export async function resolveChainHelper(
   }
 
   // 4. Record chain_resolving event
-  if (!lobby.gameId || lobby.turnNumber === undefined) {
+  // Note: lobby is only used for gameId; turn state comes from gameState
+  if (!lobby.gameId || gameState.turnNumber === undefined) {
     throw createError(ErrorCode.GAME_STATE_NOT_FOUND, {
       reason: "Game not properly initialized",
       lobbyId: args.lobbyId,
@@ -369,7 +371,7 @@ export async function resolveChainHelper(
   await recordEventHelper(ctx, {
     lobbyId: args.lobbyId,
     gameId: lobby.gameId,
-    turnNumber: lobby.turnNumber,
+    turnNumber: gameState.turnNumber,
     eventType: "chain_resolving",
     playerId: firstChainLink.playerId,
     playerUsername: "System",
@@ -409,7 +411,7 @@ export async function resolveChainHelper(
       await recordEventHelper(ctx, {
         lobbyId: args.lobbyId,
         gameId: lobby.gameId,
-        turnNumber: lobby.turnNumber,
+        turnNumber: gameState.turnNumber,
         eventType: "activation_negated",
         playerId: chainLink.playerId,
         playerUsername: "System",
@@ -465,7 +467,7 @@ export async function resolveChainHelper(
         await recordEventHelper(ctx, {
           lobbyId: args.lobbyId,
           gameId: lobby.gameId,
-          turnNumber: lobby.turnNumber,
+          turnNumber: gameState.turnNumber,
           eventType: "effect_activated",
           playerId: chainLink.playerId,
           playerUsername: "System",
@@ -484,7 +486,7 @@ export async function resolveChainHelper(
       await recordEventHelper(ctx, {
         lobbyId: args.lobbyId,
         gameId: lobby.gameId,
-        turnNumber: lobby.turnNumber,
+        turnNumber: gameState.turnNumber,
         eventType: "effect_activated",
         playerId: chainLink.playerId,
         playerUsername: "System",
@@ -517,7 +519,8 @@ export async function resolveChainHelper(
 
   // 6. Clear chain and reset priority to turn player
   // After chain resolution, turn player gets priority first for next action
-  const turnPlayerId = lobby.currentTurnPlayerId;
+  // Note: Turn state comes from gameState, not lobby
+  const turnPlayerId = gameState.currentTurnPlayerId;
 
   await ctx.db.patch(gameState._id, {
     currentChain: [],
@@ -538,7 +541,7 @@ export async function resolveChainHelper(
   await recordEventHelper(ctx, {
     lobbyId: args.lobbyId,
     gameId: lobby.gameId,
-    turnNumber: lobby.turnNumber,
+    turnNumber: gameState.turnNumber,
     eventType: "chain_resolved",
     playerId: firstChainLink.playerId,
     playerUsername: "System",
@@ -551,7 +554,7 @@ export async function resolveChainHelper(
   // 8. Run state-based action checks after chain resolution
   const sbaResult = await checkStateBasedActions(ctx, args.lobbyId, {
     skipHandLimit: true,
-    turnNumber: lobby.turnNumber,
+    turnNumber: gameState.turnNumber,
   });
 
   // 9. Check for battle replay condition

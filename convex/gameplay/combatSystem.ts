@@ -74,18 +74,13 @@ export const declareAttack = mutation({
     // 1. Validate session
     const user = await requireAuthMutation(ctx);
 
-    // 2. Get lobby
+    // 2. Get lobby (for gameId/status only - turn state is in gameStates)
     const lobby = await ctx.db.get(args.lobbyId);
     if (!lobby) {
       throw createError(ErrorCode.NOT_FOUND_LOBBY);
     }
 
-    // 3. Validate it's the current player's turn
-    if (lobby.currentTurnPlayerId !== user.userId) {
-      throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
-    }
-
-    // 4. Get game state
+    // 3. Get game state (single source of truth for turn state)
     const gameState = await ctx.db
       .query("gameStates")
       .withIndex("by_lobby", (q) => q.eq("lobbyId", args.lobbyId))
@@ -95,6 +90,11 @@ export const declareAttack = mutation({
       throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
         reason: "Game state not found",
       });
+    }
+
+    // 4. Validate it's the current player's turn
+    if (gameState.currentTurnPlayerId !== user.userId) {
+      throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
     }
 
     // 5. Validate in Battle Phase
@@ -300,7 +300,7 @@ export const declareAttack = mutation({
     }
 
     // Validate game state for event recording
-    if (!lobby.gameId || lobby.turnNumber === undefined) {
+    if (!gameState.gameId || gameState.turnNumber === undefined) {
       throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
         reason: "Game ID or turn number not found",
       });
@@ -311,8 +311,8 @@ export const declareAttack = mutation({
 
     await recordEventHelper(ctx, {
       lobbyId: args.lobbyId,
-      gameId: lobby.gameId,
-      turnNumber: lobby.turnNumber,
+      gameId: gameState.gameId,
+      turnNumber: gameState.turnNumber,
       eventType: "attack_declared",
       playerId: user.userId,
       playerUsername: user.username,
@@ -335,7 +335,7 @@ export const declareAttack = mutation({
       ctx,
       args.lobbyId,
       gameState,
-      lobby.turnNumber,
+      gameState.turnNumber,
       user.userId,
       opponentId,
       effectiveAttacker,
@@ -364,7 +364,7 @@ export const declareAttack = mutation({
     // and checks win conditions after damage
     const sbaResult = await checkStateBasedActions(ctx, args.lobbyId, {
       skipHandLimit: true,
-      turnNumber: lobby.turnNumber,
+      turnNumber: gameState.turnNumber,
     });
 
     // If SBA ended the game, update battle result
@@ -413,18 +413,13 @@ export const declareAttackWithResponse = mutation({
     // 1. Validate session
     const user = await requireAuthMutation(ctx);
 
-    // 2. Get lobby
+    // 2. Get lobby (for gameId/status only - turn state is in gameStates)
     const lobby = await ctx.db.get(args.lobbyId);
     if (!lobby) {
       throw createError(ErrorCode.NOT_FOUND_LOBBY);
     }
 
-    // 3. Validate it's the current player's turn
-    if (lobby.currentTurnPlayerId !== user.userId) {
-      throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
-    }
-
-    // 4. Get game state
+    // 3. Get game state (single source of truth for turn state)
     const gameState = await ctx.db
       .query("gameStates")
       .withIndex("by_lobby", (q) => q.eq("lobbyId", args.lobbyId))
@@ -434,6 +429,11 @@ export const declareAttackWithResponse = mutation({
       throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
         reason: "Game state not found",
       });
+    }
+
+    // 4. Validate it's the current player's turn
+    if (gameState.currentTurnPlayerId !== user.userId) {
+      throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
     }
 
     // 5. Validate in Battle Phase
@@ -519,11 +519,11 @@ export const declareAttackWithResponse = mutation({
     });
 
     // 10. Record attack declaration event
-    if (lobby.gameId && lobby.turnNumber !== undefined) {
+    if (gameState.gameId && gameState.turnNumber !== undefined) {
       await recordEventHelper(ctx, {
         lobbyId: args.lobbyId,
-        gameId: lobby.gameId,
-        turnNumber: lobby.turnNumber,
+        gameId: gameState.gameId,
+        turnNumber: gameState.turnNumber,
         eventType: "attack_declared",
         playerId: user.userId,
         playerUsername: user.username,
@@ -1197,18 +1197,13 @@ export const continueAttackAfterReplay = mutation({
     // 1. Validate session
     const user = await requireAuthMutation(ctx);
 
-    // 2. Get lobby
+    // 2. Get lobby (for gameId/status only - turn state is in gameStates)
     const lobby = await ctx.db.get(args.lobbyId);
     if (!lobby) {
       throw createError(ErrorCode.NOT_FOUND_LOBBY);
     }
 
-    // 3. Validate it's the current player's turn
-    if (lobby.currentTurnPlayerId !== user.userId) {
-      throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
-    }
-
-    // 4. Get game state
+    // 3. Get game state (single source of truth for turn state)
     const gameState = await ctx.db
       .query("gameStates")
       .withIndex("by_lobby", (q) => q.eq("lobbyId", args.lobbyId))
@@ -1218,6 +1213,11 @@ export const continueAttackAfterReplay = mutation({
       throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
         reason: "Game state not found",
       });
+    }
+
+    // 4. Validate it's the current player's turn
+    if (gameState.currentTurnPlayerId !== user.userId) {
+      throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
     }
 
     // 5. Validate pending action exists
@@ -1340,7 +1340,7 @@ export const continueAttackAfterReplay = mutation({
     }
 
     // Validate turn number
-    if (lobby.turnNumber === undefined) {
+    if (gameState.turnNumber === undefined) {
       throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
         reason: "Turn number not found",
       });
@@ -1356,7 +1356,7 @@ export const continueAttackAfterReplay = mutation({
       ctx,
       args.lobbyId,
       gameState,
-      lobby.turnNumber,
+      gameState.turnNumber,
       user.userId,
       opponentId,
       effectiveAttacker,
@@ -1385,7 +1385,7 @@ export const continueAttackAfterReplay = mutation({
     // 14. Run state-based action checks
     const sbaResult = await checkStateBasedActions(ctx, args.lobbyId, {
       skipHandLimit: true,
-      turnNumber: lobby.turnNumber,
+      turnNumber: gameState.turnNumber,
     });
 
     if (sbaResult.gameEnded) {
@@ -1431,14 +1431,14 @@ export const declareAttackInternal = internalMutation({
       });
     }
 
-    // 2. Get lobby
+    // 2. Get lobby (for gameId/status only - turn state is in gameStates)
     const lobby = await ctx.db.get(gameState.lobbyId);
     if (!lobby) {
       throw createError(ErrorCode.NOT_FOUND_LOBBY);
     }
 
-    // 3. Validate it's the current player's turn
-    if (lobby.currentTurnPlayerId !== args.userId) {
+    // 3. Validate it's the current player's turn (using gameState as source of truth)
+    if (gameState.currentTurnPlayerId !== args.userId) {
       throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
     }
 
@@ -1608,7 +1608,7 @@ export const declareAttackInternal = internalMutation({
     await recordEventHelper(ctx, {
       lobbyId: gameState.lobbyId,
       gameId: args.gameId,
-      turnNumber: lobby.turnNumber ?? 0,
+      turnNumber: gameState.turnNumber ?? 0,
       eventType: "attack_declared",
       playerId: args.userId,
       playerUsername: username,

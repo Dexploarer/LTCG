@@ -230,11 +230,11 @@ async function triggerReplay(
   });
 
   // Record replay triggered event
-  if (lobby?.gameId && lobby.turnNumber !== undefined) {
+  if (lobby?.gameId && gameState.turnNumber !== undefined) {
     await recordEventHelper(ctx, {
       lobbyId,
       gameId: lobby.gameId,
-      turnNumber: lobby.turnNumber,
+      turnNumber: gameState.turnNumber,
       eventType: "replay_triggered",
       playerId: attackerOwnerId,
       playerUsername: attackerUser?.username || "Unknown",
@@ -397,11 +397,11 @@ export const respondToReplay = mutation({
         const targetCard = await ctx.db.get(args.choice.targetId);
 
         // Record event
-        if (lobby.gameId && lobby.turnNumber !== undefined) {
+        if (lobby.gameId && gameState.turnNumber !== undefined) {
           await recordEventHelper(ctx, {
             lobbyId: args.lobbyId,
             gameId: lobby.gameId,
-            turnNumber: lobby.turnNumber,
+            turnNumber: gameState.turnNumber,
             eventType: "replay_target_selected",
             playerId: user.userId,
             playerUsername: user.username,
@@ -436,11 +436,11 @@ export const respondToReplay = mutation({
 
       case "direct_attack": {
         // Record event
-        if (lobby.gameId && lobby.turnNumber !== undefined) {
+        if (lobby.gameId && gameState.turnNumber !== undefined) {
           await recordEventHelper(ctx, {
             lobbyId: args.lobbyId,
             gameId: lobby.gameId,
-            turnNumber: lobby.turnNumber,
+            turnNumber: gameState.turnNumber,
             eventType: "replay_target_selected",
             playerId: user.userId,
             playerUsername: user.username,
@@ -472,11 +472,11 @@ export const respondToReplay = mutation({
 
       case "cancel": {
         // Record event
-        if (lobby.gameId && lobby.turnNumber !== undefined) {
+        if (lobby.gameId && gameState.turnNumber !== undefined) {
           await recordEventHelper(ctx, {
             lobbyId: args.lobbyId,
             gameId: lobby.gameId,
-            turnNumber: lobby.turnNumber,
+            turnNumber: gameState.turnNumber,
             eventType: "replay_cancelled",
             playerId: user.userId,
             playerUsername: user.username,

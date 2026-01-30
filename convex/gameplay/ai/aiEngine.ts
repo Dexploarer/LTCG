@@ -6,7 +6,7 @@
  */
 
 import type { Doc, Id } from "../../_generated/dataModel";
-import { handleBattlePhase } from "./aiDifficulty";
+import { handleBattlePhase, handleMainPhase } from "./aiDifficulty";
 
 export interface AIAction {
   type: "summon" | "set" | "attack" | "activate_spell" | "end_phase" | "pass";
@@ -153,106 +153,14 @@ export async function makeAIDecision(
   const myBoard = isHost ? gameState.hostBoard : gameState.opponentBoard;
   const oppBoard = isHost ? gameState.opponentBoard : gameState.hostBoard;
   const hasNormalSummoned = isHost
-    ? gameState.hostNormalSummonedThisTurn
-    : gameState.opponentNormalSummonedThisTurn;
+    ? gameState.hostNormalSummonedThisTurn || false
+    : gameState.opponentNormalSummonedThisTurn || false;
 
   const evaluation = evaluateBoard(gameState, aiPlayerId);
 
   // MAIN PHASE 1
   if (phase === "main1") {
-    // Try to summon a monster if we haven't yet
-    if (!hasNormalSummoned && evaluation.hasMonsterZoneSpace) {
-      // Find monsters we can summon
-      const summonableMonsters = myHand.filter((cardId) => {
-        const card = cardData.get(cardId);
-        return card && canSummonWithoutTribute(card);
-      });
-
-      // Summon strongest monster without tribute
-      if (summonableMonsters.length > 0) {
-        const strongest = findStrongestMonster(summonableMonsters, cardData);
-        if (strongest) {
-          return {
-            type: "summon",
-            cardId: strongest,
-            position: "attack", // Default to attack for aggression
-          };
-        }
-      }
-
-      // Check for tribute summons
-      const highCostMonsters = myHand.filter((cardId) => {
-        const card = cardData.get(cardId);
-        return card && card.cardType === "creature" && card.cost >= 5;
-      });
-
-      if (highCostMonsters.length > 0 && myBoard.length >= 1) {
-        const firstHighCost = highCostMonsters[0];
-        if (!firstHighCost) return { type: "pass" };
-        const highCostCard = cardData.get(firstHighCost);
-        if (highCostCard) {
-          const requiredTributes = highCostCard.cost >= 7 ? 2 : 1;
-
-          if (myBoard.length >= requiredTributes) {
-            // Calculate if tribute is worth it (gain > 1000 ATK)
-            const weakestTributes: Id<"cardDefinitions">[] = [];
-            let tributePower = 0;
-
-            for (let i = 0; i < requiredTributes; i++) {
-              const weakest = findWeakestMonster(
-                myBoard.filter((m) => !weakestTributes.includes(m.cardId))
-              );
-              if (weakest) {
-                weakestTributes.push(weakest);
-                const weakCard = myBoard.find((m) => m.cardId === weakest);
-                if (weakCard) {
-                  tributePower += weakCard.attack;
-                }
-              }
-            }
-
-            const newPower = highCostCard.attack || 0;
-            if (newPower - tributePower > 1000) {
-              return {
-                type: "summon",
-                cardId: highCostMonsters[0],
-                position: "attack",
-                tributeIds: weakestTributes,
-              };
-            }
-          }
-        }
-      }
-
-      // Set a monster face-down if we can't summon
-      const setableMonsters = myHand.filter((cardId) => {
-        const card = cardData.get(cardId);
-        return card && card.cardType === "creature";
-      });
-
-      if (setableMonsters.length > 0) {
-        return {
-          type: "set",
-          cardId: setableMonsters[0],
-        };
-      }
-    }
-
-    // Activate a spell (50% chance for randomness)
-    const spells = myHand.filter((cardId) => {
-      const card = cardData.get(cardId);
-      return card && card.cardType === "spell";
-    });
-
-    if (spells.length > 0 && Math.random() > 0.5) {
-      return {
-        type: "activate_spell",
-        cardId: spells[0],
-      };
-    }
-
-    // Pass if nothing to do
-    return { type: "pass" };
+    return handleMainPhase(difficulty, hasNormalSummoned, evaluation, myHand, myBoard, oppBoard, cardData);
   }
 
   // BATTLE PHASE

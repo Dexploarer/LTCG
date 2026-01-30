@@ -39,12 +39,8 @@ export const endTurn = mutation({
       throw createError(ErrorCode.NOT_FOUND_LOBBY);
     }
 
-    // 3. Validate it's the current player's turn
-    if (lobby.currentTurnPlayerId !== user.userId) {
-      throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
-    }
-
-    // 4. Get game state
+    // 3. Get game state (source of truth for turn state)
+    // Note: We validate turn ownership after loading gameState
     const gameState = await ctx.db
       .query("gameStates")
       .withIndex("by_lobby", (q) => q.eq("lobbyId", args.lobbyId))
@@ -52,6 +48,11 @@ export const endTurn = mutation({
 
     if (!gameState) {
       throw createError(ErrorCode.GAME_STATE_NOT_FOUND);
+    }
+
+    // 4. Validate it's the current player's turn (using gameState as source of truth)
+    if (gameState.currentTurnPlayerId !== user.userId) {
+      throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
     }
 
     // 5. Validate in Main Phase 2 or End Phase (can end turn from either)
@@ -76,7 +77,7 @@ export const endTurn = mutation({
     // SBA will handle discarding excess cards
     const sbaResult = await checkStateBasedActions(ctx, args.lobbyId, {
       skipHandLimit: false, // Enforce hand limit at end of turn
-      turnNumber: lobby.turnNumber,
+      turnNumber: gameState.turnNumber,
     });
 
     // Check if game ended during SBA (unlikely at end of turn, but possible)
@@ -116,23 +117,29 @@ export const endTurn = mutation({
     await recordEventHelper(ctx, {
       lobbyId: args.lobbyId,
       gameId: lobby.gameId ?? "",
-      turnNumber: lobby.turnNumber ?? 0,
+      turnNumber: gameState.turnNumber ?? 0,
       eventType: "turn_end",
       playerId: user.userId,
       playerUsername: user.username,
       description: `${user.username}'s turn ended`,
       metadata: {
-        turnNumber: lobby.turnNumber ?? 0,
+        turnNumber: gameState.turnNumber ?? 0,
       },
     });
 
     // 10. Switch to next player
     const nextPlayerId = isHost ? gameState.opponentId : gameState.hostId;
-    const nextTurnNumber = (lobby.turnNumber ?? 0) + 1;
+    const nextTurnNumber = (gameState.turnNumber ?? 0) + 1;
 
-    await ctx.db.patch(args.lobbyId, {
+    // Update turn state in gameState (source of truth)
+    await ctx.db.patch(gameState._id, {
       currentTurnPlayerId: nextPlayerId,
       turnNumber: nextTurnNumber,
+    });
+
+    // Update lastMoveAt in lobby (for timeout tracking only)
+    await ctx.db.patch(args.lobbyId, {
+      lastMoveAt: Date.now(),
     });
 
     // 11. Reset normal summon flags and prepare for next turn
@@ -161,19 +168,10 @@ export const endTurn = mutation({
     // 12.5. Reset OPT/HOPT effects for the new turn player
     // OPT resets at the start of the turn player's turn
     // HOPT expires based on the resetOnTurn field (player's next turn)
-    // We need to refresh gameState first since turnNumber was updated in lobby but not gameState yet
+    // gameState was already updated with new turn state above
     const gameStateForOPT = await ctx.db.get(gameState._id);
     if (gameStateForOPT) {
-      // Update the turnNumber in gameState to match lobby before resetting OPT
-      await ctx.db.patch(gameStateForOPT._id, {
-        currentTurnPlayerId: nextPlayerId,
-        turnNumber: nextTurnNumber,
-      });
-      // Fetch again with updated turnNumber for proper HOPT expiry calculation
-      const updatedGameState = await ctx.db.get(gameStateForOPT._id);
-      if (updatedGameState) {
-        await resetOPTEffects(ctx, updatedGameState, nextPlayerId);
-      }
+      await resetOPTEffects(ctx, gameStateForOPT, nextPlayerId);
     }
 
     // 13. Auto-execute Draw Phase and advance to Main Phase 1
@@ -273,14 +271,14 @@ export const endTurnInternal = internalMutation({
       });
     }
 
-    // 2. Get lobby
+    // 2. Get lobby (for timeout tracking)
     const lobby = await ctx.db.get(gameState.lobbyId);
     if (!lobby) {
       throw createError(ErrorCode.NOT_FOUND_LOBBY);
     }
 
-    // 3. Validate it's the current player's turn
-    if (lobby.currentTurnPlayerId !== args.userId) {
+    // 3. Validate it's the current player's turn (using gameState as source of truth)
+    if (gameState.currentTurnPlayerId !== args.userId) {
       throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
     }
 
@@ -303,7 +301,7 @@ export const endTurnInternal = internalMutation({
     // 6. Enforce hand size limit via state-based actions
     const sbaResult = await checkStateBasedActions(ctx, gameState.lobbyId, {
       skipHandLimit: false,
-      turnNumber: lobby.turnNumber,
+      turnNumber: gameState.turnNumber,
     });
 
     if (sbaResult.gameEnded) {
@@ -338,23 +336,29 @@ export const endTurnInternal = internalMutation({
     await recordEventHelper(ctx, {
       lobbyId: gameState.lobbyId,
       gameId: args.gameId,
-      turnNumber: lobby.turnNumber ?? 0,
+      turnNumber: gameState.turnNumber ?? 0,
       eventType: "turn_end",
       playerId: args.userId,
       playerUsername: username,
       description: `${username}'s turn ended`,
       metadata: {
-        turnNumber: lobby.turnNumber ?? 0,
+        turnNumber: gameState.turnNumber ?? 0,
       },
     });
 
     // 10. Switch to next player
     const nextPlayerId = isHost ? gameState.opponentId : gameState.hostId;
-    const nextTurnNumber = (lobby.turnNumber ?? 0) + 1;
+    const nextTurnNumber = (gameState.turnNumber ?? 0) + 1;
 
-    await ctx.db.patch(gameState.lobbyId, {
+    // Update turn state in gameState (source of truth)
+    await ctx.db.patch(gameState._id, {
       currentTurnPlayerId: nextPlayerId,
       turnNumber: nextTurnNumber,
+    });
+
+    // Update lastMoveAt in lobby (for timeout tracking only)
+    await ctx.db.patch(gameState.lobbyId, {
+      lastMoveAt: Date.now(),
     });
 
     // 11. Reset normal summon flags
@@ -381,16 +385,10 @@ export const endTurnInternal = internalMutation({
     });
 
     // 12.5. Reset OPT effects
+    // gameState was already updated with new turn state above
     const gameStateForOPT = await ctx.db.get(gameState._id);
     if (gameStateForOPT) {
-      await ctx.db.patch(gameStateForOPT._id, {
-        currentTurnPlayerId: nextPlayerId,
-        turnNumber: nextTurnNumber,
-      });
-      const updatedGameState = await ctx.db.get(gameStateForOPT._id);
-      if (updatedGameState) {
-        await resetOPTEffects(ctx, updatedGameState, nextPlayerId);
-      }
+      await resetOPTEffects(ctx, gameStateForOPT, nextPlayerId);
     }
 
     // 13. Auto-execute Draw Phase and advance to Main Phase 1

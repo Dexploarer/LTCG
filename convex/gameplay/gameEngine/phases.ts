@@ -41,7 +41,7 @@ export const advanceToBattlePhaseInternal = internalMutation({
     }
 
     // 3. Validate it's the current player's turn
-    if (lobby.currentTurnPlayerId !== args.userId) {
+    if (gameState.currentTurnPlayerId !== args.userId) {
       throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
     }
 
@@ -66,7 +66,7 @@ export const advanceToBattlePhaseInternal = internalMutation({
     await recordEventHelper(ctx, {
       lobbyId: gameState.lobbyId,
       gameId: args.gameId,
-      turnNumber: lobby.turnNumber ?? 0,
+      turnNumber: gameState.turnNumber ?? 0,
       eventType: "phase_changed",
       playerId: args.userId,
       playerUsername: username,
@@ -115,7 +115,7 @@ export const advanceToMainPhase2Internal = internalMutation({
     }
 
     // 3. Validate it's the current player's turn
-    if (lobby.currentTurnPlayerId !== args.userId) {
+    if (gameState.currentTurnPlayerId !== args.userId) {
       throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
     }
 
@@ -140,7 +140,7 @@ export const advanceToMainPhase2Internal = internalMutation({
     await recordEventHelper(ctx, {
       lobbyId: gameState.lobbyId,
       gameId: args.gameId,
-      turnNumber: lobby.turnNumber ?? 0,
+      turnNumber: gameState.turnNumber ?? 0,
       eventType: "phase_changed",
       playerId: args.userId,
       playerUsername: username,

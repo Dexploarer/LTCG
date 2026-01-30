@@ -57,12 +57,7 @@ export const setSpellTrap = mutation({
       throw createError(ErrorCode.NOT_FOUND_LOBBY);
     }
 
-    // 3. Validate it's the current player's turn
-    if (lobby.currentTurnPlayerId !== user.userId) {
-      throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
-    }
-
-    // 4. Get game state
+    // 3. Get game state (single source of truth for turn state)
     const gameState = await ctx.db
       .query("gameStates")
       .withIndex("by_lobby", (q) => q.eq("lobbyId", args.lobbyId))
@@ -70,6 +65,11 @@ export const setSpellTrap = mutation({
 
     if (!gameState) {
       throw createError(ErrorCode.GAME_STATE_NOT_FOUND);
+    }
+
+    // 4. Validate it's the current player's turn
+    if (gameState.currentTurnPlayerId !== user.userId) {
+      throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
     }
 
     const isHost = user.userId === gameState.hostId;
@@ -108,7 +108,7 @@ export const setSpellTrap = mutation({
         cardId: args.cardId,
         isFaceDown: true,
         isActivated: false,
-        turnSet: lobby.turnNumber || 1, // Track when card was set for trap activation rules
+        turnSet: gameState.turnNumber || 1, // Track when card was set for trap activation rules
       },
     ];
 
@@ -122,7 +122,7 @@ export const setSpellTrap = mutation({
     await recordEventHelper(ctx, {
       lobbyId: args.lobbyId,
       gameId: lobby.gameId ?? "",
-      turnNumber: lobby.turnNumber ?? 0,
+      turnNumber: gameState.turnNumber ?? 0,
       eventType,
       playerId: user.userId,
       playerUsername: user.username,
@@ -241,7 +241,7 @@ export const activateSpell = mutation({
     await recordEventHelper(ctx, {
       lobbyId: args.lobbyId,
       gameId: lobby.gameId ?? "",
-      turnNumber: lobby.turnNumber ?? 0,
+      turnNumber: gameState.turnNumber ?? 0,
       eventType: "spell_activated",
       playerId: user.userId,
       playerUsername: user.username,
@@ -422,13 +422,18 @@ export const activateTrap = mutation({
     }
 
     // 6. Validate trap was set for at least 1 turn
-    const currentTurn = lobby.turnNumber || 1;
+    const currentTurn = gameState.turnNumber || 1;
     const turnWasSet = trapInZone.turnSet || currentTurn;
 
     // Traps must be set for at least 1 full turn before activation
+    // Block if trap was set on or after current turn (defensive check)
     // Exception: Some trap cards can be activated same turn (e.g., quick-effect traps)
-    if (currentTurn === turnWasSet) {
-      throw createError(ErrorCode.GAME_TRAP_SAME_TURN);
+    if (turnWasSet >= currentTurn) {
+      throw createError(ErrorCode.GAME_TRAP_SAME_TURN, {
+        reason: "Trap cards must wait at least one full turn before activation",
+        currentTurn,
+        turnWasSet,
+      });
     }
 
     // 7. Remove from spell/trap zone
@@ -441,7 +446,7 @@ export const activateTrap = mutation({
     await recordEventHelper(ctx, {
       lobbyId: args.lobbyId,
       gameId: lobby.gameId ?? "",
-      turnNumber: lobby.turnNumber ?? 0,
+      turnNumber: gameState.turnNumber ?? 0,
       eventType: "trap_activated",
       playerId: user.userId,
       playerUsername: user.username,

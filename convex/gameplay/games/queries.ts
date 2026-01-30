@@ -412,12 +412,12 @@ export const getGameSpectatorView = query({
           }
         : null,
 
-      // Game state (public info only)
+      // Game state (public info only) - turn state from gameState (single source of truth)
       mode: lobby.mode,
       deckArchetype: lobby.deckArchetype,
-      turnNumber: lobby.turnNumber || 0,
-      currentTurnPlayerId: lobby.currentTurnPlayerId,
-      turnStartedAt: lobby.turnStartedAt,
+      turnNumber: gameState?.turnNumber || 0,
+      currentTurnPlayerId: gameState?.currentTurnPlayerId,
+      turnStartedAt: lobby.turnStartedAt, // Keep from lobby for now (not in gameState)
 
       // Board state (visible zones only)
       boardState,
@@ -826,14 +826,26 @@ export const getActiveLobbiesForCleanup = internalQuery({
       .withIndex("by_status", (q) => q.eq("status", "active"))
       .collect();
 
-    return lobbies.map((lobby) => ({
-      _id: lobby._id,
-      createdAt: lobby.createdAt,
-      lastMoveAt: lobby.lastMoveAt,
-      currentTurnPlayerId: lobby.currentTurnPlayerId,
-      hostId: lobby.hostId,
-      hostUsername: lobby.hostUsername,
-    }));
+    // Fetch game states in parallel to get turn info from single source of truth
+    const results = await Promise.all(
+      lobbies.map(async (lobby) => {
+        const gameState = await ctx.db
+          .query("gameStates")
+          .withIndex("by_lobby", (q) => q.eq("lobbyId", lobby._id))
+          .first();
+
+        return {
+          _id: lobby._id,
+          createdAt: lobby.createdAt,
+          lastMoveAt: lobby.lastMoveAt, // Keep from lobby for timeout tracking
+          currentTurnPlayerId: gameState?.currentTurnPlayerId, // From gameState (single source of truth)
+          hostId: lobby.hostId,
+          hostUsername: lobby.hostUsername,
+        };
+      })
+    );
+
+    return results;
   },
 });
 
@@ -848,14 +860,26 @@ export const getWaitingLobbiesForCleanup = internalQuery({
       .withIndex("by_status", (q) => q.eq("status", "waiting"))
       .collect();
 
-    return lobbies.map((lobby) => ({
-      _id: lobby._id,
-      createdAt: lobby.createdAt,
-      lastMoveAt: lobby.lastMoveAt,
-      currentTurnPlayerId: lobby.currentTurnPlayerId,
-      hostId: lobby.hostId,
-      hostUsername: lobby.hostUsername,
-    }));
+    // Fetch game states in parallel to get turn info from single source of truth
+    const results = await Promise.all(
+      lobbies.map(async (lobby) => {
+        const gameState = await ctx.db
+          .query("gameStates")
+          .withIndex("by_lobby", (q) => q.eq("lobbyId", lobby._id))
+          .first();
+
+        return {
+          _id: lobby._id,
+          createdAt: lobby.createdAt,
+          lastMoveAt: lobby.lastMoveAt, // Keep from lobby for timeout tracking
+          currentTurnPlayerId: gameState?.currentTurnPlayerId, // From gameState (single source of truth)
+          hostId: lobby.hostId,
+          hostUsername: lobby.hostUsername,
+        };
+      })
+    );
+
+    return results;
   },
 });
 
@@ -1162,8 +1186,8 @@ export const getGameStateForPlayerInternal = internalQuery({
       lobbyId: lobby._id,
       gameId: gameState.gameId,
       currentPhase: gameState.currentPhase,
-      turnNumber: lobby.turnNumber || 1,
-      currentTurnPlayerId: lobby.currentTurnPlayerId,
+      turnNumber: gameState.turnNumber, // From gameState (single source of truth)
+      currentTurnPlayerId: gameState.currentTurnPlayerId, // From gameState (single source of truth)
       hostId: lobby.hostId,
       opponentId: lobby.opponentId,
       myLifePoints: isHost ? gameState.hostLifePoints : gameState.opponentLifePoints,

@@ -298,10 +298,10 @@ export async function scanFieldForTriggers(
   turnNumber: number
 ): Promise<void> {
   const lobby = await ctx.db.get(lobbyId);
-  if (!lobby?.gameId || !lobby.currentTurnPlayerId) return;
+  if (!lobby?.gameId || !gameState.currentTurnPlayerId) return;
 
   // Build SEGOC queue with proper ordering
-  await buildSegocQueue(ctx, lobbyId, gameState, trigger, lobby.currentTurnPlayerId);
+  await buildSegocQueue(ctx, lobbyId, gameState, trigger, gameState.currentTurnPlayerId);
 
   // Process all items in the SEGOC queue
   let remaining = 1;

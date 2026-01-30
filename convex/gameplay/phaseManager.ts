@@ -72,7 +72,7 @@ export const advancePhase = mutation({
     // 1. Validate session
     const user = await requireAuthMutation(ctx);
 
-    // 2. Get lobby
+    // 2. Get lobby (for gameId only - turn state is in gameStates)
     const lobby = await ctx.db.get(args.lobbyId);
     if (!lobby) {
       throw createError(ErrorCode.NOT_FOUND_LOBBY, {
@@ -81,16 +81,7 @@ export const advancePhase = mutation({
       });
     }
 
-    // 3. Validate it's the current player's turn
-    if (lobby.currentTurnPlayerId !== user.userId) {
-      throw createError(ErrorCode.GAME_NOT_YOUR_TURN, {
-        reason: "Not your turn",
-        currentTurnPlayerId: lobby.currentTurnPlayerId,
-        userId: user.userId,
-      });
-    }
-
-    // 4. Get game state
+    // 3. Get game state (single source of truth for turn state)
     const gameState = await ctx.db
       .query("gameStates")
       .withIndex("by_lobby", (q) => q.eq("lobbyId", args.lobbyId))
@@ -100,6 +91,15 @@ export const advancePhase = mutation({
       throw createError(ErrorCode.GAME_STATE_NOT_FOUND, {
         reason: "Game state not found",
         lobbyId: args.lobbyId,
+      });
+    }
+
+    // 4. Validate it's the current player's turn (using gameState as source of truth)
+    if (gameState.currentTurnPlayerId !== user.userId) {
+      throw createError(ErrorCode.GAME_NOT_YOUR_TURN, {
+        reason: "Not your turn",
+        currentTurnPlayerId: gameState.currentTurnPlayerId,
+        userId: user.userId,
       });
     }
 
@@ -124,8 +124,8 @@ export const advancePhase = mutation({
         currentPhase: nextPhase,
       });
 
-      // Validate required lobby fields
-      if (!lobby.gameId || lobby.turnNumber === undefined) {
+      // Validate required fields (gameId from lobby, turnNumber from gameState)
+      if (!lobby.gameId || gameState.turnNumber === undefined) {
         throw createError(ErrorCode.GAME_NOT_STARTED, {
           reason: "Game not started or missing game data",
         });
@@ -135,7 +135,7 @@ export const advancePhase = mutation({
       await recordEventHelper(ctx, {
         lobbyId: args.lobbyId,
         gameId: lobby.gameId,
-        turnNumber: lobby.turnNumber,
+        turnNumber: gameState.turnNumber,
         eventType: "phase_changed",
         playerId: user.userId,
         playerUsername: user.username,
@@ -154,7 +154,7 @@ export const advancePhase = mutation({
         gameState._id,
         nextPhase,
         user.userId,
-        lobby.turnNumber
+        gameState.turnNumber
       );
 
       // Move to next phase
@@ -180,8 +180,8 @@ export const advancePhase = mutation({
       currentPhase: nextPhase,
     });
 
-    // 8. Validate required lobby fields for final phase
-    if (!lobby.gameId || lobby.turnNumber === undefined) {
+    // 8. Validate required fields for final phase (gameId from lobby, turnNumber from gameState)
+    if (!lobby.gameId || gameState.turnNumber === undefined) {
       throw createError(ErrorCode.GAME_NOT_STARTED, {
         reason: "Game not started or missing game data",
       });
@@ -192,7 +192,7 @@ export const advancePhase = mutation({
       await recordEventHelper(ctx, {
         lobbyId: args.lobbyId,
         gameId: lobby.gameId,
-        turnNumber: lobby.turnNumber,
+        turnNumber: gameState.turnNumber,
         eventType: "phase_changed",
         playerId: user.userId,
         playerUsername: user.username,
@@ -212,14 +212,14 @@ export const advancePhase = mutation({
       gameState._id,
       nextPhase,
       user.userId,
-      lobby.turnNumber
+      gameState.turnNumber
     );
 
     // 11. Run state-based action checks after phase transition
     // Only enforce hand limit at end phase
     const sbaResult = await checkStateBasedActions(ctx, args.lobbyId, {
       skipHandLimit: nextPhase !== "end",
-      turnNumber: lobby.turnNumber,
+      turnNumber: gameState.turnNumber,
     });
 
     // 12. Return new phase and available actions
@@ -245,7 +245,7 @@ export const skipBattlePhase = mutation({
     // 1. Validate session
     const user = await requireAuthMutation(ctx);
 
-    // 2. Get lobby
+    // 2. Get lobby (for gameId only - turn state is in gameStates)
     const lobby = await ctx.db.get(args.lobbyId);
     if (!lobby) {
       throw createError(ErrorCode.NOT_FOUND_LOBBY, {
@@ -254,16 +254,7 @@ export const skipBattlePhase = mutation({
       });
     }
 
-    // 3. Verify it's the player's turn
-    if (lobby.currentTurnPlayerId !== user.userId) {
-      throw createError(ErrorCode.GAME_NOT_YOUR_TURN, {
-        reason: "Not your turn",
-        currentTurnPlayerId: lobby.currentTurnPlayerId,
-        userId: user.userId,
-      });
-    }
-
-    // 4. Get game state
+    // 3. Get game state (single source of truth for turn state)
     const gameState = await ctx.db
       .query("gameStates")
       .withIndex("by_lobby", (q) => q.eq("lobbyId", args.lobbyId))
@@ -273,6 +264,15 @@ export const skipBattlePhase = mutation({
       throw createError(ErrorCode.GAME_STATE_NOT_FOUND, {
         reason: "Game state not found",
         lobbyId: args.lobbyId,
+      });
+    }
+
+    // 4. Verify it's the player's turn (using gameState as source of truth)
+    if (gameState.currentTurnPlayerId !== user.userId) {
+      throw createError(ErrorCode.GAME_NOT_YOUR_TURN, {
+        reason: "Not your turn",
+        currentTurnPlayerId: gameState.currentTurnPlayerId,
+        userId: user.userId,
       });
     }
 
@@ -295,12 +295,12 @@ export const skipBattlePhase = mutation({
       currentPhase: "main2",
     });
 
-    // 8. Record event
-    if (lobby.gameId && lobby.turnNumber !== undefined) {
+    // 8. Record event (gameId from lobby, turnNumber from gameState)
+    if (lobby.gameId && gameState.turnNumber !== undefined) {
       await recordEventHelper(ctx, {
         lobbyId: args.lobbyId,
         gameId: lobby.gameId,
-        turnNumber: lobby.turnNumber,
+        turnNumber: gameState.turnNumber,
         eventType: "phase_changed",
         playerId: user.userId,
         playerUsername: user.username || "Unknown",
@@ -334,7 +334,7 @@ export const skipToEndPhase = mutation({
     // 1. Validate session
     const user = await requireAuthMutation(ctx);
 
-    // 2. Get lobby
+    // 2. Get lobby (for gameId only - turn state is in gameStates)
     const lobby = await ctx.db.get(args.lobbyId);
     if (!lobby) {
       throw createError(ErrorCode.NOT_FOUND_LOBBY, {
@@ -343,16 +343,7 @@ export const skipToEndPhase = mutation({
       });
     }
 
-    // 3. Verify it's the player's turn
-    if (lobby.currentTurnPlayerId !== user.userId) {
-      throw createError(ErrorCode.GAME_NOT_YOUR_TURN, {
-        reason: "Not your turn",
-        currentTurnPlayerId: lobby.currentTurnPlayerId,
-        userId: user.userId,
-      });
-    }
-
-    // 4. Get game state
+    // 3. Get game state (single source of truth for turn state)
     const gameState = await ctx.db
       .query("gameStates")
       .withIndex("by_lobby", (q) => q.eq("lobbyId", args.lobbyId))
@@ -362,6 +353,15 @@ export const skipToEndPhase = mutation({
       throw createError(ErrorCode.GAME_STATE_NOT_FOUND, {
         reason: "Game state not found",
         lobbyId: args.lobbyId,
+      });
+    }
+
+    // 4. Verify it's the player's turn (using gameState as source of truth)
+    if (gameState.currentTurnPlayerId !== user.userId) {
+      throw createError(ErrorCode.GAME_NOT_YOUR_TURN, {
+        reason: "Not your turn",
+        currentTurnPlayerId: gameState.currentTurnPlayerId,
+        userId: user.userId,
       });
     }
 
@@ -392,8 +392,8 @@ export const skipToEndPhase = mutation({
       currentPhase: "end",
     });
 
-    // 8. Validate required lobby fields
-    if (!lobby.gameId || lobby.turnNumber === undefined) {
+    // 8. Validate required fields (gameId from lobby, turnNumber from gameState)
+    if (!lobby.gameId || gameState.turnNumber === undefined) {
       throw createError(ErrorCode.GAME_NOT_STARTED, {
         reason: "Game not started or missing game data",
       });
@@ -403,7 +403,7 @@ export const skipToEndPhase = mutation({
     await recordEventHelper(ctx, {
       lobbyId: args.lobbyId,
       gameId: lobby.gameId,
-      turnNumber: lobby.turnNumber,
+      turnNumber: gameState.turnNumber,
       eventType: "phase_changed",
       playerId: user.userId,
       playerUsername: user.username || "Unknown",
@@ -417,12 +417,12 @@ export const skipToEndPhase = mutation({
     });
 
     // 10. Execute End Phase logic
-    await executePhaseLogic(ctx, args.lobbyId, gameState._id, "end", user.userId, lobby.turnNumber);
+    await executePhaseLogic(ctx, args.lobbyId, gameState._id, "end", user.userId, gameState.turnNumber);
 
     // 11. Run state-based action checks (enforce hand limit at end phase)
     const sbaResult = await checkStateBasedActions(ctx, args.lobbyId, {
       skipHandLimit: false,
-      turnNumber: lobby.turnNumber,
+      turnNumber: gameState.turnNumber,
     });
 
     return {
@@ -447,7 +447,7 @@ export const skipMainPhase2 = mutation({
     // 1. Validate session
     const user = await requireAuthMutation(ctx);
 
-    // 2. Get lobby
+    // 2. Get lobby (for gameId only - turn state is in gameStates)
     const lobby = await ctx.db.get(args.lobbyId);
     if (!lobby) {
       throw createError(ErrorCode.NOT_FOUND_LOBBY, {
@@ -456,16 +456,7 @@ export const skipMainPhase2 = mutation({
       });
     }
 
-    // 3. Verify it's the player's turn
-    if (lobby.currentTurnPlayerId !== user.userId) {
-      throw createError(ErrorCode.GAME_NOT_YOUR_TURN, {
-        reason: "Not your turn",
-        currentTurnPlayerId: lobby.currentTurnPlayerId,
-        userId: user.userId,
-      });
-    }
-
-    // 4. Get game state
+    // 3. Get game state (single source of truth for turn state)
     const gameState = await ctx.db
       .query("gameStates")
       .withIndex("by_lobby", (q) => q.eq("lobbyId", args.lobbyId))
@@ -475,6 +466,15 @@ export const skipMainPhase2 = mutation({
       throw createError(ErrorCode.GAME_STATE_NOT_FOUND, {
         reason: "Game state not found",
         lobbyId: args.lobbyId,
+      });
+    }
+
+    // 4. Verify it's the player's turn (using gameState as source of truth)
+    if (gameState.currentTurnPlayerId !== user.userId) {
+      throw createError(ErrorCode.GAME_NOT_YOUR_TURN, {
+        reason: "Not your turn",
+        currentTurnPlayerId: gameState.currentTurnPlayerId,
+        userId: user.userId,
       });
     }
 
@@ -493,8 +493,8 @@ export const skipMainPhase2 = mutation({
       currentPhase: "end",
     });
 
-    // 7. Validate required lobby fields
-    if (!lobby.gameId || lobby.turnNumber === undefined) {
+    // 7. Validate required fields (gameId from lobby, turnNumber from gameState)
+    if (!lobby.gameId || gameState.turnNumber === undefined) {
       throw createError(ErrorCode.GAME_NOT_STARTED, {
         reason: "Game not started or missing game data",
       });
@@ -504,7 +504,7 @@ export const skipMainPhase2 = mutation({
     await recordEventHelper(ctx, {
       lobbyId: args.lobbyId,
       gameId: lobby.gameId,
-      turnNumber: lobby.turnNumber,
+      turnNumber: gameState.turnNumber,
       eventType: "phase_changed",
       playerId: user.userId,
       playerUsername: user.username || "Unknown",
@@ -518,12 +518,12 @@ export const skipMainPhase2 = mutation({
     });
 
     // 9. Execute End Phase logic
-    await executePhaseLogic(ctx, args.lobbyId, gameState._id, "end", user.userId, lobby.turnNumber);
+    await executePhaseLogic(ctx, args.lobbyId, gameState._id, "end", user.userId, gameState.turnNumber);
 
     // 10. Run state-based action checks (enforce hand limit at end phase)
     const sbaResult = await checkStateBasedActions(ctx, args.lobbyId, {
       skipHandLimit: false,
-      turnNumber: lobby.turnNumber,
+      turnNumber: gameState.turnNumber,
     });
 
     return {
@@ -672,8 +672,8 @@ async function executePhaseTriggeredEffects(
   const lobby = await ctx.db.get(lobbyId);
   if (!lobby) return;
 
-  // Validate required lobby fields
-  if (!lobby.gameId || lobby.turnNumber === undefined) {
+  // Validate required fields (gameId from lobby, turnNumber from gameState)
+  if (!lobby.gameId || gameState.turnNumber === undefined) {
     return; // Cannot proceed without game data
   }
 
@@ -754,7 +754,7 @@ async function executePhaseTriggeredEffects(
         await recordEventHelper(ctx, {
           lobbyId,
           gameId: lobby.gameId,
-          turnNumber: lobby.turnNumber,
+          turnNumber: gameState.turnNumber,
           eventType: "effect_activated",
           playerId: boardCard.ownerId,
           playerUsername: user?.username || "Unknown",

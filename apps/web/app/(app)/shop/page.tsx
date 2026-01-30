@@ -299,6 +299,24 @@ export default function ShopPage() {
       <div className="absolute inset-0 bg-black/60 z-0" />
       <div className="absolute inset-0 bg-vignette z-0" />
 
+      {/* Coming Soon Overlay */}
+      <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+        <div className="text-center p-8 max-w-md">
+          <div className="w-24 h-24 mx-auto mb-6 rounded-2xl bg-[#d4af37]/20 border border-[#d4af37]/30 flex items-center justify-center">
+            <Store className="w-12 h-12 text-[#d4af37]" />
+          </div>
+          <h2 className="text-3xl font-black text-[#e8e0d5] uppercase tracking-tight mb-3">
+            Coming Soon
+          </h2>
+          <p className="text-[#a89f94] text-lg mb-2">
+            The Shop & Marketplace is under construction.
+          </p>
+          <p className="text-[#a89f94]/70 text-sm">
+            Card packs, boxes, and player-to-player trading will be available soon.
+          </p>
+        </div>
+      </div>
+
       <div className="container mx-auto px-4 pt-28 pb-16 relative z-10">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-8">

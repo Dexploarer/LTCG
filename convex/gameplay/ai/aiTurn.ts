@@ -1,28 +1,208 @@
 /**
  * AI Turn Automation
  *
- * Executes a full AI turn automatically by directly updating game state.
- * Simplified to avoid mutation-calling-mutation issues.
+ * Executes a full AI turn using atomic state changes and the sophisticated
+ * AI decision engine from aiEngine.ts. Supports all difficulty levels.
  */
 
 import { v } from "convex/values";
-import type { Id } from "../../_generated/dataModel";
+import type { Doc, Id } from "../../_generated/dataModel";
 import { internalMutation, mutation } from "../../_generated/server";
 import { ErrorCode, createError } from "../../lib/errorCodes";
 import { drawCards } from "../../lib/gameHelpers";
+import { type AIAction, makeAIDecision } from "./aiEngine";
+
+// Types for atomic state changes
+interface BoardCard {
+  cardId: Id<"cardDefinitions">;
+  position: number;
+  attack: number;
+  defense: number;
+  isFaceDown: boolean;
+  hasAttacked: boolean;
+}
+
+interface StateChanges {
+  opponentBoard: BoardCard[];
+  opponentHand: Id<"cardDefinitions">[];
+  opponentGraveyard: Id<"cardDefinitions">[];
+  hostBoard: BoardCard[];
+  hostLifePoints: number;
+  hostGraveyard: Id<"cardDefinitions">[];
+  opponentNormalSummonedThisTurn: boolean;
+}
+
+/**
+ * Execute a single AI action and return updated state changes
+ */
+function executeAction(
+  action: AIAction,
+  stateChanges: StateChanges,
+  cardDataMap: Map<string, Doc<"cardDefinitions">>
+): { success: boolean; description: string } {
+  switch (action.type) {
+    case "summon": {
+      if (!action.cardId) return { success: false, description: "No card specified for summon" };
+
+      const card = cardDataMap.get(action.cardId);
+      if (!card) return { success: false, description: "Card not found" };
+
+      // Handle tribute summons
+      if (action.tributeIds && action.tributeIds.length > 0) {
+        // Remove tributed monsters from board
+        for (const tributeId of action.tributeIds) {
+          const tributeIndex = stateChanges.opponentBoard.findIndex((m) => m.cardId === tributeId);
+          if (tributeIndex !== -1) {
+            const removed = stateChanges.opponentBoard.splice(tributeIndex, 1);
+            // Add tributed card to graveyard
+            if (removed[0]) {
+              stateChanges.opponentGraveyard.push(removed[0].cardId);
+            }
+          }
+        }
+      }
+
+      // Remove from hand
+      stateChanges.opponentHand = stateChanges.opponentHand.filter((id) => id !== action.cardId);
+
+      // Add to board
+      stateChanges.opponentBoard.push({
+        cardId: action.cardId,
+        position: action.position === "defense" ? -1 : 1,
+        attack: card.attack || 0,
+        defense: card.defense || 0,
+        isFaceDown: false,
+        hasAttacked: false,
+      });
+
+      stateChanges.opponentNormalSummonedThisTurn = true;
+
+      const tributeCount = action.tributeIds?.length || 0;
+      const tributeDesc = tributeCount > 0 ? ` (tributed ${tributeCount})` : "";
+      return { success: true, description: `Summoned ${card.name}${tributeDesc}` };
+    }
+
+    case "set": {
+      if (!action.cardId) return { success: false, description: "No card specified for set" };
+
+      const card = cardDataMap.get(action.cardId);
+      if (!card) return { success: false, description: "Card not found" };
+
+      // Remove from hand
+      stateChanges.opponentHand = stateChanges.opponentHand.filter((id) => id !== action.cardId);
+
+      if (card.cardType === "creature") {
+        // Set monster face-down in defense
+        stateChanges.opponentBoard.push({
+          cardId: action.cardId,
+          position: -1, // Defense
+          attack: card.attack || 0,
+          defense: card.defense || 0,
+          isFaceDown: true,
+          hasAttacked: false,
+        });
+        stateChanges.opponentNormalSummonedThisTurn = true;
+      }
+      // Note: Spell/Trap set would go to spellTrapZone, not implemented yet
+
+      return { success: true, description: `Set ${card.name}` };
+    }
+
+    case "attack": {
+      if (!action.cardId) return { success: false, description: "No attacker specified" };
+
+      // Find attacker on board
+      const attackerIndex = stateChanges.opponentBoard.findIndex((m) => m.cardId === action.cardId);
+      if (attackerIndex === -1) return { success: false, description: "Attacker not on board" };
+
+      const attacker = stateChanges.opponentBoard[attackerIndex];
+      if (!attacker) return { success: false, description: "Attacker not found" };
+      if (attacker.hasAttacked) return { success: false, description: "Already attacked" };
+      if (attacker.position !== 1) return { success: false, description: "Not in attack position" };
+
+      const attackerCard = cardDataMap.get(action.cardId);
+
+      // Direct attack if no defenders
+      if (stateChanges.hostBoard.length === 0) {
+        stateChanges.hostLifePoints = Math.max(0, stateChanges.hostLifePoints - attacker.attack);
+        stateChanges.opponentBoard[attackerIndex] = { ...attacker, hasAttacked: true };
+        return { success: true, description: `${attackerCard?.name || "Monster"} attacked directly for ${attacker.attack} damage` };
+      }
+
+      // Find target (attack first monster for simplicity)
+      const targetIndex = 0;
+      const target = stateChanges.hostBoard[targetIndex];
+      if (!target) return { success: false, description: "No valid target" };
+
+      const targetCard = cardDataMap.get(target.cardId);
+      const targetDEF = target.position === -1 ? target.defense : target.attack;
+
+      if (attacker.attack > targetDEF) {
+        // Destroy target
+        stateChanges.hostBoard.splice(targetIndex, 1);
+        stateChanges.hostGraveyard.push(target.cardId);
+
+        // Calculate and apply damage (only if target was in attack position)
+        if (target.position === 1) {
+          const damage = attacker.attack - target.attack;
+          stateChanges.hostLifePoints = Math.max(0, stateChanges.hostLifePoints - damage);
+        }
+
+        stateChanges.opponentBoard[attackerIndex] = { ...attacker, hasAttacked: true };
+        return { success: true, description: `${attackerCard?.name || "Monster"} destroyed ${targetCard?.name || "monster"}` };
+      } else if (attacker.attack === targetDEF && target.position === 1) {
+        // Both destroyed
+        stateChanges.hostBoard.splice(targetIndex, 1);
+        stateChanges.hostGraveyard.push(target.cardId);
+        stateChanges.opponentBoard.splice(attackerIndex, 1);
+        stateChanges.opponentGraveyard.push(attacker.cardId);
+        return { success: true, description: `${attackerCard?.name || "Monster"} and ${targetCard?.name || "monster"} destroyed each other` };
+      } else {
+        // Attacker loses or can't destroy target - mark as attacked but no destruction
+        stateChanges.opponentBoard[attackerIndex] = { ...attacker, hasAttacked: true };
+        return { success: false, description: `${attackerCard?.name || "Monster"} attack failed` };
+      }
+    }
+
+    case "activate_spell": {
+      if (!action.cardId) return { success: false, description: "No spell specified" };
+
+      const card = cardDataMap.get(action.cardId);
+      if (!card || card.cardType !== "spell") {
+        return { success: false, description: "Not a spell card" };
+      }
+
+      // Remove from hand
+      stateChanges.opponentHand = stateChanges.opponentHand.filter((id) => id !== action.cardId);
+
+      // For now, move to graveyard (spell effect execution would need more infrastructure)
+      stateChanges.opponentGraveyard.push(action.cardId);
+
+      // TODO: Implement actual spell effects based on card ability
+      return { success: true, description: `Activated spell: ${card.name}` };
+    }
+
+    case "end_phase":
+    case "pass":
+      return { success: true, description: action.type === "end_phase" ? "Ending phase" : "Passing" };
+
+    default:
+      return { success: false, description: "Unknown action type" };
+  }
+}
 
 /**
  * Execute a complete AI turn
  *
- * This is a simplified version that directly updates game state
- * instead of calling other mutations.
+ * Uses atomic state changes to avoid race conditions and integrates
+ * the sophisticated AI decision engine.
  */
 export const executeAITurn = mutation({
   args: {
     gameId: v.string(),
   },
   handler: async (ctx, args) => {
-    // Fetch game state
+    // Fetch game state (single source of truth for turn state)
     const gameState = await ctx.db
       .query("gameStates")
       .withIndex("by_game_id", (q) => q.eq("gameId", args.gameId))
@@ -35,7 +215,7 @@ export const executeAITurn = mutation({
       });
     }
 
-    // Get lobby
+    // Get lobby (for gameId/status only - turn state is in gameStates)
     const lobby = await ctx.db.get(gameState.lobbyId);
     if (!lobby) {
       throw createError(ErrorCode.NOT_FOUND_LOBBY, {
@@ -47,11 +227,11 @@ export const executeAITurn = mutation({
     // Determine AI player
     const aiPlayerId = gameState.opponentId; // AI is always the opponent in story mode
 
-    // Verify it's AI's turn
-    if (lobby.currentTurnPlayerId !== aiPlayerId) {
+    // Verify it's AI's turn (using gameState as source of truth)
+    if (gameState.currentTurnPlayerId !== aiPlayerId) {
       throw createError(ErrorCode.GAME_NOT_YOUR_TURN, {
         reason: "Not AI's turn",
-        currentTurnPlayerId: lobby.currentTurnPlayerId,
+        currentTurnPlayerId: gameState.currentTurnPlayerId,
         aiPlayerId,
       });
     }
@@ -60,160 +240,170 @@ export const executeAITurn = mutation({
     const allCards = await ctx.db.query("cardDefinitions").collect();
     const cardDataMap = new Map(allCards.map((c) => [c._id, c]));
 
-    // Simple AI turn execution:
-    // 1. Skip draw/standby phases (auto-advance)
-    // 2. Main Phase 1: Try to summon one monster
-    // 3. Battle Phase: Attack with all available monsters
-    // 4. Main Phase 2: Set any remaining cards
-    // 5. End turn
+    // Get AI difficulty from game state (defaults to medium)
+    const difficulty = (gameState.aiDifficulty as "easy" | "medium" | "hard" | "boss") || "medium";
 
-    let actionsTaken = 0;
+    // Initialize atomic state changes from current game state
+    const stateChanges: StateChanges = {
+      opponentBoard: [...gameState.opponentBoard],
+      opponentHand: [...gameState.opponentHand],
+      opponentGraveyard: [...gameState.opponentGraveyard],
+      hostBoard: [...gameState.hostBoard],
+      hostLifePoints: gameState.hostLifePoints,
+      hostGraveyard: [...gameState.hostGraveyard],
+      opponentNormalSummonedThisTurn: gameState.opponentNormalSummonedThisTurn || false,
+    };
+
+    const actionsLog: string[] = [];
 
     try {
-      // MAIN PHASE 1: Try to summon strongest monster
-      const aiHand = gameState.opponentHand;
-      const aiBoard = gameState.opponentBoard;
+      // MAIN PHASE 1: Make decisions until AI passes or has nothing to do
+      let mainPhaseActions = 0;
+      const maxMainPhaseActions = 5; // Prevent infinite loops
 
-      if (aiBoard.length < 5 && aiHand.length > 0) {
-        // Find summonable monsters (cost <= 4)
-        const summonableMonsters = aiHand.filter((cardId) => {
-          const card = cardDataMap.get(cardId);
-          return card && card.cardType === "creature" && (card.cost || 0) <= 4;
-        });
+      while (mainPhaseActions < maxMainPhaseActions) {
+        // Create a temporary game state view for AI decision making
+        const tempState = {
+          ...gameState,
+          opponentBoard: stateChanges.opponentBoard,
+          opponentHand: stateChanges.opponentHand,
+          opponentGraveyard: stateChanges.opponentGraveyard,
+          hostBoard: stateChanges.hostBoard,
+          hostLifePoints: stateChanges.hostLifePoints,
+          hostGraveyard: stateChanges.hostGraveyard,
+          opponentNormalSummonedThisTurn: stateChanges.opponentNormalSummonedThisTurn,
+        };
 
-        if (summonableMonsters.length > 0) {
-          // Pick strongest
-          let strongest: Id<"cardDefinitions"> | undefined = summonableMonsters[0];
-          let maxPower = 0;
+        const decision = await makeAIDecision(
+          tempState as Doc<"gameStates">,
+          aiPlayerId,
+          "main1",
+          cardDataMap,
+          difficulty
+        );
 
-          for (const cardId of summonableMonsters) {
-            const card = cardDataMap.get(cardId);
-            if (card) {
-              const power = (card.attack || 0) + (card.defense || 0);
-              if (power > maxPower) {
-                maxPower = power;
-                strongest = cardId;
-              }
-            }
-          }
+        if (decision.type === "pass" || decision.type === "end_phase") {
+          break;
+        }
 
-          if (strongest) {
-            const cardToSummon = cardDataMap.get(strongest);
-            if (cardToSummon) {
-              // Add to board
-              await ctx.db.patch(gameState._id, {
-                opponentBoard: [
-                  ...aiBoard,
-                  {
-                    cardId: strongest,
-                    position: 1, // Attack position
-                    attack: cardToSummon.attack || 0,
-                    defense: cardToSummon.defense || 0,
-                    isFaceDown: false,
-                    hasAttacked: false,
-                  },
-                ],
-                opponentHand: aiHand.filter((id) => id !== strongest),
-                opponentNormalSummonedThisTurn: true,
-              });
-              actionsTaken++;
-            }
-          }
+        const result = executeAction(decision, stateChanges, cardDataMap);
+        if (result.success) {
+          actionsLog.push(`[Main1] ${result.description}`);
+          mainPhaseActions++;
+        } else {
+          break; // Failed action, move on
         }
       }
 
-      // BATTLE PHASE: Attack with all monsters
-      const updatedState = await ctx.db.get(gameState._id);
-      if (updatedState) {
-        const aiMonstersOnBoard = updatedState.opponentBoard;
-        const playerBoard = updatedState.hostBoard;
-        let currentPlayerLP = updatedState.hostLifePoints;
+      // BATTLE PHASE: Attack decisions
+      let battlePhaseActions = 0;
+      const maxBattleActions = 5; // Max 5 monsters can attack
 
-        for (const monster of aiMonstersOnBoard) {
-          if (monster.hasAttacked || monster.position !== 1) continue;
+      while (battlePhaseActions < maxBattleActions) {
+        const tempState = {
+          ...gameState,
+          opponentBoard: stateChanges.opponentBoard,
+          opponentHand: stateChanges.opponentHand,
+          hostBoard: stateChanges.hostBoard,
+          hostLifePoints: stateChanges.hostLifePoints,
+        };
 
-          // Direct attack if no opponent monsters
-          if (playerBoard.length === 0) {
-            currentPlayerLP -= monster.attack;
-            monster.hasAttacked = true;
-            actionsTaken++;
+        const decision = await makeAIDecision(
+          tempState as Doc<"gameStates">,
+          aiPlayerId,
+          "battle",
+          cardDataMap,
+          difficulty
+        );
+
+        if (decision.type === "pass" || decision.type === "end_phase") {
+          break;
+        }
+
+        if (decision.type === "attack") {
+          const result = executeAction(decision, stateChanges, cardDataMap);
+          if (result.success) {
+            actionsLog.push(`[Battle] ${result.description}`);
+            battlePhaseActions++;
           } else {
-            // Attack first opponent monster
-            const target = playerBoard[0];
-            if (!target) continue;
-
-            if (monster.attack > target.attack) {
-              // Destroy opponent monster
-              const newPlayerBoard = playerBoard.filter((m) => m.cardId !== target.cardId);
-              const damage = monster.attack - target.attack;
-              currentPlayerLP -= damage;
-              monster.hasAttacked = true;
-
-              await ctx.db.patch(updatedState._id, {
-                hostBoard: newPlayerBoard,
-                hostLifePoints: currentPlayerLP,
-                opponentBoard: updatedState.opponentBoard.map((m) =>
-                  m.cardId === monster.cardId ? { ...m, hasAttacked: true } : m
-                ),
-              });
-              actionsTaken++;
-            }
+            break;
           }
-        }
-
-        // Update LP if direct attacks occurred
-        if (currentPlayerLP !== updatedState.hostLifePoints) {
-          await ctx.db.patch(updatedState._id, {
-            hostLifePoints: Math.max(0, currentPlayerLP),
-          });
+        } else {
+          break; // Non-attack action in battle phase
         }
       }
 
-      // END TURN: Reset for next turn
-      const finalState = await ctx.db.get(gameState._id);
-      if (finalState) {
-        // Reset attacked flags and switch turns
-        const resetBoard = finalState.opponentBoard.map((m) => ({
-          ...m,
-          hasAttacked: false,
-        }));
+      // MAIN PHASE 2: Set remaining cards if needed
+      const tempState2 = {
+        ...gameState,
+        opponentBoard: stateChanges.opponentBoard,
+        opponentHand: stateChanges.opponentHand,
+        opponentNormalSummonedThisTurn: stateChanges.opponentNormalSummonedThisTurn,
+      };
 
-        await ctx.db.patch(finalState._id, {
-          opponentBoard: resetBoard,
-          opponentNormalSummonedThisTurn: false,
-        });
+      const main2Decision = await makeAIDecision(
+        tempState2 as Doc<"gameStates">,
+        aiPlayerId,
+        "main2",
+        cardDataMap,
+        difficulty
+      );
 
-        // Switch turn back to player
-        const newTurnNumber = (lobby.turnNumber || 1) + 1;
-        await ctx.db.patch(lobby._id, {
-          currentTurnPlayerId: finalState.hostId,
-          turnNumber: newTurnNumber,
-          lastMoveAt: Date.now(),
-        });
+      if (main2Decision.type === "set") {
+        const result = executeAction(main2Decision, stateChanges, cardDataMap);
+        if (result.success) {
+          actionsLog.push(`[Main2] ${result.description}`);
+        }
+      }
 
-        // Refresh game state after turn switch
-        const refreshedState = await ctx.db.get(finalState._id);
+      // ATOMIC UPDATE: Apply all state changes at once
+      // Reset hasAttacked flags for next turn
+      const resetBoard = stateChanges.opponentBoard.map((m) => ({
+        ...m,
+        hasAttacked: false,
+      }));
+
+      const newTurnNumber = (gameState.turnNumber || 1) + 1;
+
+      await ctx.db.patch(gameState._id, {
+        // Board changes
+        opponentBoard: resetBoard,
+        opponentHand: stateChanges.opponentHand,
+        opponentGraveyard: stateChanges.opponentGraveyard,
+        hostBoard: stateChanges.hostBoard,
+        hostLifePoints: stateChanges.hostLifePoints,
+        hostGraveyard: stateChanges.hostGraveyard,
+        // Turn state
+        opponentNormalSummonedThisTurn: false,
+        hostNormalSummonedThisTurn: false,
+        currentTurnPlayerId: gameState.hostId,
+        turnNumber: newTurnNumber,
+        currentPhase: "main1",
+      });
+
+      // Update lobby with lastMoveAt only (for timeout tracking)
+      await ctx.db.patch(lobby._id, {
+        lastMoveAt: Date.now(),
+      });
+
+      // Auto-draw for player's new turn (skip on turn 1)
+      const shouldSkipDraw = newTurnNumber === 1;
+      if (!shouldSkipDraw) {
+        const refreshedState = await ctx.db.get(gameState._id);
         if (refreshedState) {
-          // Auto-draw for player's new turn (skip on turn 1)
-          const shouldSkipDraw = newTurnNumber === 1 && finalState.hostId === lobby.hostId;
-          if (!shouldSkipDraw) {
-            console.log(
-              `AI ended turn ${newTurnNumber - 1}, drawing card for player's turn ${newTurnNumber}`
-            );
-            await drawCards(ctx, refreshedState, finalState.hostId, 1);
-          }
-
-          // Set phase to Main Phase 1 (not draw phase)
-          await ctx.db.patch(refreshedState._id, {
-            currentPhase: "main1",
-          });
+          console.log(
+            `AI ended turn ${newTurnNumber - 1}, drawing card for player's turn ${newTurnNumber}`
+          );
+          await drawCards(ctx, refreshedState, gameState.hostId, 1);
         }
       }
 
       return {
         success: true,
         message: "AI turn executed successfully",
-        actionsTaken,
+        actionsTaken: actionsLog.length,
+        actions: actionsLog,
+        difficulty,
       };
     } catch (error) {
       console.error("AI turn execution error:", error);
@@ -229,13 +419,14 @@ export const executeAITurn = mutation({
  * Execute AI turn (internal mutation for API key auth)
  *
  * Same as executeAITurn but as an internal mutation for HTTP actions.
+ * Uses atomic state changes and integrates the AI decision engine.
  */
 export const executeAITurnInternal = internalMutation({
   args: {
     gameId: v.string(),
   },
   handler: async (ctx, args) => {
-    // Fetch game state
+    // Fetch game state (single source of truth for turn state)
     const gameState = await ctx.db
       .query("gameStates")
       .withIndex("by_game_id", (q) => q.eq("gameId", args.gameId))
@@ -248,7 +439,7 @@ export const executeAITurnInternal = internalMutation({
       });
     }
 
-    // Get lobby
+    // Get lobby (for gameId/status only - turn state is in gameStates)
     const lobby = await ctx.db.get(gameState.lobbyId);
     if (!lobby) {
       throw createError(ErrorCode.NOT_FOUND_LOBBY, {
@@ -260,11 +451,11 @@ export const executeAITurnInternal = internalMutation({
     // Determine AI player
     const aiPlayerId = gameState.opponentId; // AI is always the opponent in story mode
 
-    // Verify it's AI's turn
-    if (lobby.currentTurnPlayerId !== aiPlayerId) {
+    // Verify it's AI's turn (using gameState as source of truth)
+    if (gameState.currentTurnPlayerId !== aiPlayerId) {
       throw createError(ErrorCode.GAME_NOT_YOUR_TURN, {
         reason: "Not AI's turn",
-        currentTurnPlayerId: lobby.currentTurnPlayerId,
+        currentTurnPlayerId: gameState.currentTurnPlayerId,
         aiPlayerId,
       });
     }
@@ -273,153 +464,158 @@ export const executeAITurnInternal = internalMutation({
     const allCards = await ctx.db.query("cardDefinitions").collect();
     const cardDataMap = new Map(allCards.map((c) => [c._id, c]));
 
-    let actionsTaken = 0;
+    // Get AI difficulty from game state (defaults to medium)
+    const difficulty = (gameState.aiDifficulty as "easy" | "medium" | "hard" | "boss") || "medium";
+
+    // Initialize atomic state changes from current game state
+    const stateChanges: StateChanges = {
+      opponentBoard: [...gameState.opponentBoard],
+      opponentHand: [...gameState.opponentHand],
+      opponentGraveyard: [...gameState.opponentGraveyard],
+      hostBoard: [...gameState.hostBoard],
+      hostLifePoints: gameState.hostLifePoints,
+      hostGraveyard: [...gameState.hostGraveyard],
+      opponentNormalSummonedThisTurn: gameState.opponentNormalSummonedThisTurn || false,
+    };
+
+    const actionsLog: string[] = [];
 
     try {
-      // MAIN PHASE 1: Try to summon strongest monster
-      const aiHand = gameState.opponentHand;
-      const aiBoard = gameState.opponentBoard;
+      // MAIN PHASE 1: Make decisions until AI passes
+      let mainPhaseActions = 0;
+      const maxMainPhaseActions = 5;
 
-      if (aiBoard.length < 5 && aiHand.length > 0) {
-        // Find summonable monsters (cost <= 4)
-        const summonableMonsters = aiHand.filter((cardId) => {
-          const card = cardDataMap.get(cardId);
-          return card && card.cardType === "creature" && (card.cost || 0) <= 4;
-        });
+      while (mainPhaseActions < maxMainPhaseActions) {
+        const tempState = {
+          ...gameState,
+          opponentBoard: stateChanges.opponentBoard,
+          opponentHand: stateChanges.opponentHand,
+          opponentGraveyard: stateChanges.opponentGraveyard,
+          hostBoard: stateChanges.hostBoard,
+          hostLifePoints: stateChanges.hostLifePoints,
+          hostGraveyard: stateChanges.hostGraveyard,
+          opponentNormalSummonedThisTurn: stateChanges.opponentNormalSummonedThisTurn,
+        };
 
-        if (summonableMonsters.length > 0) {
-          // Pick strongest
-          let strongest: Id<"cardDefinitions"> | undefined = summonableMonsters[0];
-          let maxPower = 0;
+        const decision = await makeAIDecision(
+          tempState as Doc<"gameStates">,
+          aiPlayerId,
+          "main1",
+          cardDataMap,
+          difficulty
+        );
 
-          for (const cardId of summonableMonsters) {
-            const card = cardDataMap.get(cardId);
-            if (card) {
-              const power = (card.attack || 0) + (card.defense || 0);
-              if (power > maxPower) {
-                maxPower = power;
-                strongest = cardId;
-              }
-            }
-          }
+        if (decision.type === "pass" || decision.type === "end_phase") break;
 
-          if (strongest) {
-            const cardToSummon = cardDataMap.get(strongest);
-            if (cardToSummon) {
-              // Add to board
-              await ctx.db.patch(gameState._id, {
-                opponentBoard: [
-                  ...aiBoard,
-                  {
-                    cardId: strongest,
-                    position: 1, // Attack position
-                    attack: cardToSummon.attack || 0,
-                    defense: cardToSummon.defense || 0,
-                    isFaceDown: false,
-                    hasAttacked: false,
-                  },
-                ],
-                opponentHand: aiHand.filter((id) => id !== strongest),
-                opponentNormalSummonedThisTurn: true,
-              });
-              actionsTaken++;
-            }
-          }
+        const result = executeAction(decision, stateChanges, cardDataMap);
+        if (result.success) {
+          actionsLog.push(`[Main1] ${result.description}`);
+          mainPhaseActions++;
+        } else {
+          break;
         }
       }
 
-      // BATTLE PHASE: Attack with all monsters
-      const updatedState = await ctx.db.get(gameState._id);
-      if (updatedState) {
-        const aiMonstersOnBoard = updatedState.opponentBoard;
-        const playerBoard = updatedState.hostBoard;
-        let currentPlayerLP = updatedState.hostLifePoints;
+      // BATTLE PHASE: Attack decisions
+      let battlePhaseActions = 0;
+      const maxBattleActions = 5;
 
-        for (const monster of aiMonstersOnBoard) {
-          if (monster.hasAttacked || monster.position !== 1) continue;
+      while (battlePhaseActions < maxBattleActions) {
+        const tempState = {
+          ...gameState,
+          opponentBoard: stateChanges.opponentBoard,
+          opponentHand: stateChanges.opponentHand,
+          hostBoard: stateChanges.hostBoard,
+          hostLifePoints: stateChanges.hostLifePoints,
+        };
 
-          // Direct attack if no opponent monsters
-          if (playerBoard.length === 0) {
-            currentPlayerLP -= monster.attack;
-            monster.hasAttacked = true;
-            actionsTaken++;
+        const decision = await makeAIDecision(
+          tempState as Doc<"gameStates">,
+          aiPlayerId,
+          "battle",
+          cardDataMap,
+          difficulty
+        );
+
+        if (decision.type === "pass" || decision.type === "end_phase") break;
+
+        if (decision.type === "attack") {
+          const result = executeAction(decision, stateChanges, cardDataMap);
+          if (result.success) {
+            actionsLog.push(`[Battle] ${result.description}`);
+            battlePhaseActions++;
           } else {
-            // Attack first opponent monster
-            const target = playerBoard[0];
-            if (!target) continue;
-
-            if (monster.attack > target.attack) {
-              // Destroy opponent monster
-              const newPlayerBoard = playerBoard.filter((m) => m.cardId !== target.cardId);
-              const damage = monster.attack - target.attack;
-              currentPlayerLP -= damage;
-              monster.hasAttacked = true;
-
-              await ctx.db.patch(updatedState._id, {
-                hostBoard: newPlayerBoard,
-                hostLifePoints: currentPlayerLP,
-                opponentBoard: updatedState.opponentBoard.map((m) =>
-                  m.cardId === monster.cardId ? { ...m, hasAttacked: true } : m
-                ),
-              });
-              actionsTaken++;
-            }
+            break;
           }
-        }
-
-        // Update LP if direct attacks occurred
-        if (currentPlayerLP !== updatedState.hostLifePoints) {
-          await ctx.db.patch(updatedState._id, {
-            hostLifePoints: Math.max(0, currentPlayerLP),
-          });
+        } else {
+          break;
         }
       }
 
-      // END TURN: Reset for next turn
-      const finalState = await ctx.db.get(gameState._id);
-      if (finalState) {
-        // Reset attacked flags and switch turns
-        const resetBoard = finalState.opponentBoard.map((m) => ({
-          ...m,
-          hasAttacked: false,
-        }));
+      // MAIN PHASE 2
+      const tempState2 = {
+        ...gameState,
+        opponentBoard: stateChanges.opponentBoard,
+        opponentHand: stateChanges.opponentHand,
+        opponentNormalSummonedThisTurn: stateChanges.opponentNormalSummonedThisTurn,
+      };
 
-        await ctx.db.patch(finalState._id, {
-          opponentBoard: resetBoard,
-          opponentNormalSummonedThisTurn: false,
-        });
+      const main2Decision = await makeAIDecision(
+        tempState2 as Doc<"gameStates">,
+        aiPlayerId,
+        "main2",
+        cardDataMap,
+        difficulty
+      );
 
-        // Switch turn back to player
-        const newTurnNumber = (lobby.turnNumber || 1) + 1;
-        await ctx.db.patch(lobby._id, {
-          currentTurnPlayerId: finalState.hostId,
-          turnNumber: newTurnNumber,
-          lastMoveAt: Date.now(),
-        });
+      if (main2Decision.type === "set") {
+        const result = executeAction(main2Decision, stateChanges, cardDataMap);
+        if (result.success) {
+          actionsLog.push(`[Main2] ${result.description}`);
+        }
+      }
 
-        // Refresh game state after turn switch
-        const refreshedState = await ctx.db.get(finalState._id);
+      // ATOMIC UPDATE: Apply all state changes at once
+      const resetBoard = stateChanges.opponentBoard.map((m) => ({
+        ...m,
+        hasAttacked: false,
+      }));
+
+      const newTurnNumber = (gameState.turnNumber || 1) + 1;
+
+      await ctx.db.patch(gameState._id, {
+        opponentBoard: resetBoard,
+        opponentHand: stateChanges.opponentHand,
+        opponentGraveyard: stateChanges.opponentGraveyard,
+        hostBoard: stateChanges.hostBoard,
+        hostLifePoints: stateChanges.hostLifePoints,
+        hostGraveyard: stateChanges.hostGraveyard,
+        opponentNormalSummonedThisTurn: false,
+        hostNormalSummonedThisTurn: false,
+        currentTurnPlayerId: gameState.hostId,
+        turnNumber: newTurnNumber,
+        currentPhase: "main1",
+      });
+
+      await ctx.db.patch(lobby._id, {
+        lastMoveAt: Date.now(),
+      });
+
+      // Auto-draw for player's new turn
+      const shouldSkipDraw = newTurnNumber === 1;
+      if (!shouldSkipDraw) {
+        const refreshedState = await ctx.db.get(gameState._id);
         if (refreshedState) {
-          // Auto-draw for player's new turn (skip on turn 1)
-          const shouldSkipDraw = newTurnNumber === 1 && finalState.hostId === lobby.hostId;
-          if (!shouldSkipDraw) {
-            console.log(
-              `AI ended turn ${newTurnNumber - 1}, drawing card for player's turn ${newTurnNumber}`
-            );
-            await drawCards(ctx, refreshedState, finalState.hostId, 1);
-          }
-
-          // Set phase to Main Phase 1 (not draw phase)
-          await ctx.db.patch(refreshedState._id, {
-            currentPhase: "main1",
-          });
+          await drawCards(ctx, refreshedState, gameState.hostId, 1);
         }
       }
 
       return {
         success: true,
         message: "AI turn executed successfully",
-        actionsTaken,
+        actionsTaken: actionsLog.length,
+        actions: actionsLog,
+        difficulty,
       };
     } catch (error) {
       console.error("AI turn execution error:", error);

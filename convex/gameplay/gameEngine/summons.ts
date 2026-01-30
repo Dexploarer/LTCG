@@ -50,23 +50,13 @@ export const normalSummon = mutation({
     // 1. Validate session
     const user = await requireAuthMutation(ctx);
 
-    // 2. Get lobby
+    // 2. Get lobby (for gameId/status only - turn state is in gameStates)
     const lobby = await ctx.db.get(args.lobbyId);
     if (!lobby) {
       throw createError(ErrorCode.NOT_FOUND_LOBBY);
     }
 
-    // 2.5. Validate game is active
-    if (!lobby.gameId || lobby.turnNumber === undefined) {
-      throw createError(ErrorCode.GAME_NOT_STARTED);
-    }
-
-    // 3. Validate it's the current player's turn
-    if (lobby.currentTurnPlayerId !== user.userId) {
-      throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
-    }
-
-    // 4. Get game state
+    // 3. Get game state (single source of truth for turn state)
     const gameState = await ctx.db
       .query("gameStates")
       .withIndex("by_lobby", (q) => q.eq("lobbyId", args.lobbyId))
@@ -76,6 +66,16 @@ export const normalSummon = mutation({
       throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
         reason: "Game state not found",
       });
+    }
+
+    // 3.5. Validate game is active
+    if (!lobby.gameId || gameState.turnNumber === undefined) {
+      throw createError(ErrorCode.GAME_NOT_STARTED);
+    }
+
+    // 4. Validate it's the current player's turn
+    if (gameState.currentTurnPlayerId !== user.userId) {
+      throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
     }
 
     // 5. Validate summon
@@ -116,7 +116,7 @@ export const normalSummon = mutation({
       await recordEventHelper(ctx, {
         lobbyId: args.lobbyId,
         gameId: lobby.gameId,
-        turnNumber: lobby.turnNumber,
+        turnNumber: gameState.turnNumber,
         eventType: "tribute_paid",
         playerId: user.userId,
         playerUsername: user.username,
@@ -136,7 +136,7 @@ export const normalSummon = mutation({
           "board",
           "graveyard",
           user.userId,
-          lobby.turnNumber
+          gameState.turnNumber
         );
 
         // Remove from board
@@ -189,7 +189,7 @@ export const normalSummon = mutation({
     await recordEventHelper(ctx, {
       lobbyId: args.lobbyId,
       gameId: lobby.gameId,
-      turnNumber: lobby.turnNumber,
+      turnNumber: gameState.turnNumber,
       eventType,
       playerId: user.userId,
       playerUsername: user.username,
@@ -233,7 +233,7 @@ export const normalSummon = mutation({
             await recordEventHelper(ctx, {
               lobbyId: args.lobbyId,
               gameId: lobby.gameId,
-              turnNumber: lobby.turnNumber,
+              turnNumber: gameState.turnNumber,
               eventType: "effect_activated",
               playerId: user.userId,
               playerUsername: user.username,
@@ -285,7 +285,7 @@ export const normalSummon = mutation({
                 await recordEventHelper(ctx, {
                   lobbyId: args.lobbyId,
                   gameId: lobby.gameId,
-                  turnNumber: lobby.turnNumber,
+                  turnNumber: gameState.turnNumber,
                   eventType: "effect_activated",
                   playerId: opponentId,
                   playerUsername: opponent?.username || "Opponent",
@@ -340,23 +340,13 @@ export const setMonster = mutation({
     // 1. Validate session
     const user = await requireAuthMutation(ctx);
 
-    // 2. Get lobby
+    // 2. Get lobby (for gameId/status only - turn state is in gameStates)
     const lobby = await ctx.db.get(args.lobbyId);
     if (!lobby) {
       throw createError(ErrorCode.NOT_FOUND_LOBBY);
     }
 
-    // 2.5. Validate game is active
-    if (!lobby.gameId || lobby.turnNumber === undefined) {
-      throw createError(ErrorCode.GAME_NOT_STARTED);
-    }
-
-    // 3. Validate it's the current player's turn
-    if (lobby.currentTurnPlayerId !== user.userId) {
-      throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
-    }
-
-    // 4. Get game state
+    // 3. Get game state (single source of truth for turn state)
     const gameState = await ctx.db
       .query("gameStates")
       .withIndex("by_lobby", (q) => q.eq("lobbyId", args.lobbyId))
@@ -366,6 +356,16 @@ export const setMonster = mutation({
       throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
         reason: "Game state not found",
       });
+    }
+
+    // 3.5. Validate game is active
+    if (!lobby.gameId || gameState.turnNumber === undefined) {
+      throw createError(ErrorCode.GAME_NOT_STARTED);
+    }
+
+    // 4. Validate it's the current player's turn
+    if (gameState.currentTurnPlayerId !== user.userId) {
+      throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
     }
 
     // 5. Validate set (uses same validation as normal summon)
@@ -405,7 +405,7 @@ export const setMonster = mutation({
       await recordEventHelper(ctx, {
         lobbyId: args.lobbyId,
         gameId: lobby.gameId,
-        turnNumber: lobby.turnNumber,
+        turnNumber: gameState.turnNumber,
         eventType: "tribute_paid",
         playerId: user.userId,
         playerUsername: user.username,
@@ -424,7 +424,7 @@ export const setMonster = mutation({
           "board",
           "graveyard",
           user.userId,
-          lobby.turnNumber
+          gameState.turnNumber
         );
 
         const updatedBoard = board.filter((bc) => bc.cardId !== tributeId);
@@ -460,7 +460,7 @@ export const setMonster = mutation({
     await recordEventHelper(ctx, {
       lobbyId: args.lobbyId,
       gameId: lobby.gameId,
-      turnNumber: lobby.turnNumber,
+      turnNumber: gameState.turnNumber,
       eventType: "monster_set",
       playerId: user.userId,
       playerUsername: user.username,
@@ -509,23 +509,13 @@ export const flipSummon = mutation({
     // 1. Validate session
     const user = await requireAuthMutation(ctx);
 
-    // 2. Get lobby
+    // 2. Get lobby (for gameId/status only - turn state is in gameStates)
     const lobby = await ctx.db.get(args.lobbyId);
     if (!lobby) {
       throw createError(ErrorCode.NOT_FOUND_LOBBY);
     }
 
-    // 2.5. Validate game is active
-    if (!lobby.gameId || lobby.turnNumber === undefined) {
-      throw createError(ErrorCode.GAME_NOT_STARTED);
-    }
-
-    // 3. Validate it's the current player's turn
-    if (lobby.currentTurnPlayerId !== user.userId) {
-      throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
-    }
-
-    // 4. Get game state
+    // 3. Get game state (single source of truth for turn state)
     const gameState = await ctx.db
       .query("gameStates")
       .withIndex("by_lobby", (q) => q.eq("lobbyId", args.lobbyId))
@@ -535,6 +525,16 @@ export const flipSummon = mutation({
       throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
         reason: "Game state not found",
       });
+    }
+
+    // 3.5. Validate game is active
+    if (!lobby.gameId || gameState.turnNumber === undefined) {
+      throw createError(ErrorCode.GAME_NOT_STARTED);
+    }
+
+    // 4. Validate it's the current player's turn
+    if (gameState.currentTurnPlayerId !== user.userId) {
+      throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
     }
 
     // 5. Validate flip summon
@@ -587,7 +587,7 @@ export const flipSummon = mutation({
     await recordEventHelper(ctx, {
       lobbyId: args.lobbyId,
       gameId: lobby.gameId,
-      turnNumber: lobby.turnNumber,
+      turnNumber: gameState.turnNumber,
       eventType: "flip_summon",
       playerId: user.userId,
       playerUsername: user.username,
@@ -630,7 +630,7 @@ export const flipSummon = mutation({
             await recordEventHelper(ctx, {
               lobbyId: args.lobbyId,
               gameId: lobby.gameId,
-              turnNumber: lobby.turnNumber,
+              turnNumber: gameState.turnNumber,
               eventType: "effect_activated",
               playerId: user.userId,
               playerUsername: user.username,
@@ -680,14 +680,14 @@ export const normalSummonInternal = internalMutation({
       });
     }
 
-    // 2. Get lobby
+    // 2. Get lobby (for gameId/status only - turn state is in gameStates)
     const lobby = await ctx.db.get(gameState.lobbyId);
     if (!lobby) {
       throw createError(ErrorCode.NOT_FOUND_LOBBY);
     }
 
-    // 3. Validate it's the current player's turn
-    if (lobby.currentTurnPlayerId !== args.userId) {
+    // 3. Validate it's the current player's turn (using gameState as source of truth)
+    if (gameState.currentTurnPlayerId !== args.userId) {
       throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
     }
 
@@ -779,7 +779,7 @@ export const normalSummonInternal = internalMutation({
     await recordEventHelper(ctx, {
       lobbyId: gameState.lobbyId,
       gameId: args.gameId,
-      turnNumber: lobby.turnNumber ?? 0,
+      turnNumber: gameState.turnNumber ?? 0,
       eventType: "normal_summon",
       playerId: args.userId,
       playerUsername: username,

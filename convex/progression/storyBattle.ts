@@ -91,6 +91,7 @@ export const initializeStoryBattle = mutation({
     const gameId = `story_${userId}_${Date.now()}`;
     const now = Date.now();
 
+    // Create lobby (matchmaking info only - turn state is in gameStates)
     const lobbyId = await ctx.db.insert("gameLobbies", {
       gameId,
       hostId: userId,
@@ -104,10 +105,8 @@ export const initializeStoryBattle = mutation({
       status: "active",
       isPrivate: true, // Story games are private
       joinCode: `story-${gameId}`,
-      currentTurnPlayerId: userId, // Player goes first
-      turnNumber: 1, // Start at turn 1
-      turnStartedAt: now,
-      lastMoveAt: now,
+      // Turn state is initialized in gameStates via initializeGameStateHelper
+      lastMoveAt: now, // Keep for timeout tracking
       createdAt: now,
       startedAt: now,
       allowSpectators: false,
@@ -480,10 +479,8 @@ export const initializeStoryBattleInternal = internalMutation({
       status: "active",
       isPrivate: true,
       joinCode: `story-${gameId}`,
-      currentTurnPlayerId: args.userId,
-      turnNumber: 1,
-      turnStartedAt: now,
-      lastMoveAt: now,
+      // Turn state is initialized in gameStates via initializeGameStateHelper
+      lastMoveAt: now, // Keep for timeout tracking
       createdAt: now,
       startedAt: now,
       allowSpectators: false,
@@ -491,7 +488,7 @@ export const initializeStoryBattleInternal = internalMutation({
       maxSpectators: 0,
     });
 
-    // Initialize game state with AI opponent
+    // Initialize game state with AI opponent (sets turn state)
     await initializeGameStateHelper(ctx, {
       lobbyId,
       gameId,
@@ -692,10 +689,8 @@ export const quickPlayStoryInternal = internalMutation({
       status: "active",
       isPrivate: true,
       joinCode: `story-${gameId}`,
-      currentTurnPlayerId: args.userId,
-      turnNumber: 1,
-      turnStartedAt: now,
-      lastMoveAt: now,
+      // Turn state is initialized in gameStates via initializeGameStateHelper
+      lastMoveAt: now, // Keep for timeout tracking
       createdAt: now,
       startedAt: now,
       allowSpectators: false,
@@ -703,7 +698,7 @@ export const quickPlayStoryInternal = internalMutation({
       maxSpectators: 0,
     });
 
-    // Initialize game state with AI opponent
+    // Initialize game state with AI opponent (sets turn state)
     await initializeGameStateHelper(ctx, {
       lobbyId,
       gameId,

@@ -114,7 +114,7 @@ export async function checkStateBasedActions(
       break;
     }
 
-    const turnNumber = options?.turnNumber ?? lobby.turnNumber ?? 0;
+    const turnNumber = options?.turnNumber ?? gameState.turnNumber ?? 0;
 
     // Run single SBA check cycle
     const cycleResult = await runSBACycle(
@@ -670,8 +670,25 @@ async function checkHandSizeLimit(
   // Check opponent hand
   if (gameState.opponentHand.length > HAND_LIMIT) {
     const excessCount = gameState.opponentHand.length - HAND_LIMIT;
-    const cardsToDiscard = gameState.opponentHand.slice(HAND_LIMIT);
-    const newHand = gameState.opponentHand.slice(0, HAND_LIMIT);
+
+    // Smart AI discard: Discard weakest cards by total power (ATK + DEF)
+    // Load card data to calculate power
+    const handCards = await Promise.all(
+      gameState.opponentHand.map(async (cardId) => {
+        const card = await ctx.db.get(cardId);
+        return {
+          cardId,
+          power: card ? (card.attack || 0) + (card.defense || 0) : 0,
+        };
+      })
+    );
+
+    // Sort by power (weakest first)
+    handCards.sort((a, b) => a.power - b.power);
+
+    // Discard weakest cards
+    const cardsToDiscard = handCards.slice(0, excessCount).map((c) => c.cardId);
+    const newHand = handCards.slice(excessCount).map((c) => c.cardId);
 
     const owner = await ctx.db.get(gameState.opponentId);
 
@@ -746,7 +763,7 @@ export async function quickSBACheck(
     gameState,
     lobbyId,
     lobby.gameId,
-    lobby.turnNumber ?? 0
+    gameState.turnNumber ?? 0
   );
 
   return {

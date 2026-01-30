@@ -67,13 +67,16 @@ export const userInfoValidator = v.union(
 
 /**
  * Full user object validator (for authenticated currentUser queries)
+ * Must include ALL fields from the users schema to avoid validation errors
  */
 export const fullUserValidator = v.union(
   v.null(),
   v.object({
     _id: v.id("users"),
     _creationTime: v.number(),
-    // Convex Auth fields
+    // Privy authentication
+    privyId: v.optional(v.string()),
+    // Profile fields
     name: v.optional(v.string()),
     image: v.optional(v.string()),
     email: v.optional(v.string()),
@@ -98,6 +101,8 @@ export const fullUserValidator = v.union(
     casualWins: v.optional(v.number()),
     casualLosses: v.optional(v.number()),
     storyWins: v.optional(v.number()),
+    currentWinStreak: v.optional(v.number()),
+    longestWinStreak: v.optional(v.number()),
     // Player type
     isAiAgent: v.optional(v.boolean()),
     // XP and Level
@@ -106,6 +111,20 @@ export const fullUserValidator = v.union(
     // Economy
     gold: v.optional(v.number()),
     lastStatsUpdate: v.optional(v.number()),
+    // Email tracking
+    welcomeEmailSent: v.optional(v.boolean()),
+    // Moderation fields
+    isBanned: v.optional(v.boolean()),
+    banReason: v.optional(v.string()),
+    bannedAt: v.optional(v.number()),
+    bannedBy: v.optional(v.id("users")),
+    isSuspended: v.optional(v.boolean()),
+    suspendedUntil: v.optional(v.number()),
+    suspensionReason: v.optional(v.string()),
+    suspendedBy: v.optional(v.id("users")),
+    warningCount: v.optional(v.number()),
+    // HD Wallet tracking
+    nextWalletIndex: v.optional(v.number()),
   })
 );
 

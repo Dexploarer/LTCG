@@ -1062,16 +1062,6 @@ export function GameBoard({
         )}
       </div>
 
-      {/* AI Thinking Overlay (Story Mode) */}
-      {isAIThinking && (
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-100 flex items-center justify-center">
-          <div className="bg-[#1a1614] border-2 border-[#d4af37] rounded-xl p-8 flex flex-col items-center gap-4">
-            <Loader2 className="w-12 h-12 animate-spin text-[#d4af37]" />
-            <p className="text-[#d4af37] text-xl font-bold">AI Opponent Thinking...</p>
-            <p className="text-[#a89f94] text-sm">Please wait while the AI makes its move</p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

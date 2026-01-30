@@ -37,7 +37,6 @@ export const currentUser = query({
     if (!user) {
       // User is authenticated but hasn't been created in DB yet
       // This is normal during the signup flow - return null (no error)
-      console.log("[currentUser] Authenticated user not found in DB:", privyId.substring(0, 20) + "...");
       return null;
     }
 

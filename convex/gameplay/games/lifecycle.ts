@@ -359,14 +359,29 @@ export const updateTurn = internalMutation({
       });
     }
 
+    // Get game state (single source of truth for turn state)
+    const gameState = await ctx.db
+      .query("gameStates")
+      .withIndex("by_lobby", (q) => q.eq("lobbyId", args.lobbyId))
+      .first();
+
+    if (!gameState) {
+      throw createError(ErrorCode.GAME_STATE_NOT_FOUND, {
+        reason: "Game state not found",
+      });
+    }
+
     const now = Date.now();
 
-    // Update lobby with new turn info
-    await ctx.db.patch(args.lobbyId, {
+    // Update gameState with turn info (single source of truth)
+    await ctx.db.patch(gameState._id, {
       currentTurnPlayerId: args.newTurnPlayerId,
-      turnStartedAt: now,
-      lastMoveAt: now,
       turnNumber: args.turnNumber,
+    });
+
+    // Update lobby with lastMoveAt only (for timeout tracking)
+    await ctx.db.patch(args.lobbyId, {
+      lastMoveAt: now,
     });
 
     // Record turn start event for spectators
