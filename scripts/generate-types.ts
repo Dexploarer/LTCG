@@ -7,14 +7,12 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
 
-// ES module __dirname equivalent
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Use process.cwd() for monorepo root instead of __dirname
+const ROOT_DIR = process.cwd();
 
-const VALIDATORS_PATH = "../convex/lib/returnValidators.ts";
-const OUTPUT_PATH = "../apps/web/src/types/generated.ts";
+const VALIDATORS_PATH = "convex/lib/returnValidators.ts";
+const OUTPUT_PATH = "apps/web/src/types/generated.ts";
 
 interface ValidatorInfo {
   name: string;
@@ -39,7 +37,7 @@ function parseValidators(content: string): ValidatorInfo[] {
 
     // Skip function validators (e.g., <T extends ...> or function declarations)
     if (validatorValue.includes("<") || validatorValue.includes("=>") || validatorValue.includes("function")) {
-      console.log(`  ⚠ Skipping function validator: ${validatorName}`);
+      console.log(`  Skipping function validator: ${validatorName}`);
       continue;
     }
 
@@ -98,14 +96,14 @@ ${validators.map(v => `  ${v.name},`).join("\n")}
  * Main execution
  */
 async function main() {
-  console.log("🔄 Generating types from validators...");
+  console.log("Generating types from validators...");
 
-  const validatorsPath = path.join(__dirname, VALIDATORS_PATH);
-  const outputPath = path.join(__dirname, OUTPUT_PATH);
+  const validatorsPath = path.join(ROOT_DIR, VALIDATORS_PATH);
+  const outputPath = path.join(ROOT_DIR, OUTPUT_PATH);
 
   // Read validators file
   if (!fs.existsSync(validatorsPath)) {
-    console.error(`❌ Error: Could not find ${validatorsPath}`);
+    console.error(`Error: Could not find ${validatorsPath}`);
     process.exit(1);
   }
 
@@ -113,7 +111,7 @@ async function main() {
 
   // Parse validators
   const validators = parseValidators(validatorsContent);
-  console.log(`✓ Found ${validators.length} validators`);
+  console.log(`Found ${validators.length} validators`);
 
   // Generate type definitions
   const typeDefinitions = generateTypes(validators);
@@ -127,15 +125,15 @@ async function main() {
   // Write output file
   fs.writeFileSync(outputPath, typeDefinitions);
 
-  console.log(`✓ Generated types written to ${OUTPUT_PATH}`);
-  console.log(`✓ Generated ${validators.length} type definitions`);
-  console.log("\n📋 Generated types:");
+  console.log(`Generated types written to ${OUTPUT_PATH}`);
+  console.log(`Generated ${validators.length} type definitions`);
+  console.log("Generated types:");
   validators.forEach((v: ValidatorInfo) => {
     console.log(`  - ${v.typeName} (from ${v.name})`);
   });
 }
 
 main().catch((error) => {
-  console.error("❌ Error generating types:", error);
+  console.error("Error generating types:", error);
   process.exit(1);
 });
