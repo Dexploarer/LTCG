@@ -6,7 +6,7 @@
 
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "../_generated/server";
-import { requireAuthMutation, requireAuthQuery } from "../lib/convexAuth";
+import { requireAuthMutation } from "../lib/convexAuth";
 import { ErrorCode, createError } from "../lib/errorCodes";
 import { checkRateLimitWrapper } from "../lib/rateLimit";
 
@@ -18,15 +18,28 @@ export type NotificationType =
 
 /**
  * Get unread notifications for current user
+ * Returns empty array if not authenticated (no error thrown)
  */
 export const getUnreadNotifications = query({
   args: {},
   handler: async (ctx) => {
-    const { userId } = await requireAuthQuery(ctx);
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return []; // Not authenticated, return empty
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("privyId", (q) => q.eq("privyId", identity.subject))
+      .first();
+
+    if (!user) {
+      return []; // User not found in DB
+    }
 
     const notifications = await ctx.db
       .query("playerNotifications")
-      .withIndex("by_user_read", (q) => q.eq("userId", userId).eq("isRead", false))
+      .withIndex("by_user_read", (q) => q.eq("userId", user._id).eq("isRead", false))
       .order("desc")
       .take(20);
 
@@ -36,17 +49,30 @@ export const getUnreadNotifications = query({
 
 /**
  * Get all recent notifications (read and unread)
+ * Returns empty array if not authenticated (no error thrown)
  */
 export const getAllNotifications = query({
   args: {
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const { userId } = await requireAuthQuery(ctx);
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return []; // Not authenticated, return empty
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("privyId", (q) => q.eq("privyId", identity.subject))
+      .first();
+
+    if (!user) {
+      return []; // User not found in DB
+    }
 
     const notifications = await ctx.db
       .query("playerNotifications")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
       .order("desc")
       .take(args.limit || 50);
 

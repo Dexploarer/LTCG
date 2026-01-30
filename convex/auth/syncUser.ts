@@ -1,5 +1,37 @@
 import { v } from "convex/values";
-import { mutation } from "../_generated/server";
+import { mutation, query } from "../_generated/server";
+
+/**
+ * Debug query to check auth state - does NOT require authentication
+ * Use this to verify what the server sees
+ */
+export const debugAuthState = query({
+  args: {},
+  async handler(ctx) {
+    const identity = await ctx.auth.getUserIdentity();
+
+    console.log("[DEBUG AUTH] Raw identity:", JSON.stringify(identity, null, 2));
+
+    if (!identity) {
+      return {
+        authenticated: false,
+        message: "No identity - token may not be sent or JWT verification failed",
+        identity: null,
+      };
+    }
+
+    return {
+      authenticated: true,
+      message: "Authentication successful",
+      identity: {
+        subject: identity.subject,
+        issuer: identity.issuer,
+        tokenIdentifier: identity.tokenIdentifier,
+        // Don't include full identity for security
+      },
+    };
+  },
+});
 
 /**
  * Create or get a user based on their Privy ID
@@ -11,9 +43,18 @@ export const createOrGetUser = mutation({
     walletAddress: v.optional(v.string()),
   },
   async handler(ctx, args) {
+    // Debug: Log all auth context info
+    console.log("[AUTH DEBUG] Starting createOrGetUser, args:", JSON.stringify(args));
+
     const identity = await ctx.auth.getUserIdentity();
-    console.log("[AUTH DEBUG] createOrGetUser identity:", JSON.stringify(identity));
+
+    console.log("[AUTH DEBUG] getUserIdentity result:", identity ? "got identity" : "null");
+    console.log("[AUTH DEBUG] identity object:", JSON.stringify(identity, null, 2));
+
     if (!identity) {
+      console.error("[AUTH DEBUG] FAILURE - No identity. This means:");
+      console.error("[AUTH DEBUG] 1. No Authorization header sent, OR");
+      console.error("[AUTH DEBUG] 2. JWT verification failed (wrong issuer/aud/algorithm/key)");
       throw new Error("Not authenticated - getUserIdentity returned null");
     }
 

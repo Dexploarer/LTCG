@@ -7,7 +7,7 @@ import { ArrowRight, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { apiAny, useConvexMutation } from "@/lib/convexHelpers";
+import { apiAny, useConvexMutation, useConvexQuery } from "@/lib/convexHelpers";
 
 interface AuthFormProps {
   mode: "signIn" | "signUp";
@@ -24,6 +24,9 @@ export function AuthForm({ mode }: AuthFormProps) {
 
   const createOrGetUser = useConvexMutation(apiAny.auth.syncUser.createOrGetUser);
 
+  // Debug: Call the auth debug query to see server-side auth state
+  const debugAuth = useConvexQuery(apiAny.auth.syncUser.debugAuthState, {});
+
   const isSignUp = mode === "signUp";
 
   // Debug logging
@@ -35,8 +38,9 @@ export function AuthForm({ mode }: AuthFormProps) {
       convexLoading,
       pendingSync,
       syncing,
+      debugAuth,
     });
-  }, [ready, authenticated, convexAuthenticated, convexLoading, pendingSync, syncing]);
+  }, [ready, authenticated, convexAuthenticated, convexLoading, pendingSync, syncing, debugAuth]);
 
   // When Convex becomes authenticated and we have a pending sync, perform the sync
   useEffect(() => {
@@ -159,6 +163,18 @@ export function AuthForm({ mode }: AuthFormProps) {
             : "Re-enter the sacred halls of Lunchtable"}
         </p>
       </div>
+
+      {/* Debug Auth State (temporary) */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs mb-4 font-mono"
+      >
+        <div className="font-bold mb-1">Debug Auth State:</div>
+        <div>Privy: {ready ? "ready" : "loading"} | {authenticated ? "auth" : "no-auth"}</div>
+        <div>Convex: {convexLoading ? "loading" : "ready"} | {convexAuthenticated ? "auth" : "no-auth"}</div>
+        <div>Server sees: {debugAuth === undefined ? "loading..." : JSON.stringify(debugAuth)}</div>
+      </motion.div>
 
       {/* Error message */}
       {error && (
