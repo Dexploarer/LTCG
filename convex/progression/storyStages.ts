@@ -5,7 +5,7 @@
  */
 
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import { internalMutation, mutation, query } from "../_generated/server";
 import { adjustPlayerCurrencyHelper } from "../economy/economy";
 import { requireAuthMutation, requireAuthQuery } from "../lib/convexAuth";
 import { ErrorCode, createError } from "../lib/errorCodes";
@@ -224,6 +224,138 @@ export const completeStage = mutation({
         const nextProgress = await ctx.db
           .query("storyStageProgress")
           .withIndex("by_user_stage", (q) => q.eq("userId", userId).eq("stageId", nextStage._id))
+          .first();
+
+        if (nextProgress && nextProgress.status === "locked") {
+          await ctx.db.patch(nextProgress._id, {
+            status: "available",
+          });
+        }
+      }
+    }
+
+    return {
+      won: true,
+      rewards: {
+        gold: goldReward,
+        xp: xpReward,
+      },
+      starsEarned,
+      newBestScore,
+      unlockedNextStage: progress.timesCompleted === 0 && stage.stageNumber < 10,
+      levelUp: xpResult.leveledUp
+        ? {
+            newLevel: xpResult.newLevel,
+            oldLevel: xpResult.newLevel - 1,
+          }
+        : null,
+      newBadges: xpResult.badgesAwarded || [],
+    };
+  },
+});
+
+// ============================================================================
+// INTERNAL MUTATIONS (For API Key Auth)
+// ============================================================================
+
+/**
+ * Complete a stage (internal mutation for API key auth)
+ * Called when an agent finishes a story battle
+ */
+export const completeStageInternal = internalMutation({
+  args: {
+    userId: v.id("users"),
+    stageId: v.id("storyStages"),
+    won: v.boolean(),
+    finalLP: v.number(),
+  },
+  handler: async (ctx, args) => {
+    // Get stage
+    const stage = await ctx.db.get(args.stageId);
+    if (!stage) {
+      throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
+        reason: "Stage not found",
+      });
+    }
+
+    // Get progress
+    const progress = await ctx.db
+      .query("storyStageProgress")
+      .withIndex("by_user_stage", (q) => q.eq("userId", args.userId).eq("stageId", args.stageId))
+      .first();
+
+    if (!progress) {
+      throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
+        reason: "Stage progress not found",
+      });
+    }
+
+    if (!args.won) {
+      // Lost - no rewards, just return
+      return {
+        won: false,
+        rewards: { gold: 0, xp: 0 },
+        starsEarned: 0,
+      };
+    }
+
+    // Calculate stars based on LP remaining
+    let starsEarned: 0 | 1 | 2 | 3 = 1; // Base: completed
+    if (args.finalLP >= 6000) starsEarned = 2; // 75%+ LP
+    if (args.finalLP >= 7500) starsEarned = 3; // 93.75%+ LP (nearly perfect)
+
+    // Calculate rewards
+    let goldReward = stage.rewardGold;
+    let xpReward = stage.rewardXp;
+
+    // First clear bonus
+    if (!progress.firstClearClaimed) {
+      goldReward += stage.firstClearBonus;
+    }
+
+    // Star bonus (20% per star)
+    const starMultiplier = 1 + (starsEarned - 1) * 0.2;
+    goldReward = Math.floor(goldReward * starMultiplier);
+    xpReward = Math.floor(xpReward * starMultiplier);
+
+    // Award gold
+    await adjustPlayerCurrencyHelper(ctx, {
+      userId: args.userId,
+      goldDelta: goldReward,
+      transactionType: "reward",
+      description: `Story Stage ${stage.stageNumber} completion`,
+      referenceId: `story_stage_${args.stageId}`,
+    });
+
+    // Award XP
+    const xpResult = await addXP(ctx, args.userId, xpReward);
+
+    // Update progress
+    const newStars = Math.max(progress.starsEarned, starsEarned);
+    const newBestScore = Math.max(progress.bestScore || 0, args.finalLP);
+
+    await ctx.db.patch(progress._id, {
+      status: newStars === 3 ? "starred" : "completed",
+      starsEarned: newStars,
+      bestScore: newBestScore,
+      timesCompleted: progress.timesCompleted + 1,
+      firstClearClaimed: true,
+      lastCompletedAt: Date.now(),
+    });
+
+    // Unlock next stage if this is the first completion
+    if (progress.timesCompleted === 0 && stage.stageNumber < 10) {
+      const nextStage = await ctx.db
+        .query("storyStages")
+        .withIndex("by_chapter_stage", (q) =>
+          q.eq("chapterId", stage.chapterId).eq("stageNumber", stage.stageNumber + 1)
+        )
+        .first();
+
+      if (nextStage) {
+        const nextProgress = await ctx.db
+          .query("storyStageProgress")
+          .withIndex("by_user_stage", (q) => q.eq("userId", args.userId).eq("stageId", nextStage._id))
           .first();
 
         if (nextProgress && nextProgress.status === "locked") {

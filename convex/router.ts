@@ -6,6 +6,7 @@
  * - /api/agents/* - Agent management (register, profile, rate limits)
  * - /api/agents/games/* - Game state and actions
  * - /api/agents/matchmaking/* - Lobby and matchmaking
+ * - /api/agents/story/* - Story mode (instant AI battles)
  * - /api/agents/decks/* - Deck management
  * - /api/agents/cards/* - Card catalog
  * - /api/agents/chat/* - Global chat (Tavern Hall)
@@ -21,6 +22,9 @@ import * as games from "./http/games";
 
 // Matchmaking
 import * as matchmaking from "./http/matchmaking";
+
+// Story Mode
+import * as story from "./http/story";
 
 // Decks & Cards
 import * as decks from "./http/decks";
@@ -213,6 +217,52 @@ http.route({
   path: "/api/agents/matchmaking/leave",
   method: "POST",
   handler: matchmaking.leave,
+});
+
+// ============================================================================
+// Story Mode Endpoints (Instant AI Battles)
+// ============================================================================
+
+// GET /api/agents/story/chapters - Get story chapters with progress
+http.route({
+  path: "/api/agents/story/chapters",
+  method: "GET",
+  handler: story.chapters,
+});
+
+// GET /api/agents/story/stages - Get stages for a chapter
+http.route({
+  path: "/api/agents/story/stages",
+  method: "GET",
+  handler: story.stages,
+});
+
+// POST /api/agents/story/start - Start specific story battle
+http.route({
+  path: "/api/agents/story/start",
+  method: "POST",
+  handler: story.start,
+});
+
+// POST /api/agents/story/quick-play - Start random story battle instantly
+http.route({
+  path: "/api/agents/story/quick-play",
+  method: "POST",
+  handler: story.quickPlay,
+});
+
+// POST /api/agents/story/complete - Complete stage and get rewards
+http.route({
+  path: "/api/agents/story/complete",
+  method: "POST",
+  handler: story.complete,
+});
+
+// POST /api/agents/story/ai-turn - Execute AI opponent's turn
+http.route({
+  path: "/api/agents/story/ai-turn",
+  method: "POST",
+  handler: story.aiTurn,
 });
 
 // ============================================================================
