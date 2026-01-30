@@ -607,7 +607,7 @@ export const selectStarterDeckInternal = internalMutation({
     // Get user
     const user = await ctx.db.get(args.userId);
     if (!user) {
-      throw createError(ErrorCode.USER_NOT_FOUND, { userId: args.userId });
+      throw createError(ErrorCode.NOT_FOUND_USER, { userId: args.userId });
     }
 
     // Check if user already has an active deck
