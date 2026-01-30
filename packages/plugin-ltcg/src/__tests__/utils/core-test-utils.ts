@@ -6,7 +6,173 @@ import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Utility functions for reusing core package tests in project-starter tests
+ * Following official ElizaOS testing patterns from elizaos/eliza
  */
+
+/**
+ * Type for mock runtime with additional test methods
+ */
+export type MockRuntime = IAgentRuntime & {
+  _settings: Record<string, any>;
+  _secretSettings: Set<string>;
+};
+
+/**
+ * Options for setting up action tests
+ * Follows ElizaOS pattern with stateOverrides
+ */
+export interface SetupActionTestOptions {
+  /** Override state values (for transient game state) */
+  stateOverrides?: {
+    values?: Record<string, any>;
+    data?: Record<string, any>;
+    text?: string;
+  };
+  /** Override runtime settings (for persistent configuration) */
+  settingOverrides?: Record<string, any>;
+  /** Custom character configuration */
+  characterOverrides?: {
+    name?: string;
+    bio?: string;
+    system?: string;
+  };
+}
+
+/**
+ * Sets up a standardized test environment for action tests
+ * Following official ElizaOS testing patterns
+ *
+ * @example
+ * ```typescript
+ * describe('My Action', () => {
+ *   let mockRuntime: MockRuntime;
+ *   let mockMessage: Partial<Memory>;
+ *   let mockState: State;
+ *   let callbackFn: ReturnType<typeof mock>;
+ *
+ *   beforeEach(() => {
+ *     const setup = setupActionTest({
+ *       stateOverrides: {
+ *         values: {
+ *           LTCG_CURRENT_GAME_ID: 'game-123',
+ *         },
+ *       },
+ *       settingOverrides: {
+ *         LTCG_API_KEY: 'test-key',
+ *       },
+ *     });
+ *     mockRuntime = setup.mockRuntime;
+ *     mockMessage = setup.mockMessage;
+ *     mockState = setup.mockState;
+ *     callbackFn = setup.callbackFn;
+ *   });
+ * });
+ * ```
+ */
+export const setupActionTest = (options: SetupActionTestOptions = {}) => {
+  const { stateOverrides = {}, settingOverrides = {}, characterOverrides = {} } = options;
+
+  // Create mock runtime with proper getSetting/setSetting
+  const mockRuntime = createMockRuntimeWithSettings(settingOverrides, characterOverrides);
+
+  // Create mock message
+  const mockMessage = createMockMessage('Test message');
+
+  // Create mock state with overrides
+  const mockState = createMockStateWithOverrides(stateOverrides);
+
+  // Create mock callback
+  const callbackFn = mock();
+
+  return {
+    mockRuntime,
+    mockMessage,
+    mockState,
+    callbackFn,
+  };
+};
+
+/**
+ * Creates a mock runtime with proper getSetting/setSetting support
+ * Following ElizaOS pattern for persistent settings
+ */
+export const createMockRuntimeWithSettings = (
+  initialSettings: Record<string, any> = {},
+  characterOverrides: { name?: string; bio?: string; system?: string } = {}
+): MockRuntime => {
+  const _settings: Record<string, any> = { ...initialSettings };
+  const _secretSettings = new Set<string>();
+
+  const runtime = {
+    initPromise: Promise.resolve(),
+    character: {
+      name: characterOverrides.name || 'Test Character',
+      bio: characterOverrides.bio || 'A test character for unit tests',
+      system: characterOverrides.system || 'You are a helpful assistant for testing.',
+    },
+    _settings,
+    _secretSettings,
+    getSetting: (key: string) => {
+      return _settings[key] ?? null;
+    },
+    setSetting: mock(async (key: string, value: any, isSecret?: boolean) => {
+      _settings[key] = value;
+      if (isSecret) {
+        _secretSettings.add(key);
+      }
+    }),
+    // Legacy methods for compatibility - prefer state.values for transient state
+    get: mock(async (key: string) => _settings[key] ?? null),
+    set: mock(async (key: string, value: any) => {
+      _settings[key] = value;
+    }),
+    delete: mock(async (key: string) => {
+      delete _settings[key];
+      _secretSettings.delete(key);
+    }),
+    // Model support
+    models: {},
+    useModel: mock(async () => '{}'),
+    // Database support
+    db: {
+      get: async () => null,
+      set: async () => true,
+      delete: async () => true,
+      getKeys: async () => [],
+    },
+    // Memory support
+    memory: {
+      add: async () => {},
+      get: async () => null,
+      getByEntityId: async () => [],
+      getLatest: async () => null,
+      getRecentMessages: async () => [],
+      search: async () => [],
+    },
+    actions: [],
+    providers: [],
+    getService: mock(),
+    registerPlugin: mock(async () => {}),
+    processActions: mock(),
+    hasElizaOS: mock(() => false),
+  } as any as MockRuntime;
+
+  return runtime;
+};
+
+/**
+ * Creates a mock state with optional overrides
+ * Following ElizaOS pattern: state.values for transient game state
+ */
+export const createMockStateWithOverrides = (
+  overrides: { values?: Record<string, any>; data?: Record<string, any>; text?: string } = {}
+): State => {
+  return {
+    values: { ...overrides.values },
+    data: { ...overrides.data },
+    text: overrides.text || '',
+  };
+};
 
 /**
  * Runs core package action tests against the provided actions
@@ -84,40 +250,10 @@ export const runCoreActionTests = (actions: Action[]) => {
 
 /**
  * Creates a mock runtime for testing
+ * @deprecated Use createMockRuntimeWithSettings or setupActionTest instead for better ElizaOS pattern compliance
  */
 export const createMockRuntime = (): IAgentRuntime => {
-  return {
-    initPromise: Promise.resolve(),
-    character: {
-      name: 'Test Character',
-      system: 'You are a helpful assistant for testing.',
-    },
-    getSetting: (key: string) => null,
-    setSetting: mock(async (key: string, value: any, persistent?: boolean) => {}),
-    // Include real model functionality
-    models: {},
-    // Add real database functionality
-    db: {
-      get: async () => null,
-      set: async () => true,
-      delete: async () => true,
-      getKeys: async () => [],
-    },
-    // Add real memory functionality
-    memory: {
-      add: async () => {},
-      get: async () => null,
-      getByEntityId: async () => [],
-      getLatest: async () => null,
-      getRecentMessages: async () => [],
-      search: async () => [],
-    },
-    actions: [],
-    providers: [],
-    getService: mock(),
-    processActions: mock(),
-    hasElizaOS: mock(() => false),
-  } as any as IAgentRuntime;
+  return createMockRuntimeWithSettings() as IAgentRuntime;
 };
 
 /**
@@ -173,11 +309,8 @@ export const createMockMessage = (text: string): Memory => {
 
 /**
  * Creates a mock state for testing
+ * @deprecated Use createMockStateWithOverrides or setupActionTest instead for better ElizaOS pattern compliance
  */
 export const createMockState = (): State => {
-  return {
-    values: {},
-    data: {},
-    text: '',
-  };
+  return createMockStateWithOverrides();
 };

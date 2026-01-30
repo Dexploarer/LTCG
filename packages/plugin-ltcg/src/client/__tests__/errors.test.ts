@@ -1,8 +1,9 @@
 /**
  * Tests for Custom Error Classes
+ * Converted to bun:test for ElizaOS pattern compatibility
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import {
   LTCGApiError,
   AuthenticationError,

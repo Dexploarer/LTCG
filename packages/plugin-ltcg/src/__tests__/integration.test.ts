@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, mock, spyOn } from 'bun:test';
-import { character } from '../index';
+import { character } from '../character';
 import plugin from '../plugin';
 
 // Set up spies on logger

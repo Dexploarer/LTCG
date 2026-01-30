@@ -1,8 +1,9 @@
 /**
  * Simplified Tests for LTCG API Client (Non-Timing Tests)
+ * Converted to bun:test for ElizaOS pattern compatibility
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, mock } from 'bun:test';
 import { LTCGApiClient } from '../LTCGApiClient';
 import {
   AuthenticationError,
@@ -12,9 +13,9 @@ import {
 } from '../errors';
 import { ApiErrorCode } from '../../types/api';
 
-// Mock fetch globally
-const mockFetch = vi.fn();
-global.fetch = mockFetch as any;
+// Mock fetch globally using bun:test mock
+const mockFetch = mock();
+global.fetch = mockFetch as unknown as typeof fetch;
 
 describe('LTCGApiClient - Basic Functionality', () => {
   const TEST_API_KEY = 'ltcg_test_key_123';
@@ -29,7 +30,6 @@ describe('LTCGApiClient - Basic Functionality', () => {
       timeout: 5000,
       maxRetries: 1, // 1 retry means 2 attempts total (initial + 1 retry)
     });
-    mockFetch.mockClear();
     mockFetch.mockReset();
   });
 

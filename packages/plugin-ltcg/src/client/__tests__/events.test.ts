@@ -1,10 +1,11 @@
 /**
  * Tests for Event Type Definitions
+ * Converted to bun:test for ElizaOS pattern compatibility
  *
  * Validates that event types are correctly structured and type-safe
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import type {
   GameStateUpdatedEvent,
   TurnNotificationEvent,

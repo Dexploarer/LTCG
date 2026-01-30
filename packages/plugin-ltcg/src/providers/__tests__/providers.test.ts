@@ -1,29 +1,25 @@
 /**
  * Tests for LTCG ElizaOS Providers
+ * Converted to bun:test for ElizaOS pattern compatibility
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test';
 import type { IAgentRuntime, Memory, State, ProviderResult } from '@elizaos/core';
 import { gameStateProvider } from '../gameStateProvider';
 import { handProvider } from '../handProvider';
 import { boardAnalysisProvider } from '../boardAnalysisProvider';
 import { legalActionsProvider } from '../legalActionsProvider';
 import { strategyProvider } from '../strategyProvider';
+import { LTCGApiClient } from '../../client/LTCGApiClient';
 import type { GameStateResponse, AvailableActionsResponse } from '../../types/api';
 
-// Create mock functions
-const mockGetGameState = vi.fn();
-const mockGetAvailableActions = vi.fn();
+// Create mock functions using bun:test mock
+const mockGetGameState = mock();
+const mockGetAvailableActions = mock();
 
-// Mock the LTCGApiClient
-vi.mock('../../client/LTCGApiClient', () => {
-  return {
-    LTCGApiClient: vi.fn().mockImplementation(() => ({
-      getGameState: mockGetGameState,
-      getAvailableActions: mockGetAvailableActions,
-    })),
-  };
-});
+// Store original prototype methods
+const originalGetGameState = LTCGApiClient.prototype.getGameState;
+const originalGetAvailableActions = LTCGApiClient.prototype.getAvailableActions;
 
 describe('LTCG Providers', () => {
   let mockRuntime: IAgentRuntime;
@@ -31,27 +27,47 @@ describe('LTCG Providers', () => {
   let mockState: State;
 
   beforeEach(() => {
-    // Mock runtime with settings
+    // Mock LTCGApiClient prototype methods
+    LTCGApiClient.prototype.getGameState = mockGetGameState as any;
+    LTCGApiClient.prototype.getAvailableActions = mockGetAvailableActions as any;
+
+    // Reset mocks
+    mockGetGameState.mockReset();
+    mockGetAvailableActions.mockReset();
+
+    // Mock runtime with settings using bun:test mock
     mockRuntime = {
-      getSetting: vi.fn((key: string) => {
+      getSetting: mock((key: string) => {
         if (key === 'LTCG_API_KEY') return 'test-api-key';
         if (key === 'LTCG_API_URL') return 'https://api.test.com';
         return undefined;
       }),
     } as unknown as IAgentRuntime;
 
-    // Mock message with game ID
+    // Mock message with game ID (some providers check message.content.gameId)
     mockMessage = {
       content: {
         text: 'Test message',
-        gameId: 'game-123',
+        gameId: 'game-123', // Some providers need this in message
       },
       userId: 'user-123',
       roomId: 'room-123',
     } as Memory;
 
-    // Mock state
-    mockState = {} as State;
+    // Mock state with game ID in values (ElizaOS pattern for new providers)
+    mockState = {
+      values: {
+        LTCG_CURRENT_GAME_ID: 'game-123',
+      },
+      data: {},
+      text: '',
+    } as State;
+  });
+
+  afterEach(() => {
+    // Restore original prototype methods
+    LTCGApiClient.prototype.getGameState = originalGetGameState;
+    LTCGApiClient.prototype.getAvailableActions = originalGetAvailableActions;
   });
 
   describe('gameStateProvider', () => {
@@ -171,14 +187,24 @@ describe('LTCG Providers', () => {
     });
 
     it('should handle missing game ID', async () => {
+      // Both state and message must not have game ID
+      const stateNoGameId = {
+        values: {},
+        data: {},
+        text: '',
+      } as State;
+
       const messageNoGameId = {
-        ...mockMessage,
-        content: { text: 'Test message' },
-      };
+        content: {
+          text: 'Test message',
+        },
+        userId: 'user-123',
+        roomId: 'room-123',
+      } as Memory;
 
-      const result = await gameStateProvider.get(mockRuntime, messageNoGameId, mockState);
+      const result = await gameStateProvider.get(mockRuntime, messageNoGameId, stateNoGameId);
 
-      expect(result.text).toContain('No game ID');
+      expect(result.text).toContain('No active game');
     });
   });
 
