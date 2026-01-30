@@ -4,9 +4,8 @@ import { ListingDialog } from "@/components/marketplace/ListingDialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/auth/useConvexAuthHook";
 import { cn } from "@/lib/utils";
-import { api } from "@convex/_generated/api";
+import { apiAny, useConvexMutation, useConvexQuery } from "@/lib/convexHelpers";
 import type { Id } from "@convex/_generated/dataModel";
-import { useMutation, useQuery } from "convex/react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -21,7 +20,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 type Rarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
@@ -69,15 +68,15 @@ const RARITY_CONFIG: Record<Rarity, { color: string; glow: string; bg: string; l
 
 type OpeningPhase = "ready" | "opening" | "revealing" | "complete";
 
-export default function PackOpeningPage() {
+function PackOpeningContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const openingType = searchParams.get("type") || "pack";
   const dataParam = searchParams.get("data");
 
   const { isAuthenticated } = useAuth();
-  const currentUser = useQuery(api.core.users.currentUser, isAuthenticated ? {} : "skip");
-  const createListingMutation = useMutation(api.marketplace.createListing);
+  const currentUser = useConvexQuery(apiAny.core.users.currentUser, isAuthenticated ? {} : "skip");
+  const createListingMutation = useConvexMutation(apiAny.marketplace.createListing);
 
   const [phase, setPhase] = useState<OpeningPhase>("ready");
   const [cards, setCards] = useState<Card[]>([]);
@@ -663,5 +662,19 @@ export default function PackOpeningPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function PackOpeningPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0d0a09] flex items-center justify-center">
+          <Loader2 className="w-10 h-10 text-[#d4af37] animate-spin" />
+        </div>
+      }
+    >
+      <PackOpeningContent />
+    </Suspense>
   );
 }

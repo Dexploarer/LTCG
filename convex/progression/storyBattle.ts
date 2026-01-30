@@ -6,7 +6,7 @@
 
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
-import { mutation } from "../_generated/server";
+import { internalMutation, internalQuery, mutation } from "../_generated/server";
 import { initializeGameStateHelper } from "../gameplay/games/lifecycle";
 import { requireAuthMutation } from "../lib/convexAuth";
 import { ErrorCode, createError } from "../lib/errorCodes";
