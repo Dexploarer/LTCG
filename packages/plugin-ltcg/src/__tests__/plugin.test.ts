@@ -1,7 +1,7 @@
 import { describe, expect, it, spyOn, beforeEach, afterEach, beforeAll, afterAll } from 'bun:test';
 import plugin from '../plugin';
 import { ModelType, logger } from '@elizaos/core';
-import { StarterService } from '../plugin';
+import { LTCGRealtimeService } from '../services/LTCGRealtimeService';
 import dotenv from 'dotenv';
 
 // Setup environment variables
@@ -60,8 +60,8 @@ function createRealRuntime() {
 
   // Create a real service instance if needed
   const createService = (serviceType: string) => {
-    if (serviceType === StarterService.serviceType) {
-      return new StarterService({
+    if (serviceType === LTCGRealtimeService.serviceType) {
+      return new LTCGRealtimeService({
         character: {
           name: 'Test Character',
           system: 'You are a helpful assistant for testing.',
@@ -102,8 +102,8 @@ function createRealRuntime() {
 
 describe('Plugin Configuration', () => {
   it('should have correct plugin metadata', () => {
-    expect(plugin.name).toBe('starter');
-    expect(plugin.description).toBe('A starter plugin for Eliza');
+    expect(plugin.name).toBe('ltcg');
+    expect(plugin.description).toContain('LTCG');
     expect(plugin.config).toBeDefined();
 
     documentTestResult('Plugin metadata check', {
@@ -113,27 +113,27 @@ describe('Plugin Configuration', () => {
     });
   });
 
-  it('should include the EXAMPLE_PLUGIN_VARIABLE in config', () => {
-    expect(plugin.config).toHaveProperty('EXAMPLE_PLUGIN_VARIABLE');
+  it('should include the LTCG_API_KEY in config', () => {
+    expect(plugin.config).toHaveProperty('LTCG_API_KEY');
 
     documentTestResult('Plugin config check', {
-      hasExampleVariable: plugin.config ? 'EXAMPLE_PLUGIN_VARIABLE' in plugin.config : false,
+      hasApiKey: plugin.config ? 'LTCG_API_KEY' in plugin.config : false,
       configKeys: Object.keys(plugin.config || {}),
     });
   });
 
   it('should initialize properly', async () => {
-    const originalEnv = process.env.EXAMPLE_PLUGIN_VARIABLE;
+    const originalEnv = process.env.LTCG_API_KEY;
 
     try {
-      process.env.EXAMPLE_PLUGIN_VARIABLE = 'test-value';
+      process.env.LTCG_API_KEY = 'test-value';
 
       // Initialize with config - using real runtime
       const runtime = createRealRuntime();
 
       let error: Error | null = null;
       try {
-        await plugin.init?.({ EXAMPLE_PLUGIN_VARIABLE: 'test-value' }, runtime as any);
+        await plugin.init?.({ LTCG_API_KEY: 'test-value' }, runtime as any);
         expect(true).toBe(true); // If we got here, init succeeded
       } catch (e) {
         error = e as Error;
@@ -144,12 +144,12 @@ describe('Plugin Configuration', () => {
         'Plugin initialization',
         {
           success: !error,
-          configValue: process.env.EXAMPLE_PLUGIN_VARIABLE,
+          configValue: process.env.LTCG_API_KEY,
         },
         error
       );
     } finally {
-      process.env.EXAMPLE_PLUGIN_VARIABLE = originalEnv;
+      process.env.LTCG_API_KEY = originalEnv;
     }
   });
 
@@ -160,7 +160,7 @@ describe('Plugin Configuration', () => {
       let error: Error | null = null;
 
       try {
-        await plugin.init({ EXAMPLE_PLUGIN_VARIABLE: '' }, runtime as any);
+        await plugin.init({ LTCG_API_KEY: '' }, runtime as any);
         // Should not reach here
         expect(true).toBe(false);
       } catch (e) {
@@ -183,8 +183,8 @@ describe('Plugin Configuration', () => {
   it('should have a valid config', () => {
     expect(plugin.config).toBeDefined();
     if (plugin.config) {
-      // Check if the config has expected EXAMPLE_PLUGIN_VARIABLE property
-      expect(Object.keys(plugin.config)).toContain('EXAMPLE_PLUGIN_VARIABLE');
+      // Check if the config has expected LTCG_API_KEY property
+      expect(Object.keys(plugin.config)).toContain('LTCG_API_KEY');
     }
   });
 });
@@ -239,7 +239,7 @@ describe('Plugin Models', () => {
   });
 });
 
-describe('StarterService', () => {
+describe('LTCGRealtimeService', () => {
   it('should start the service', async () => {
     const runtime = createRealRuntime();
     let startResult;
@@ -247,10 +247,10 @@ describe('StarterService', () => {
 
     try {
       logger.info('Using OpenAI for TEXT_SMALL model');
-      startResult = await StarterService.start(runtime as any);
+      startResult = await LTCGRealtimeService.start(runtime as any);
 
       expect(startResult).toBeDefined();
-      expect(startResult.constructor.name).toBe('StarterService');
+      expect(startResult.constructor.name).toBe('LTCGRealtimeService');
 
       // Test real functionality - check stop method is available
       expect(typeof startResult.stop).toBe('function');
@@ -260,7 +260,7 @@ describe('StarterService', () => {
     }
 
     documentTestResult(
-      'StarterService start',
+      'LTCGRealtimeService start',
       {
         success: !!startResult,
         serviceType: startResult?.constructor.name,
@@ -273,14 +273,14 @@ describe('StarterService', () => {
     const runtime = createRealRuntime();
 
     // First registration should succeed
-    const result1 = await StarterService.start(runtime as any);
+    const result1 = await LTCGRealtimeService.start(runtime as any);
     expect(result1).toBeTruthy();
 
     let startupError: Error | null = null;
 
     try {
       // Second registration should fail
-      await StarterService.start(runtime as any);
+      await LTCGRealtimeService.start(runtime as any);
       expect(true).toBe(false); // Should not reach here
     } catch (e) {
       startupError = e as Error;
@@ -288,7 +288,7 @@ describe('StarterService', () => {
     }
 
     documentTestResult(
-      'StarterService double start',
+      'LTCGRealtimeService double start',
       {
         errorThrown: !!startupError,
         errorMessage: startupError?.message || 'No error message',
@@ -303,14 +303,14 @@ describe('StarterService', () => {
 
     try {
       // Register a real service first
-      const service = new StarterService(runtime as any);
-      runtime.registerService(StarterService.serviceType, service);
+      const service = new LTCGRealtimeService(runtime as any);
+      runtime.registerService(LTCGRealtimeService.serviceType, service);
 
       // Spy on the real service's stop method
       const stopSpy = spyOn(service, 'stop');
 
       // Call the static stop method
-      await StarterService.stop(runtime as any);
+      await LTCGRealtimeService.stop(runtime as any);
 
       // Verify the service's stop method was called
       expect(stopSpy).toHaveBeenCalled();
@@ -320,7 +320,7 @@ describe('StarterService', () => {
     }
 
     documentTestResult(
-      'StarterService stop',
+      'LTCGRealtimeService stop',
       {
         success: !error,
       },
@@ -339,7 +339,7 @@ describe('StarterService', () => {
       const originalGetService = runtime.getService;
       runtime.getService = () => null;
 
-      await StarterService.stop(runtime as any);
+      await LTCGRealtimeService.stop(runtime as any);
       // Should not reach here
       expect(true).toBe(false);
     } catch (e) {
@@ -347,12 +347,12 @@ describe('StarterService', () => {
       // This is expected - verify it's the right error
       expect(error).toBeTruthy();
       if (error instanceof Error) {
-        expect(error.message).toContain('Starter service not found');
+        expect(error.message).toContain('LTCG');
       }
     }
 
     documentTestResult(
-      'StarterService non-existent stop',
+      'LTCGRealtimeService non-existent stop',
       {
         errorThrown: !!error,
         errorMessage: error?.message || 'No error message',
@@ -365,7 +365,7 @@ describe('StarterService', () => {
     const runtime = createRealRuntime();
 
     // First start the service
-    const startResult = await StarterService.start(runtime as any);
+    const startResult = await LTCGRealtimeService.start(runtime as any);
     expect(startResult).toBeTruthy();
 
     let stopError: Error | unknown = null;
@@ -373,7 +373,7 @@ describe('StarterService', () => {
 
     try {
       // Then stop it
-      await StarterService.stop(runtime as any);
+      await LTCGRealtimeService.stop(runtime as any);
       stopSuccess = true;
     } catch (e) {
       stopError = e;
@@ -381,7 +381,7 @@ describe('StarterService', () => {
     }
 
     documentTestResult(
-      'StarterService stop',
+      'LTCGRealtimeService stop',
       {
         success: stopSuccess,
         errorThrown: !!stopError,

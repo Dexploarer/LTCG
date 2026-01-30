@@ -75,6 +75,10 @@ const config: NextConfig = {
     return config;
   },
 
+  // Turbopack is default in Next.js 16
+  // Empty config acknowledges Turbopack usage while webpack config is being migrated
+  turbopack: {},
+
   // Experimental optimizations
   experimental: {
     // Optimize package imports for automatic tree-shaking
