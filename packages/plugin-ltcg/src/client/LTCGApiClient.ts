@@ -678,4 +678,198 @@ export class LTCGApiClient {
       false // Public endpoint, no auth required
     );
   }
+
+  // ============================================================================
+  // Story Mode (6 endpoints) - Instant AI Battles
+  // ============================================================================
+
+  /**
+   * Get all story chapters with progress
+   * GET /api/agents/story/chapters
+   */
+  async getStoryChapters(): Promise<{
+    chapters: Array<{
+      _id: string;
+      actNumber: number;
+      chapterNumber: number;
+      title: string;
+      description: string;
+      archetype: string;
+      aiDifficulty: string;
+      stagesCompleted: number;
+      totalStages: number;
+      totalStars: number;
+      maxStars: number;
+      isUnlocked: boolean;
+    }>;
+    count: number;
+  }> {
+    return this.request<{
+      chapters: Array<{
+        _id: string;
+        actNumber: number;
+        chapterNumber: number;
+        title: string;
+        description: string;
+        archetype: string;
+        aiDifficulty: string;
+        stagesCompleted: number;
+        totalStages: number;
+        totalStars: number;
+        maxStars: number;
+        isUnlocked: boolean;
+      }>;
+      count: number;
+    }>(API_ENDPOINTS.STORY_CHAPTERS, { method: 'GET' });
+  }
+
+  /**
+   * Get stages for a specific chapter
+   * GET /api/agents/story/stages?chapterId=xxx
+   */
+  async getStoryStages(chapterId: string): Promise<{
+    stages: Array<{
+      _id: string;
+      stageNumber: number;
+      name: string;
+      description: string;
+      aiDifficulty: string;
+      rewardGold: number;
+      rewardXp: number;
+      firstClearBonus: number;
+      status: 'locked' | 'available' | 'completed' | 'starred';
+      starsEarned: number;
+      bestScore?: number;
+      timesCompleted: number;
+      firstClearClaimed: boolean;
+    }>;
+    count: number;
+  }> {
+    return this.request<{
+      stages: Array<{
+        _id: string;
+        stageNumber: number;
+        name: string;
+        description: string;
+        aiDifficulty: string;
+        rewardGold: number;
+        rewardXp: number;
+        firstClearBonus: number;
+        status: 'locked' | 'available' | 'completed' | 'starred';
+        starsEarned: number;
+        bestScore?: number;
+        timesCompleted: number;
+        firstClearClaimed: boolean;
+      }>;
+      count: number;
+    }>(`${API_ENDPOINTS.STORY_STAGES}?chapterId=${chapterId}`, { method: 'GET' });
+  }
+
+  /**
+   * Start a specific story battle
+   * POST /api/agents/story/start
+   */
+  async startStoryBattle(chapterId: string, stageNumber?: number): Promise<{
+    gameId: string;
+    lobbyId: string;
+    stageId: string;
+    chapter: string;
+    stage: { name: string; number: number };
+    aiOpponent: string;
+    difficulty: string;
+    rewards: { gold: number; xp: number; firstClearBonus: number };
+    message: string;
+  }> {
+    return this.request<{
+      gameId: string;
+      lobbyId: string;
+      stageId: string;
+      chapter: string;
+      stage: { name: string; number: number };
+      aiOpponent: string;
+      difficulty: string;
+      rewards: { gold: number; xp: number; firstClearBonus: number };
+      message: string;
+    }>(API_ENDPOINTS.STORY_START, {
+      method: 'POST',
+      body: JSON.stringify({ chapterId, stageNumber }),
+    });
+  }
+
+  /**
+   * Start a random story battle instantly (quick play)
+   * POST /api/agents/story/quick-play
+   */
+  async quickPlayStory(difficulty?: 'easy' | 'medium' | 'hard' | 'boss'): Promise<{
+    gameId: string;
+    lobbyId: string;
+    stageId: string;
+    chapter: string;
+    stage: { name: string; number: number };
+    aiOpponent: string;
+    difficulty: string;
+    rewards: { gold: number; xp: number; firstClearBonus: number };
+    message: string;
+  }> {
+    return this.request<{
+      gameId: string;
+      lobbyId: string;
+      stageId: string;
+      chapter: string;
+      stage: { name: string; number: number };
+      aiOpponent: string;
+      difficulty: string;
+      rewards: { gold: number; xp: number; firstClearBonus: number };
+      message: string;
+    }>(API_ENDPOINTS.STORY_QUICK_PLAY, {
+      method: 'POST',
+      body: JSON.stringify({ difficulty }),
+    });
+  }
+
+  /**
+   * Complete a story stage and receive rewards
+   * POST /api/agents/story/complete
+   */
+  async completeStoryStage(stageId: string, won: boolean, finalLP: number): Promise<{
+    won: boolean;
+    rewards: { gold: number; xp: number };
+    starsEarned: number;
+    newBestScore?: number;
+    unlockedNextStage?: boolean;
+    levelUp?: { newLevel: number; oldLevel: number } | null;
+    newBadges?: string[];
+  }> {
+    return this.request<{
+      won: boolean;
+      rewards: { gold: number; xp: number };
+      starsEarned: number;
+      newBestScore?: number;
+      unlockedNextStage?: boolean;
+      levelUp?: { newLevel: number; oldLevel: number } | null;
+      newBadges?: string[];
+    }>(API_ENDPOINTS.STORY_COMPLETE, {
+      method: 'POST',
+      body: JSON.stringify({ stageId, won, finalLP }),
+    });
+  }
+
+  /**
+   * Execute AI opponent's turn in a story battle
+   * POST /api/agents/story/ai-turn
+   */
+  async executeAITurn(gameId: string): Promise<{
+    success: boolean;
+    message: string;
+    actionsTaken: number;
+  }> {
+    return this.request<{
+      success: boolean;
+      message: string;
+      actionsTaken: number;
+    }>(API_ENDPOINTS.STORY_AI_TURN, {
+      method: 'POST',
+      body: JSON.stringify({ gameId }),
+    });
+  }
 }

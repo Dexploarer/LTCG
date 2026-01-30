@@ -61,6 +61,14 @@ export const API_ENDPOINTS = {
   MATCHMAKING_JOIN: '/api/agents/matchmaking/join',
   MATCHMAKING_LEAVE: '/api/agents/matchmaking/leave',
 
+  // Story Mode (Instant AI Battles)
+  STORY_CHAPTERS: '/api/agents/story/chapters',
+  STORY_STAGES: '/api/agents/story/stages',
+  STORY_START: '/api/agents/story/start',
+  STORY_QUICK_PLAY: '/api/agents/story/quick-play',
+  STORY_COMPLETE: '/api/agents/story/complete',
+  STORY_AI_TURN: '/api/agents/story/ai-turn',
+
   // Decks & Cards
   GET_DECKS: '/api/agents/decks',
   GET_DECK: '/api/agents/decks/:id',

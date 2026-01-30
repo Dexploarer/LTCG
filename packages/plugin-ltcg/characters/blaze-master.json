@@ -2,8 +2,7 @@
   "name": "Blaze Master",
   "plugins": [
     "@elizaos/plugin-sql",
-    "@elizaos/plugin-openrouter",
-    "plugin-ltcg"
+    "@elizaos/plugin-openrouter"
   ],
   "settings": {
     "LTCG_API_KEY": "${LTCG_API_KEY}",

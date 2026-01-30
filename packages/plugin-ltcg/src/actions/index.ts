@@ -16,6 +16,7 @@ import { flipSummonAction } from './flipSummonAction';
 import { findGameAction } from './findGameAction';
 import { createLobbyAction } from './createLobbyAction';
 import { joinLobbyAction } from './joinLobbyAction';
+import { storyModeAction } from './storyModeAction';
 import { surrenderAction } from './surrenderAction';
 import { registerAgentAction } from './registerAgentAction';
 import { getWalletInfoAction } from './getWalletInfoAction';
@@ -34,6 +35,7 @@ import { sendChatMessageAction } from './sendChatMessageAction';
  * - Find and join games automatically
  * - Create lobbies (public or private)
  * - Join specific lobbies by ID or code
+ * - Play story mode (instant AI battles)
  * - Surrender games
  *
  * Gameplay:
@@ -59,6 +61,7 @@ export const ltcgActions = [
   findGameAction,
   createLobbyAction,
   joinLobbyAction,
+  storyModeAction,
   surrenderAction,
 
   // Gameplay Actions
@@ -87,6 +90,7 @@ export {
   findGameAction,
   createLobbyAction,
   joinLobbyAction,
+  storyModeAction,
   surrenderAction,
 
   // Gameplay
