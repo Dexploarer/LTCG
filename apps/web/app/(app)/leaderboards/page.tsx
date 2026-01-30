@@ -144,7 +144,7 @@ export default function LeaderboardsPage() {
         {/* User's Current Rank Card */}
         {userRank && (
           <div className="mb-6 p-4 bg-linear-to-r from-[#d4af37]/10 to-transparent border border-[#d4af37]/30 rounded-lg">
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <p className="text-sm text-[#a89f94] mb-1">Your Rank</p>
                 <p className="text-2xl font-bold text-[#d4af37]">#{userRank.rank}</p>
@@ -171,7 +171,7 @@ export default function LeaderboardsPage() {
 
         {/* Top 3 Podium */}
         {rankings.length >= 3 && (
-          <div className="grid grid-cols-3 gap-4 mb-8 max-w-2xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 max-w-2xl mx-auto">
             {[2, 1, 3].map((position) => {
               const player = rankings[position - 1];
               if (!player) return null;
@@ -249,8 +249,8 @@ export default function LeaderboardsPage() {
 
         {/* Leaderboard Table */}
         <div data-testid="leaderboard" className="rounded-xl bg-black/40 border border-[#3d2b1f] overflow-hidden">
-          {/* Header */}
-          <div className="grid grid-cols-12 gap-4 p-4 border-b border-[#3d2b1f] text-xs font-bold text-[#a89f94] uppercase tracking-wider">
+          {/* Header - Hidden on mobile */}
+          <div className="hidden md:grid grid-cols-12 gap-4 p-4 border-b border-[#3d2b1f] text-xs font-bold text-[#a89f94] uppercase tracking-wider">
             <div className="col-span-1">Rank</div>
             <div className="col-span-4">Player</div>
             <div className="col-span-2 text-center">{activeType === "story" ? "XP" : "Rating"}</div>
@@ -274,67 +274,128 @@ export default function LeaderboardsPage() {
                     key={player.userId}
                     data-testid="leaderboard-entry"
                     className={cn(
-                      "grid grid-cols-12 gap-4 p-4 items-center hover:bg-white/5 transition-colors",
+                      "p-4 hover:bg-white/5 transition-colors",
                       isCurrentUser && "bg-[#d4af37]/10 hover:bg-[#d4af37]/15"
                     )}
                   >
-                    {/* Rank */}
-                    <div className="col-span-1 flex items-center gap-2">
-                      <span
-                        className={cn(
-                          "font-bold",
-                          player.rank <= 3 ? "text-[#d4af37]" : "text-[#e8e0d5]"
-                        )}
-                      >
-                        #{player.rank}
-                      </span>
-                    </div>
-
-                    {/* Player */}
-                    <div className="col-span-4 flex items-center gap-3">
-                      <Avatar className="w-10 h-10 border border-[#3d2b1f]">
-                        <AvatarFallback className="bg-[#1a1614] text-[#d4af37] font-bold">
-                          {player.username?.[0] || "?"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className={cn(
-                            "font-medium truncate",
-                            isCurrentUser ? "text-[#d4af37]" : "text-[#e8e0d5]"
-                          )}
-                        >
-                          {player.username}
-                          {isCurrentUser && <span className="ml-2 text-xs">(You)</span>}
-                        </p>
-                        {player.isAiAgent && (
-                          <p className="text-xs text-blue-400 flex items-center gap-1">
-                            <Bot className="w-3 h-3" /> AI Agent
+                    {/* Mobile Card Layout */}
+                    <div className="md:hidden space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={cn(
+                              "text-lg font-bold",
+                              player.rank <= 3 ? "text-[#d4af37]" : "text-[#e8e0d5]"
+                            )}
+                          >
+                            #{player.rank}
+                          </span>
+                          <Avatar className="w-10 h-10 border border-[#3d2b1f]">
+                            <AvatarFallback className="bg-[#1a1614] text-[#d4af37] font-bold">
+                              {player.username?.[0] || "?"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p
+                              className={cn(
+                                "font-medium",
+                                isCurrentUser ? "text-[#d4af37]" : "text-[#e8e0d5]"
+                              )}
+                            >
+                              {player.username}
+                              {isCurrentUser && <span className="text-xs ml-1">(You)</span>}
+                            </p>
+                            {player.isAiAgent && (
+                              <p className="text-xs text-blue-400 flex items-center gap-1">
+                                <Bot className="w-3 h-3" /> AI
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 text-center">
+                        <div>
+                          <p className="text-xs text-[#a89f94]">{activeType === "story" ? "XP" : "Rating"}</p>
+                          <p className="font-bold text-[#e8e0d5]">{player.rating}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-[#a89f94]">Level</p>
+                          <p className="font-semibold text-[#d4af37]">{player.level}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-[#a89f94]">W/L</p>
+                          <p className="text-sm">
+                            <span className="text-green-400">{player.wins}</span>/
+                            <span className="text-red-400">{player.losses}</span>
                           </p>
-                        )}
+                        </div>
+                        <div>
+                          <p className="text-xs text-[#a89f94]">Win %</p>
+                          <p className="font-medium text-[#e8e0d5]">{player.winRate}%</p>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Rating/XP */}
-                    <div className="col-span-2 text-center">
-                      <span className="font-bold text-[#e8e0d5]">{player.rating}</span>
-                    </div>
+                    {/* Desktop Table Layout */}
+                    <div className="hidden md:grid grid-cols-12 gap-4 items-center">
+                      {/* Rank */}
+                      <div className="col-span-1 flex items-center gap-2">
+                        <span
+                          className={cn(
+                            "font-bold",
+                            player.rank <= 3 ? "text-[#d4af37]" : "text-[#e8e0d5]"
+                          )}
+                        >
+                          #{player.rank}
+                        </span>
+                      </div>
 
-                    {/* Level */}
-                    <div className="col-span-2 text-center">
-                      <span className="font-semibold text-[#d4af37]">{player.level}</span>
-                    </div>
+                      {/* Player */}
+                      <div className="col-span-4 flex items-center gap-3">
+                        <Avatar className="w-10 h-10 border border-[#3d2b1f]">
+                          <AvatarFallback className="bg-[#1a1614] text-[#d4af37] font-bold">
+                            {player.username?.[0] || "?"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={cn(
+                              "font-medium truncate",
+                              isCurrentUser ? "text-[#d4af37]" : "text-[#e8e0d5]"
+                            )}
+                          >
+                            {player.username}
+                            {isCurrentUser && <span className="ml-2 text-xs">(You)</span>}
+                          </p>
+                          {player.isAiAgent && (
+                            <p className="text-xs text-blue-400 flex items-center gap-1">
+                              <Bot className="w-3 h-3" /> AI Agent
+                            </p>
+                          )}
+                        </div>
+                      </div>
 
-                    {/* W/L */}
-                    <div className="col-span-2 text-center text-sm">
-                      <span className="text-green-400">{player.wins}</span>
-                      <span className="text-[#a89f94] mx-1">/</span>
-                      <span className="text-red-400">{player.losses}</span>
-                    </div>
+                      {/* Rating/XP */}
+                      <div className="col-span-2 text-center">
+                        <span className="font-bold text-[#e8e0d5]">{player.rating}</span>
+                      </div>
 
-                    {/* Win % */}
-                    <div className="col-span-1 text-center">
-                      <span className="text-[#e8e0d5] font-medium">{player.winRate}%</span>
+                      {/* Level */}
+                      <div className="col-span-2 text-center">
+                        <span className="font-semibold text-[#d4af37]">{player.level}</span>
+                      </div>
+
+                      {/* W/L */}
+                      <div className="col-span-2 text-center text-sm">
+                        <span className="text-green-400">{player.wins}</span>
+                        <span className="text-[#a89f94] mx-1">/</span>
+                        <span className="text-red-400">{player.losses}</span>
+                      </div>
+
+                      {/* Win % */}
+                      <div className="col-span-1 text-center">
+                        <span className="text-[#e8e0d5] font-medium">{player.winRate}%</span>
+                      </div>
                     </div>
                   </div>
                 );
@@ -348,31 +409,59 @@ export default function LeaderboardsPage() {
               <div className="p-2 text-center text-[#a89f94] text-sm border-t border-[#3d2b1f]">
                 • • •
               </div>
-              <div className="grid grid-cols-12 gap-4 p-4 items-center bg-[#d4af37]/10 border-t border-[#d4af37]/30">
-                <div className="col-span-1">
-                  <span className="font-bold text-[#d4af37]">#{userRank.rank}</span>
+              <div className="p-4 bg-[#d4af37]/10 border-t border-[#d4af37]/30">
+                {/* Mobile Layout */}
+                <div className="md:hidden space-y-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg font-bold text-[#d4af37]">#{userRank.rank}</span>
+                    <Avatar className="w-10 h-10 border-2 border-[#d4af37]/50">
+                      <AvatarFallback className="bg-[#1a1614] text-[#d4af37] font-bold">
+                        {currentUser.username?.[0] || "?"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <p className="font-medium text-[#d4af37]">
+                      {currentUser.username} <span className="text-xs">(You)</span>
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-center">
+                    <div>
+                      <p className="text-xs text-[#a89f94]">{activeType === "story" ? "XP" : "Rating"}</p>
+                      <p className="font-bold text-[#e8e0d5]">{userRank.rating}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-[#a89f94]">Level</p>
+                      <p className="font-semibold text-[#d4af37]">{userRank.level}</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="col-span-4 flex items-center gap-3">
-                  <Avatar className="w-10 h-10 border-2 border-[#d4af37]/50">
-                    <AvatarFallback className="bg-[#1a1614] text-[#d4af37] font-bold">
-                      {currentUser.username?.[0] || "?"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <p className="font-medium text-[#d4af37]">
-                    {currentUser.username} <span className="text-xs">(You)</span>
-                  </p>
-                </div>
-                <div className="col-span-2 text-center font-bold text-[#e8e0d5]">
-                  {userRank.rating}
-                </div>
-                <div className="col-span-2 text-center font-semibold text-[#d4af37]">
-                  {userRank.level}
-                </div>
-                <div className="col-span-2 text-center text-sm">
-                  <span className="text-[#a89f94]">-</span>
-                </div>
-                <div className="col-span-1 text-center">
-                  <span className="text-[#a89f94]">-</span>
+
+                {/* Desktop Layout */}
+                <div className="hidden md:grid grid-cols-12 gap-4 items-center">
+                  <div className="col-span-1">
+                    <span className="font-bold text-[#d4af37]">#{userRank.rank}</span>
+                  </div>
+                  <div className="col-span-4 flex items-center gap-3">
+                    <Avatar className="w-10 h-10 border-2 border-[#d4af37]/50">
+                      <AvatarFallback className="bg-[#1a1614] text-[#d4af37] font-bold">
+                        {currentUser.username?.[0] || "?"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <p className="font-medium text-[#d4af37]">
+                      {currentUser.username} <span className="text-xs">(You)</span>
+                    </p>
+                  </div>
+                  <div className="col-span-2 text-center font-bold text-[#e8e0d5]">
+                    {userRank.rating}
+                  </div>
+                  <div className="col-span-2 text-center font-semibold text-[#d4af37]">
+                    {userRank.level}
+                  </div>
+                  <div className="col-span-2 text-center text-sm">
+                    <span className="text-[#a89f94]">-</span>
+                  </div>
+                  <div className="col-span-1 text-center">
+                    <span className="text-[#a89f94]">-</span>
+                  </div>
                 </div>
               </div>
             </>
@@ -388,8 +477,8 @@ export default function LeaderboardsPage() {
             </div>
 
             <div className="rounded-xl bg-black/40 border border-[#3d2b1f] overflow-hidden">
-              {/* Header */}
-              <div className="grid grid-cols-12 gap-4 p-4 border-b border-[#3d2b1f] text-xs font-bold text-[#a89f94] uppercase tracking-wider">
+              {/* Header - Hidden on mobile */}
+              <div className="hidden md:grid grid-cols-12 gap-4 p-4 border-b border-[#3d2b1f] text-xs font-bold text-[#a89f94] uppercase tracking-wider">
                 <div className="col-span-1">Result</div>
                 <div className="col-span-4">Opponent</div>
                 <div className="col-span-2 text-center">Rating Change</div>
@@ -408,79 +497,143 @@ export default function LeaderboardsPage() {
                     <div
                       key={match._id}
                       className={cn(
-                        "grid grid-cols-12 gap-4 p-4 items-center hover:bg-white/5 transition-colors",
+                        "p-4 hover:bg-white/5 transition-colors",
                         isWin ? "bg-green-500/5" : "bg-red-500/5"
                       )}
                     >
-                      {/* Result */}
-                      <div className="col-span-1">
-                        <div
-                          className={cn(
-                            "px-2 py-1 rounded text-xs font-bold text-center",
-                            isWin ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
-                          )}
-                        >
-                          {isWin ? "WIN" : "LOSS"}
+                      {/* Mobile Card Layout */}
+                      <div className="md:hidden space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={cn(
+                                "px-2 py-1 rounded text-xs font-bold",
+                                isWin ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                              )}
+                            >
+                              {isWin ? "WIN" : "LOSS"}
+                            </div>
+                            <Avatar className="w-8 h-8 border border-[#3d2b1f]">
+                              <AvatarFallback className="bg-[#1a1614] text-[#d4af37] text-xs font-bold">
+                                {match.opponentUsername[0]}
+                              </AvatarFallback>
+                            </Avatar>
+                            <p className="font-medium text-[#e8e0d5]">{match.opponentUsername}</p>
+                          </div>
+                          <span className="text-xs text-[#a89f94]">
+                            {new Date(match.completedAt).toLocaleDateString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div>
+                            <p className="text-xs text-[#a89f94]">Change</p>
+                            {ratingChanged ? (
+                              <div className="flex items-center justify-center gap-1">
+                                {match.ratingChange > 0 ? (
+                                  <TrendingUp className="w-3 h-3 text-green-400" />
+                                ) : (
+                                  <TrendingDown className="w-3 h-3 text-red-400" />
+                                )}
+                                <span
+                                  className={cn(
+                                    "text-sm font-bold",
+                                    match.ratingChange > 0 ? "text-green-400" : "text-red-400"
+                                  )}
+                                >
+                                  {match.ratingChange > 0 ? "+" : ""}
+                                  {match.ratingChange}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-[#a89f94]">0</span>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-xs text-[#a89f94]">Before</p>
+                            <p className="text-sm text-[#e8e0d5]">{match.ratingBefore}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-[#a89f94]">After</p>
+                            <p className="text-sm font-medium text-[#e8e0d5]">{match.ratingAfter}</p>
+                          </div>
                         </div>
                       </div>
 
-                      {/* Opponent */}
-                      <div className="col-span-4 flex items-center gap-3">
-                        <Avatar className="w-8 h-8 border border-[#3d2b1f]">
-                          <AvatarFallback className="bg-[#1a1614] text-[#d4af37] text-xs font-bold">
-                            {match.opponentUsername[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <p className="font-medium text-[#e8e0d5] truncate">
-                          {match.opponentUsername}
-                        </p>
-                      </div>
-
-                      {/* Rating Change */}
-                      <div className="col-span-2 text-center">
-                        {ratingChanged ? (
-                          <div className="flex items-center justify-center gap-1">
-                            {match.ratingChange > 0 ? (
-                              <TrendingUp className="w-4 h-4 text-green-400" />
-                            ) : (
-                              <TrendingDown className="w-4 h-4 text-red-400" />
+                      {/* Desktop Table Layout */}
+                      <div className="hidden md:grid grid-cols-12 gap-4 items-center">
+                        {/* Result */}
+                        <div className="col-span-1">
+                          <div
+                            className={cn(
+                              "px-2 py-1 rounded text-xs font-bold text-center",
+                              isWin ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
                             )}
-                            <span
-                              className={cn(
-                                "font-bold",
-                                match.ratingChange > 0 ? "text-green-400" : "text-red-400"
+                          >
+                            {isWin ? "WIN" : "LOSS"}
+                          </div>
+                        </div>
+
+                        {/* Opponent */}
+                        <div className="col-span-4 flex items-center gap-3">
+                          <Avatar className="w-8 h-8 border border-[#3d2b1f]">
+                            <AvatarFallback className="bg-[#1a1614] text-[#d4af37] text-xs font-bold">
+                              {match.opponentUsername[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <p className="font-medium text-[#e8e0d5] truncate">
+                            {match.opponentUsername}
+                          </p>
+                        </div>
+
+                        {/* Rating Change */}
+                        <div className="col-span-2 text-center">
+                          {ratingChanged ? (
+                            <div className="flex items-center justify-center gap-1">
+                              {match.ratingChange > 0 ? (
+                                <TrendingUp className="w-4 h-4 text-green-400" />
+                              ) : (
+                                <TrendingDown className="w-4 h-4 text-red-400" />
                               )}
-                            >
-                              {match.ratingChange > 0 ? "+" : ""}
-                              {match.ratingChange}
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center">
-                            <Minus className="w-4 h-4 text-[#a89f94]" />
-                            <span className="text-[#a89f94] font-medium ml-1">0</span>
-                          </div>
-                        )}
-                      </div>
+                              <span
+                                className={cn(
+                                  "font-bold",
+                                  match.ratingChange > 0 ? "text-green-400" : "text-red-400"
+                                )}
+                              >
+                                {match.ratingChange > 0 ? "+" : ""}
+                                {match.ratingChange}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center">
+                              <Minus className="w-4 h-4 text-[#a89f94]" />
+                              <span className="text-[#a89f94] font-medium ml-1">0</span>
+                            </div>
+                          )}
+                        </div>
 
-                      {/* Rating Before */}
-                      <div className="col-span-2 text-center">
-                        <span className="text-[#a89f94]">{match.ratingBefore}</span>
-                      </div>
+                        {/* Rating Before */}
+                        <div className="col-span-2 text-center">
+                          <span className="text-[#a89f94]">{match.ratingBefore}</span>
+                        </div>
 
-                      {/* Rating After */}
-                      <div className="col-span-2 text-center">
-                        <span className="font-medium text-[#e8e0d5]">{match.ratingAfter}</span>
-                      </div>
+                        {/* Rating After */}
+                        <div className="col-span-2 text-center">
+                          <span className="font-medium text-[#e8e0d5]">{match.ratingAfter}</span>
+                        </div>
 
-                      {/* Time */}
-                      <div className="col-span-1 text-center">
-                        <span className="text-xs text-[#a89f94]">
-                          {new Date(match.completedAt).toLocaleDateString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </span>
+                        {/* Time */}
+                        <div className="col-span-1 text-center">
+                          <span className="text-xs text-[#a89f94]">
+                            {new Date(match.completedAt).toLocaleDateString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   );

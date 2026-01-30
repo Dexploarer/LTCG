@@ -98,12 +98,12 @@ export function CardPreviewModal({ card, isOpen, onClose, onFavorite }: CardPrev
       />
 
       {/* Modal */}
-      <div className="fixed inset-0 z-105 flex items-center justify-center p-4 pointer-events-none">
+      <div className="fixed inset-0 z-105 flex items-center justify-center p-2 sm:p-4 pointer-events-none">
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby="card-modal-title"
-          className="relative w-full max-w-2xl rounded-2xl tcg-chat-leather border border-[#3d2b1f] shadow-2xl pointer-events-auto animate-in zoom-in-95 fade-in duration-200 overflow-hidden"
+          className="relative w-full max-w-2xl max-h-[95vh] overflow-y-auto rounded-2xl tcg-chat-leather border border-[#3d2b1f] shadow-2xl pointer-events-auto animate-in zoom-in-95 fade-in duration-200 overflow-hidden"
           style={{
             boxShadow: `0 0 100px ${rarity.glow}`,
           }}
@@ -124,7 +124,7 @@ export function CardPreviewModal({ card, isOpen, onClose, onFavorite }: CardPrev
 
           <div className="flex flex-col md:flex-row">
             {/* Card Image Section */}
-            <div className="md:w-2/5 p-6 flex items-center justify-center bg-black/30">
+            <div className="md:w-2/5 p-4 sm:p-6 flex items-center justify-center bg-black/30">
               <div
                 className={cn(
                   "relative w-full max-w-[200px] aspect-[2.5/3.5] rounded-xl overflow-hidden border-2",
@@ -165,7 +165,7 @@ export function CardPreviewModal({ card, isOpen, onClose, onFavorite }: CardPrev
             </div>
 
             {/* Card Details Section */}
-            <div className="md:w-3/5 p-6">
+            <div className="md:w-3/5 p-4 sm:p-6">
               {/* Header */}
               <div className="flex items-start justify-between mb-4">
                 <div>
@@ -220,20 +220,20 @@ export function CardPreviewModal({ card, isOpen, onClose, onFavorite }: CardPrev
               {(card.attack !== undefined ||
                 card.defense !== undefined ||
                 card.cost !== undefined) && (
-                <div className="grid grid-cols-3 gap-3 mb-4">
-                  <div className="text-center p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
-                    <p className="text-2xl font-black text-blue-400">{card.cost}</p>
+                <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
+                  <div className="text-center p-2 sm:p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                    <p className="text-xl sm:text-2xl font-black text-blue-400">{card.cost}</p>
                     <p className="text-[9px] text-[#a89f94] uppercase tracking-wider">Cost</p>
                   </div>
                   {card.attack !== undefined && (
-                    <div className="text-center p-3 rounded-lg bg-red-500/10 border border-red-500/30">
-                      <p className="text-2xl font-black text-red-400">{card.attack}</p>
+                    <div className="text-center p-2 sm:p-3 rounded-lg bg-red-500/10 border border-red-500/30">
+                      <p className="text-xl sm:text-2xl font-black text-red-400">{card.attack}</p>
                       <p className="text-[9px] text-[#a89f94] uppercase tracking-wider">Attack</p>
                     </div>
                   )}
                   {card.defense !== undefined && (
-                    <div className="text-center p-3 rounded-lg bg-green-500/10 border border-green-500/30">
-                      <p className="text-2xl font-black text-green-400">{card.defense}</p>
+                    <div className="text-center p-2 sm:p-3 rounded-lg bg-green-500/10 border border-green-500/30">
+                      <p className="text-xl sm:text-2xl font-black text-green-400">{card.defense}</p>
                       <p className="text-[9px] text-[#a89f94] uppercase tracking-wider">Defense</p>
                     </div>
                   )}

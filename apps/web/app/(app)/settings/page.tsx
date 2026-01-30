@@ -279,8 +279,34 @@ export default function SettingsPage() {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Sidebar Navigation */}
-          <div className="lg:w-64 shrink-0">
+          {/* Mobile Tabs - Horizontal Scroll */}
+          <div className="lg:hidden">
+            <div className="flex gap-2 overflow-x-auto pb-2 px-1 -mx-1 hide-scrollbar">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    type="button"
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-lg transition-all whitespace-nowrap",
+                      isActive
+                        ? "bg-[#d4af37]/20 text-[#d4af37] border border-[#d4af37]/50"
+                        : "bg-black/40 border border-[#3d2b1f] text-[#a89f94]"
+                    )}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span className="font-medium text-sm">{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Desktop Sidebar Navigation */}
+          <div className="hidden lg:block lg:w-64 shrink-0">
             <nav className="p-2 rounded-xl bg-black/40 border border-[#3d2b1f]">
               {tabs.map((tab) => {
                 const Icon = tab.icon;

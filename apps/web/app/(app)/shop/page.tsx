@@ -300,15 +300,15 @@ export default function ShopPage() {
       <div className="absolute inset-0 bg-vignette z-0" />
 
       {/* Coming Soon Overlay */}
-      <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-        <div className="text-center p-8 max-w-md">
-          <div className="w-24 h-24 mx-auto mb-6 rounded-2xl bg-[#d4af37]/20 border border-[#d4af37]/30 flex items-center justify-center">
-            <Store className="w-12 h-12 text-[#d4af37]" />
+      <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div className="text-center p-6 sm:p-8 max-w-md">
+          <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-4 sm:mb-6 rounded-2xl bg-[#d4af37]/20 border border-[#d4af37]/30 flex items-center justify-center">
+            <Store className="w-10 h-10 sm:w-12 sm:h-12 text-[#d4af37]" />
           </div>
-          <h2 className="text-3xl font-black text-[#e8e0d5] uppercase tracking-tight mb-3">
+          <h2 className="text-2xl sm:text-3xl font-black text-[#e8e0d5] uppercase tracking-tight mb-3">
             Coming Soon
           </h2>
-          <p className="text-[#a89f94] text-lg mb-2">
+          <p className="text-[#a89f94] text-base sm:text-lg mb-2">
             The Shop & Marketplace is under construction.
           </p>
           <p className="text-[#a89f94]/70 text-sm">
@@ -326,7 +326,7 @@ export default function ShopPage() {
           </div>
 
           {/* Balance Display */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-yellow-500/20 border border-yellow-500/30">
               <Coins className="w-5 h-5 text-yellow-400" />
               <span data-testid="player-gold" className="text-lg font-bold text-yellow-300">
@@ -343,7 +343,7 @@ export default function ShopPage() {
         </div>
 
         {/* Main Tabs */}
-        <div className="flex gap-2 mb-8 p-1 bg-black/40 rounded-xl border border-[#3d2b1f] w-fit">
+        <div className="flex flex-wrap gap-2 mb-8 p-1 bg-black/40 rounded-xl border border-[#3d2b1f] w-fit">
           {[
             { id: "shop" as TabType, label: "Shop", icon: Store },
             { id: "marketplace" as TabType, label: "Marketplace", icon: Users },
@@ -358,14 +358,14 @@ export default function ShopPage() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all",
+                  "flex items-center gap-2 px-4 sm:px-6 py-3 rounded-lg font-medium transition-all text-sm sm:text-base",
                   isActive
                     ? "bg-[#d4af37] text-[#1a1614]"
                     : "text-[#a89f94] hover:text-[#e8e0d5] hover:bg-white/5"
                 )}
               >
-                <Icon className="w-5 h-5" />
-                <span>{tab.label}</span>
+                <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="whitespace-nowrap">{tab.label}</span>
                 {tab.id === "myListings" && listingCount > 0 && (
                   <span className="ml-1 px-1.5 py-0.5 text-xs font-bold rounded-full bg-[#d4af37]/20 text-[#d4af37]">
                     {listingCount}

@@ -450,17 +450,17 @@ function BinderContent() {
               </p>
             </div>
 
-            <div className="flex items-center gap-6 bg-black/30 p-4 rounded-xl border border-[#3d2b1f]">
+            <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 bg-black/30 p-4 rounded-xl border border-[#3d2b1f]">
               <div className="text-center">
                 <p className="text-3xl font-black text-[#d4af37]">{stats.totalUnique}</p>
                 <p className="text-[9px] text-[#a89f94] uppercase tracking-wider">Unique</p>
               </div>
-              <div className="w-px h-12 bg-[#3d2b1f]" />
+              <div className="hidden sm:block w-px h-12 bg-[#3d2b1f]" />
               <div className="text-center">
                 <p className="text-3xl font-black text-[#e8e0d5]">{stats.totalCards}</p>
                 <p className="text-[9px] text-[#a89f94] uppercase tracking-wider">Total</p>
               </div>
-              <div className="w-px h-12 bg-[#3d2b1f]" />
+              <div className="hidden sm:block w-px h-12 bg-[#3d2b1f]" />
               <div className="text-center">
                 <p className="text-3xl font-black text-pink-400">{stats.favorites}</p>
                 <p className="text-[9px] text-[#a89f94] uppercase tracking-wider">Favorites</p>
