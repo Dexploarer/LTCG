@@ -12,6 +12,18 @@ import { ConvexClient } from 'convex/browser';
 import type { GameStateCallback, TurnNotificationCallback, GameEventCallback, Subscription } from './events';
 import type { GameStateResponse, GameEvent } from '../types/api';
 
+/**
+ * Interface for ConvexClient methods used by ConvexRealtimeClient.
+ * This allows for dependency injection of a mock client in tests.
+ */
+export interface IConvexClient {
+  setAuth(fetchToken: () => Promise<string | null | undefined>): void;
+  clearAuth(): void;
+  onUpdate<T>(query: any, args: any, callback: (result: T) => void): () => void;
+  query<T>(query: any, args: any): Promise<T>;
+  close(): void;
+}
+
 export interface ConvexRealtimeClientConfig {
   /**
    * Convex deployment URL
@@ -34,6 +46,12 @@ export interface ConvexRealtimeClientConfig {
    * Connection timeout in milliseconds
    */
   connectionTimeout?: number;
+
+  /**
+   * Optional injected client for testing purposes.
+   * @internal
+   */
+  _testClient?: IConvexClient;
 }
 
 /**
@@ -43,7 +61,7 @@ export interface ConvexRealtimeClientConfig {
  * and game events using Convex's reactive query system.
  */
 export class ConvexRealtimeClient {
-  private client: ConvexClient;
+  private client: IConvexClient;
   private subscriptions: Map<string, Subscription>;
   private debug: boolean;
   private isConnected: boolean;
@@ -54,7 +72,8 @@ export class ConvexRealtimeClient {
       throw new Error('Convex URL is required');
     }
 
-    this.client = new ConvexClient(config.convexUrl);
+    // Use injected test client if provided, otherwise create real ConvexClient
+    this.client = config._testClient ?? new ConvexClient(config.convexUrl);
     this.subscriptions = new Map();
     this.debug = config.debug ?? false;
     this.isConnected = false;

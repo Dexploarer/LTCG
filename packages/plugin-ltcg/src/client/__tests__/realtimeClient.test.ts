@@ -3,25 +3,30 @@
  * Converted to bun:test for ElizaOS pattern compatibility
  *
  * Tests WebSocket-based real-time subscriptions using mocked ConvexClient
- *
- * NOTE: Some tests that require module mocking (vi.mock) are skipped when
- * running with bun:test as it doesn't support module mocking. These tests
- * verify constructor behavior (throw requirements, basic instantiation).
+ * via dependency injection pattern (_testClient config option).
  */
 
 import { describe, it, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test';
-import { ConvexRealtimeClient } from '../realtimeClient';
+import { ConvexRealtimeClient, type IConvexClient } from '../realtimeClient';
 import type { GameStateResponse, GameEvent } from '../../types/api';
 
-// Mock ConvexClient methods - these are placeholders when vi.mock is not available
+// Mock ConvexClient methods using bun:test mock
 const mockOnUpdate = mock();
 const mockSetAuth = mock();
 const mockClearAuth = mock();
 const mockClose = mock();
 const mockQuery = mock();
 
-// Note: bun:test doesn't support vi.mock for module mocking
-// Tests requiring ConvexClient mocking will be limited to basic functionality
+// Create a mock ConvexClient that implements IConvexClient interface
+function createMockConvexClient(): IConvexClient {
+  return {
+    setAuth: mockSetAuth,
+    clearAuth: mockClearAuth,
+    onUpdate: mockOnUpdate,
+    query: mockQuery,
+    close: mockClose,
+  };
+}
 
 describe('ConvexRealtimeClient', () => {
   const TEST_CONVEX_URL = 'https://test-deployment.convex.cloud';
@@ -30,6 +35,7 @@ describe('ConvexRealtimeClient', () => {
   const TEST_USER_ID = 'test-user-456';
 
   let client: ConvexRealtimeClient;
+  let mockClient: IConvexClient;
 
   beforeEach(() => {
     // Clear all mocks before each test
@@ -38,6 +44,9 @@ describe('ConvexRealtimeClient', () => {
     mockClearAuth.mockReset();
     mockClose.mockReset();
     mockQuery.mockReset();
+
+    // Create fresh mock client for each test
+    mockClient = createMockConvexClient();
   });
 
   afterEach(() => {
@@ -46,42 +55,44 @@ describe('ConvexRealtimeClient', () => {
     }
   });
 
+  // Helper to create client with mock injected
+  function createTestClient(config: { convexUrl?: string; authToken?: string; debug?: boolean } = {}) {
+    return new ConvexRealtimeClient({
+      convexUrl: config.convexUrl ?? TEST_CONVEX_URL,
+      authToken: config.authToken,
+      debug: config.debug,
+      _testClient: mockClient,
+    });
+  }
+
   // ============================================================================
   // Constructor Tests
   // ============================================================================
 
   describe('constructor', () => {
     it('should create client with required config', () => {
-      client = new ConvexRealtimeClient({
-        convexUrl: TEST_CONVEX_URL,
-      });
+      client = createTestClient();
 
       expect(client).toBeInstanceOf(ConvexRealtimeClient);
       expect(client.isClientConnected()).toBe(true);
     });
 
     it('should create client with auth token', () => {
-      client = new ConvexRealtimeClient({
-        convexUrl: TEST_CONVEX_URL,
-        authToken: TEST_AUTH_TOKEN,
-      });
+      client = createTestClient({ authToken: TEST_AUTH_TOKEN });
 
       expect(mockSetAuth).toHaveBeenCalledWith(expect.any(Function));
     });
 
     it('should throw if Convex URL is missing', () => {
       expect(() => {
-        new ConvexRealtimeClient({ convexUrl: '' });
+        new ConvexRealtimeClient({ convexUrl: '', _testClient: mockClient });
       }).toThrow('Convex URL is required');
     });
 
     it('should enable debug mode when specified', () => {
       const consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
 
-      client = new ConvexRealtimeClient({
-        convexUrl: TEST_CONVEX_URL,
-        debug: true,
-      });
+      client = createTestClient({ debug: true });
 
       expect(consoleSpy).toHaveBeenCalledWith(
         expect.stringContaining('[ConvexRealtimeClient] Client initialized')
@@ -97,9 +108,7 @@ describe('ConvexRealtimeClient', () => {
 
   describe('authentication', () => {
     beforeEach(() => {
-      client = new ConvexRealtimeClient({
-        convexUrl: TEST_CONVEX_URL,
-      });
+      client = createTestClient();
     });
 
     it('should set authentication token', () => {
@@ -113,10 +122,7 @@ describe('ConvexRealtimeClient', () => {
     });
 
     it('should log auth changes in debug mode', () => {
-      client = new ConvexRealtimeClient({
-        convexUrl: TEST_CONVEX_URL,
-        debug: true,
-      });
+      client = createTestClient({ debug: true });
 
       const consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
 
@@ -140,9 +146,7 @@ describe('ConvexRealtimeClient', () => {
 
   describe('subscribeToGame', () => {
     beforeEach(() => {
-      client = new ConvexRealtimeClient({
-        convexUrl: TEST_CONVEX_URL,
-      });
+      client = createTestClient();
 
       // Mock unsubscribe function
       mockOnUpdate.mockReturnValue(() => {
@@ -260,9 +264,7 @@ describe('ConvexRealtimeClient', () => {
 
   describe('subscribeToTurnNotifications', () => {
     beforeEach(() => {
-      client = new ConvexRealtimeClient({
-        convexUrl: TEST_CONVEX_URL,
-      });
+      client = createTestClient();
 
       mockOnUpdate.mockReturnValue(() => {});
       mockQuery.mockResolvedValue({
@@ -381,9 +383,7 @@ describe('ConvexRealtimeClient', () => {
 
   describe('subscribeToGameEvents', () => {
     beforeEach(() => {
-      client = new ConvexRealtimeClient({
-        convexUrl: TEST_CONVEX_URL,
-      });
+      client = createTestClient();
 
       mockOnUpdate.mockReturnValue(() => {});
     });
@@ -498,9 +498,7 @@ describe('ConvexRealtimeClient', () => {
 
   describe('subscription management', () => {
     beforeEach(() => {
-      client = new ConvexRealtimeClient({
-        convexUrl: TEST_CONVEX_URL,
-      });
+      client = createTestClient();
 
       mockOnUpdate.mockReturnValue(() => {});
     });
@@ -554,10 +552,7 @@ describe('ConvexRealtimeClient', () => {
 
       mockOnUpdate.mockReturnValue(mockUnsubscribe);
 
-      client = new ConvexRealtimeClient({
-        convexUrl: TEST_CONVEX_URL,
-        debug: true,
-      });
+      client = createTestClient({ debug: true });
 
       const consoleSpy = spyOn(console, 'error').mockImplementation(() => {});
 
@@ -615,9 +610,7 @@ describe('ConvexRealtimeClient', () => {
 
   describe('client lifecycle', () => {
     it('should close client and clean up subscriptions', () => {
-      client = new ConvexRealtimeClient({
-        convexUrl: TEST_CONVEX_URL,
-      });
+      client = createTestClient();
 
       const callback = mock();
       const mockUnsubscribe = mock();
@@ -639,10 +632,7 @@ describe('ConvexRealtimeClient', () => {
     });
 
     it('should log close action in debug mode', () => {
-      client = new ConvexRealtimeClient({
-        convexUrl: TEST_CONVEX_URL,
-        debug: true,
-      });
+      client = createTestClient({ debug: true });
 
       const consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
 
@@ -662,10 +652,7 @@ describe('ConvexRealtimeClient', () => {
 
   describe('debug logging', () => {
     it('should log subscription actions in debug mode', () => {
-      client = new ConvexRealtimeClient({
-        convexUrl: TEST_CONVEX_URL,
-        debug: true,
-      });
+      client = createTestClient({ debug: true });
 
       const consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
       const callback = mock();
@@ -682,10 +669,7 @@ describe('ConvexRealtimeClient', () => {
     });
 
     it('should log duplicate subscription attempts in debug mode', () => {
-      client = new ConvexRealtimeClient({
-        convexUrl: TEST_CONVEX_URL,
-        debug: true,
-      });
+      client = createTestClient({ debug: true });
 
       const consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
       const callback = mock();
