@@ -1,11 +1,12 @@
 "use client";
 
 import { useLogin, usePrivy } from "@privy-io/react-auth";
+import { useConvexAuth } from "convex/react";
 import { motion } from "framer-motion";
 import { ArrowRight, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiAny, useConvexMutation } from "@/lib/convexHelpers";
 
 interface AuthFormProps {
@@ -13,45 +14,82 @@ interface AuthFormProps {
 }
 
 export function AuthForm({ mode }: AuthFormProps) {
-  const { ready, authenticated } = usePrivy();
+  const { ready, authenticated, user } = usePrivy();
+  const { isAuthenticated: convexAuthenticated, isLoading: convexLoading } = useConvexAuth();
   const router = useRouter();
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingSync, setPendingSync] = useState(false);
+  const syncAttempted = useRef(false);
 
   const createOrGetUser = useConvexMutation(apiAny.auth.syncUser.createOrGetUser);
 
   const isSignUp = mode === "signUp";
 
+  // Debug logging
+  useEffect(() => {
+    console.log("[AUTH] State:", {
+      privyReady: ready,
+      privyAuthenticated: authenticated,
+      convexAuthenticated,
+      convexLoading,
+      pendingSync,
+      syncing,
+    });
+  }, [ready, authenticated, convexAuthenticated, convexLoading, pendingSync, syncing]);
+
+  // When Convex becomes authenticated and we have a pending sync, perform the sync
+  useEffect(() => {
+    async function syncUser() {
+      if (pendingSync && convexAuthenticated && !convexLoading && !syncAttempted.current) {
+        syncAttempted.current = true;
+        console.log("[AUTH] Convex authenticated, syncing user...");
+        setSyncing(true);
+        setPendingSync(false);
+
+        try {
+          const result = await createOrGetUser({
+            email: user?.email?.address,
+          });
+
+          console.log("[AUTH] User synced:", result);
+
+          // If new user without username, redirect to username setup
+          if (result.isNewUser || !result.hasUsername) {
+            router.push("/setup-username");
+          } else {
+            router.push("/lunchtable");
+          }
+        } catch (err) {
+          console.error("[AUTH] Failed to sync user:", err);
+          setError("Failed to set up your account. Please try again.");
+          setSyncing(false);
+          syncAttempted.current = false;
+        }
+      }
+    }
+
+    syncUser();
+  }, [pendingSync, convexAuthenticated, convexLoading, createOrGetUser, user, router]);
+
   // Use the useLogin hook with onComplete callback per Privy docs
   // onComplete fires after auth AND wallet creation (if configured)
   const { login } = useLogin({
-    onComplete: async ({ user, isNewUser: _isNewUser, wasAlreadyAuthenticated }) => {
+    onComplete: async ({ wasAlreadyAuthenticated }) => {
+      console.log("[AUTH] Privy onComplete:", { wasAlreadyAuthenticated });
+
       // Skip if already authenticated (user was already logged in)
       if (wasAlreadyAuthenticated) {
         router.push("/lunchtable");
         return;
       }
 
-      setSyncing(true);
-      try {
-        const result = await createOrGetUser({
-          email: user.email?.address,
-        });
-
-        // If new user without username, redirect to username setup
-        if (result.isNewUser || !result.hasUsername) {
-          router.push("/setup-username");
-        } else {
-          router.push("/lunchtable");
-        }
-      } catch (err) {
-        console.error("Failed to sync user:", err);
-        setError("Failed to set up your account. Please try again.");
-        setSyncing(false);
-      }
+      // Mark that we need to sync once Convex is authenticated
+      setPendingSync(true);
+      syncAttempted.current = false;
     },
     onError: (error) => {
-      console.error("Login error:", error);
+      console.error("[AUTH] Login error:", error);
       setError("Login failed. Please try again.");
     },
   });
