@@ -27,7 +27,8 @@ describe('Plugin Configuration Schema', () => {
 
   it('should accept valid configuration', async () => {
     const validConfig = {
-      EXAMPLE_PLUGIN_VARIABLE: 'valid-value',
+      LTCG_API_KEY: 'valid-api-key',
+      CONVEX_URL: 'https://example.convex.cloud',
     };
 
     if (initPlugin) {
@@ -41,7 +42,8 @@ describe('Plugin Configuration Schema', () => {
     }
   });
 
-  it('should accept empty configuration', async () => {
+  it('should accept empty configuration with warnings', async () => {
+    // The plugin accepts empty config but logs warnings about missing keys
     const emptyConfig = {};
 
     if (initPlugin) {
@@ -51,13 +53,14 @@ describe('Plugin Configuration Schema', () => {
       } catch (e) {
         error = e as Error;
       }
+      // Should not throw - all config values are optional
       expect(error).toBeNull();
     }
   });
 
   it('should accept configuration with additional properties', async () => {
     const configWithExtra = {
-      EXAMPLE_PLUGIN_VARIABLE: 'valid-value',
+      LTCG_API_KEY: 'valid-api-key',
       EXTRA_PROPERTY: 'should be ignored',
     };
 
@@ -72,9 +75,9 @@ describe('Plugin Configuration Schema', () => {
     }
   });
 
-  it('should reject invalid configuration', async () => {
+  it('should reject invalid LTCG_BASE_URL configuration', async () => {
     const invalidConfig = {
-      EXAMPLE_PLUGIN_VARIABLE: '', // Empty string violates min length
+      LTCG_BASE_URL: 'not-a-valid-url', // Invalid URL format
     };
 
     if (initPlugin) {
@@ -84,40 +87,47 @@ describe('Plugin Configuration Schema', () => {
       } catch (e) {
         error = e as Error;
       }
+      // Should throw because LTCG_BASE_URL must be a valid URL
       expect(error).not.toBeNull();
+      expect(error?.message).toContain('Invalid LTCG plugin configuration');
     }
   });
 
   it('should set environment variables from valid config', async () => {
     const testConfig = {
-      EXAMPLE_PLUGIN_VARIABLE: 'test-value',
+      LTCG_API_KEY: 'test-api-key',
+      CONVEX_URL: 'https://test.convex.cloud',
     };
 
     if (initPlugin) {
-      // Ensure env variable doesn't exist beforehand
-      delete process.env.EXAMPLE_PLUGIN_VARIABLE;
+      // Ensure env variables don't exist beforehand
+      delete process.env.LTCG_API_KEY;
+      delete process.env.CONVEX_URL;
 
       // Initialize with config
       await initPlugin(testConfig, createMockRuntime());
 
-      // Verify environment variable was set
-      expect(process.env.EXAMPLE_PLUGIN_VARIABLE).toBe('test-value');
+      // Verify environment variables were set
+      expect(process.env.LTCG_API_KEY).toBe('test-api-key');
+      expect(process.env.CONVEX_URL).toBe('https://test.convex.cloud');
     }
   });
 
-  it('should not override existing environment variables', async () => {
-    // Set environment variable before initialization
-    process.env.EXAMPLE_PLUGIN_VARIABLE = 'pre-existing-value';
-
+  it('should set boolean config values as strings', async () => {
     const testConfig = {
-      // Omit the variable to test that existing env vars aren't overridden
+      LTCG_AUTO_MATCHMAKING: 'true',
+      LTCG_DEBUG_MODE: 'false',
     };
 
     if (initPlugin) {
+      delete process.env.LTCG_AUTO_MATCHMAKING;
+      delete process.env.LTCG_DEBUG_MODE;
+
       await initPlugin(testConfig, createMockRuntime());
 
-      // Verify environment variable was not changed
-      expect(process.env.EXAMPLE_PLUGIN_VARIABLE).toBe('pre-existing-value');
+      // Boolean values are transformed and stored
+      expect(process.env.LTCG_AUTO_MATCHMAKING).toBe('true');
+      expect(process.env.LTCG_DEBUG_MODE).toBe('false');
     }
   });
 
@@ -125,18 +135,16 @@ describe('Plugin Configuration Schema', () => {
     // Create a mock of zod's parseAsync that throws a ZodError
     const mockZodError = new z.ZodError([
       {
-        code: z.ZodIssueCode.too_small,
-        minimum: 1,
-        type: 'string',
-        inclusive: true,
-        message: 'Example plugin variable is too short',
-        path: ['EXAMPLE_PLUGIN_VARIABLE'],
+        code: z.ZodIssueCode.invalid_string,
+        validation: 'url',
+        message: 'LTCG_BASE_URL must be a valid URL',
+        path: ['LTCG_BASE_URL'],
       },
     ]);
 
     // Create a simple schema for mocking
     const schema = z.object({
-      EXAMPLE_PLUGIN_VARIABLE: z.string().min(1),
+      LTCG_BASE_URL: z.string().url(),
     });
 
     // Mock the parseAsync function
@@ -162,7 +170,7 @@ describe('Plugin Configuration Schema', () => {
 
     // Create a simple schema for mocking
     const schema = z.object({
-      EXAMPLE_PLUGIN_VARIABLE: z.string().min(1),
+      LTCG_API_KEY: z.string().min(1),
     });
 
     // Mock the parseAsync function
