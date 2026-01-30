@@ -7,6 +7,7 @@
 
 // Import at runtime only (not for type checking) to avoid TS2589
 const api: any = require("../_generated/api").api;
+const internal: any = require("../_generated/api").internal;
 import {
   authHttpAction,
 } from "./middleware/auth";
@@ -19,19 +20,21 @@ import {
   validateRequiredFields,
 } from "./middleware/responses";
 
-// Helper to break type inference chain for deeply nested queries
+// Query mapping to avoid dynamic code generation (not allowed in Convex runtime)
+const queryMap: Record<string, any> = {
+  "gameplay.games.queries.getActiveLobby": api.gameplay.games.queries.getActiveLobby,
+  "gameplay.games.queries.getGameStateForPlayer": api.gameplay.games.queries.getGameStateForPlayer,
+  "gameplay.gameEvents.getGameEvents": api.gameplay.gameEvents.getGameEvents,
+  // Internal queries for API key auth
+  "gameplay.games.queries.getGameStateForPlayerInternal": internal.gameplay.games.queries.getGameStateForPlayerInternal,
+};
+
+// Helper to run queries using the mapping
 async function runGameQuery(ctx: any, path: string, args: any): Promise<any> {
-  // Dynamically access the path to avoid type inference
-  // Using Function constructor to completely isolate from type system
-  const getQuery = new Function('api', 'path', `
-    const parts = path.split('.');
-    let result = api;
-    for (const part of parts) {
-      result = result[part];
-    }
-    return result;
-  `);
-  const query = getQuery(api, path);
+  const query = queryMap[path];
+  if (!query) {
+    throw new Error(`Query not found in mapping: ${path}`);
+  }
   return await ctx.runQuery(query, args);
 }
 
@@ -127,56 +130,33 @@ export const gameState = authHttpAction(async (ctx, request, auth) => {
       );
     }
 
-    // Get game state
-    const getStateArgs = { lobbyId: gameId as any }; // Cast to Id type
-    const state: any = await runGameQuery(ctx, "gameplay.games.queries.getGameStateForPlayer", getStateArgs);
+    // Get game state using internal query that accepts gameId string
+    const getStateArgs = { gameId, userId: auth.userId };
+    const state: any = await runGameQuery(ctx, "gameplay.games.queries.getGameStateForPlayerInternal", getStateArgs);
 
     if (!state) {
       return errorResponse("GAME_NOT_FOUND", "Game not found", 404);
     }
 
-    // Verify agent is a player in this game
-    const isPlayer =
-      state.hostId === auth.userId || state.opponentId === auth.userId;
-
-    if (!isPlayer) {
-      return errorResponse(
-        "NOT_A_PLAYER",
-        "You are not a player in this game",
-        403
-      );
-    }
-
     // Return formatted game state
     return successResponse({
-      gameId: state.lobbyId,
-      currentPhase: state.currentPhase,
+      gameId: state.gameId,
+      lobbyId: state.lobbyId,
+      phase: state.currentPhase,
       turnNumber: state.turnNumber,
       currentTurnPlayer: state.currentTurnPlayerId,
       isMyTurn: state.currentTurnPlayerId === auth.userId,
       myLifePoints: state.myLifePoints,
       opponentLifePoints: state.opponentLifePoints,
-      hand: state.hand, // Agent's hand cards
-      myField: {
-        monsters: state.myField.monsterZone,
-        spellTrapZone: state.myField.spellTrapZone,
-        fieldSpell: state.myField.fieldSpell,
-        graveyard: state.myGraveyard,
-        banished: state.myBanished,
-        deckCount: state.myDeckCount,
-      },
-      opponentField: {
-        monsters: state.opponentField.monsterZone,
-        spellTrapZone: state.opponentField.spellTrapZone,
-        fieldSpell: state.opponentField.fieldSpell,
-        graveyard: state.opponentGraveyard,
-        banished: state.opponentBanished,
-        deckCount: state.opponentDeckCount,
-        handCount: state.opponentHandCount,
-      },
-      hasNormalSummoned: state.hasNormalSummoned,
-      canActivate: state.canActivate,
-      chainState: state.chainState || null,
+      hand: state.hand,
+      myBoard: state.myBoard,
+      opponentBoard: state.opponentBoard,
+      myDeckCount: state.myDeckCount,
+      opponentDeckCount: state.opponentDeckCount,
+      myGraveyardCount: state.myGraveyardCount,
+      opponentGraveyardCount: state.opponentGraveyardCount,
+      opponentHandCount: state.opponentHandCount,
+      normalSummonedThisTurn: state.normalSummonedThisTurn,
     });
   } catch (error) {
     return errorResponse(
@@ -214,9 +194,9 @@ export const availableActions = authHttpAction(async (ctx, request, auth) => {
       );
     }
 
-    // Get game state
-    const getStateArgs = { lobbyId: gameId as any };
-    const state: any = await runGameQuery(ctx, "gameplay.games.queries.getGameStateForPlayer", getStateArgs);
+    // Get game state using internal query that accepts gameId string
+    const getStateArgs = { gameId, userId: auth.userId };
+    const state: any = await runGameQuery(ctx, "gameplay.games.queries.getGameStateForPlayerInternal", getStateArgs);
 
     if (!state) {
       return errorResponse("GAME_NOT_FOUND", "Game not found", 404);
@@ -244,17 +224,22 @@ export const availableActions = authHttpAction(async (ctx, request, auth) => {
     }
 
     // Main phase actions
+    // Note: myBoard is an array of monsters on the field (from internal query)
+    const myMonsters = state.myBoard || [];
+    const mySpellTraps = state.mySpellTrapZone || [];
+
     if (phase === "main1" || phase === "main2") {
       // Can summon if haven't already
-      if (!state.hasNormalSummoned) {
+      if (!state.normalSummonedThisTurn) {
+        // Use cardType (not type) to match the schema
         const summonableMonsters = state.hand.filter(
-          (card: any) => card.type === "creature"
+          (card: any) => card.cardType === "creature" && (card.cost || 0) <= 4
         );
         if (summonableMonsters.length > 0) {
           actions.push({
             action: "NORMAL_SUMMON",
             description: "Summon a monster from hand",
-            availableCards: summonableMonsters.map((c: any) => c.cardDefinitionId),
+            availableCards: summonableMonsters.map((c: any) => c._id),
           });
         }
       }
@@ -266,18 +251,32 @@ export const availableActions = authHttpAction(async (ctx, request, auth) => {
       });
 
       // Can activate spells
-      const spellsInHand = state.hand.filter((card: any) => card.type === "spell");
+      const spellsInHand = state.hand.filter((card: any) => card.cardType === "spell");
       if (spellsInHand.length > 0) {
         actions.push({
           action: "ACTIVATE_SPELL",
           description: "Activate a spell card",
-          availableCards: spellsInHand.map((c: any) => c.cardDefinitionId),
+          availableCards: spellsInHand.map((c: any) => c._id),
         });
       }
 
+      // Can enter battle phase from main1 if we have monsters
+      if (phase === "main1" && myMonsters.length > 0) {
+        const attackableMonsters = myMonsters.filter(
+          (m: any) => m && !m.isFaceDown && m.position === 1 && !m.hasAttacked
+        );
+        if (attackableMonsters.length > 0) {
+          actions.push({
+            action: "ENTER_BATTLE_PHASE",
+            description: "Enter Battle Phase to attack",
+            attackableMonsters: attackableMonsters.length,
+          });
+        }
+      }
+
       // Can flip summon face-down monsters
-      const faceDownMonsters = state.myField.monsterZone.filter(
-        (slot: any) => slot && slot.isFaceDown
+      const faceDownMonsters = myMonsters.filter(
+        (monster: any) => monster && monster.isFaceDown
       );
       if (faceDownMonsters.length > 0) {
         actions.push({
@@ -287,8 +286,8 @@ export const availableActions = authHttpAction(async (ctx, request, auth) => {
       }
 
       // Can change positions
-      const monstersCanChangePosition = state.myField.monsterZone.filter(
-        (slot: any) => slot && !slot.isFaceDown && !slot.hasChangedPosition
+      const monstersCanChangePosition = myMonsters.filter(
+        (monster: any) => monster && !monster.isFaceDown && !monster.hasChangedPosition
       );
       if (monstersCanChangePosition.length > 0) {
         actions.push({
@@ -300,12 +299,12 @@ export const availableActions = authHttpAction(async (ctx, request, auth) => {
 
     // Battle phase actions
     if (phase === "battle") {
-      const monstersCanAttack = state.myField.monsterZone.filter(
-        (slot: any) =>
-          slot &&
-          !slot.isFaceDown &&
-          !slot.hasAttacked &&
-          slot.position === 1 // attack position
+      const monstersCanAttack = myMonsters.filter(
+        (monster: any) =>
+          monster &&
+          !monster.isFaceDown &&
+          !monster.hasAttacked &&
+          monster.position === 1 // attack position
       );
 
       if (monstersCanAttack.length > 0) {
@@ -318,8 +317,8 @@ export const availableActions = authHttpAction(async (ctx, request, auth) => {
     }
 
     // Can activate traps anytime
-    const setTraps = state.myField.spellTrapZone.filter(
-      (slot: any) => slot && slot.isFaceDown && slot.type === "trap"
+    const setTraps = mySpellTraps.filter(
+      (card: any) => card && card.isFaceDown && card.cardType === "trap"
     );
     if (setTraps.length > 0) {
       actions.push({
@@ -408,7 +407,7 @@ export const gameHistory = authHttpAction(async (ctx, request, _auth) => {
  * Normal summon a monster from hand to the field
  * Requires API key authentication
  */
-export const summonMonster = authHttpAction(async (ctx, request, _auth) => {
+export const summonMonster = authHttpAction(async (ctx, request, auth) => {
   // Handle CORS preflight
   if (request.method === "OPTIONS") {
     return corsPreflightResponse();
@@ -440,14 +439,15 @@ export const summonMonster = authHttpAction(async (ctx, request, _auth) => {
       );
     }
 
-    // Execute summon via game engine
+    // Execute summon via internal mutation that accepts gameId string
     const result: any = await ctx.runMutation(
-      (api as any).gameplay.gameEngine.summons.normalSummon,
+      internal.gameplay.gameEngine.summons.normalSummonInternal,
       {
-        lobbyId: body.gameId as any,
-        cardId: body.cardId as any,
+        gameId: body.gameId,
+        userId: auth.userId,
+        cardId: body.cardId,
         position: body.position,
-        tributeCardIds: body.tributeCardIds as any,
+        tributeCardIds: body.tributeCardIds,
       }
     );
 
@@ -1051,7 +1051,7 @@ export const chainResponse = authHttpAction(async (ctx, request, _auth) => {
  * Declare an attack with a monster
  * Requires API key authentication
  */
-export const attackMonster = authHttpAction(async (ctx, request, _auth) => {
+export const attackMonster = authHttpAction(async (ctx, request, auth) => {
   // Handle CORS preflight
   if (request.method === "OPTIONS") {
     return corsPreflightResponse();
@@ -1073,13 +1073,14 @@ export const attackMonster = authHttpAction(async (ctx, request, _auth) => {
     const validation = validateRequiredFields(body, ["gameId", "attackerCardId"]);
     if (validation) return validation;
 
-    // Execute attack via combat system
+    // Execute attack via internal mutation
     const result: any = await ctx.runMutation(
-      (api as any).gameplay.combatSystem.declareAttack,
+      internal.gameplay.combatSystem.declareAttackInternal,
       {
-        lobbyId: body.gameId as any,
-        attackerCardId: body.attackerCardId as any,
-        targetCardId: body.targetCardId as any,
+        gameId: body.gameId,
+        userId: auth.userId,
+        attackerCardId: body.attackerCardId,
+        targetCardId: body.targetCardId,
       }
     );
 
@@ -1137,11 +1138,11 @@ export const attackMonster = authHttpAction(async (ctx, request, _auth) => {
 });
 
 /**
- * POST /api/agents/games/actions/end-turn
- * End your turn and pass to opponent
+ * POST /api/agents/games/actions/enter-battle
+ * Enter Battle Phase from Main Phase 1
  * Requires API key authentication
  */
-export const endPlayerTurn = authHttpAction(async (ctx, request, _auth) => {
+export const enterBattlePhase = authHttpAction(async (ctx, request, auth) => {
   // Handle CORS preflight
   if (request.method === "OPTIONS") {
     return corsPreflightResponse();
@@ -1161,11 +1162,154 @@ export const endPlayerTurn = authHttpAction(async (ctx, request, _auth) => {
     const validation = validateRequiredFields(body, ["gameId"]);
     if (validation) return validation;
 
-    // Execute end turn via game engine
-    const result: any = await ctx.runMutation(
-      (api as any).gameplay.gameEngine.turns.endTurn,
+    // Look up game state
+    const getStateArgs = { gameId: body.gameId, userId: auth.userId };
+    const state: any = await runGameQuery(ctx, "gameplay.games.queries.getGameStateForPlayerInternal", getStateArgs);
+
+    if (!state) {
+      return errorResponse("GAME_NOT_FOUND", "Game not found", 404);
+    }
+
+    // Verify it's the player's turn
+    if (state.currentTurnPlayerId !== auth.userId) {
+      return errorResponse("NOT_YOUR_TURN", "It's not your turn", 403);
+    }
+
+    // Verify we're in main1
+    if (state.currentPhase !== "main1") {
+      return errorResponse(
+        "INVALID_PHASE",
+        "Can only enter Battle Phase from Main Phase 1",
+        400
+      );
+    }
+
+    // Update phase to battle
+    await ctx.runMutation(
+      internal.gameplay.gameEngine.phases.advanceToBattlePhaseInternal,
       {
-        lobbyId: body.gameId as any,
+        gameId: body.gameId,
+        userId: auth.userId,
+      }
+    );
+
+    return successResponse({
+      success: true,
+      phase: "battle",
+      message: "Entered Battle Phase",
+    });
+  } catch (error) {
+    return errorResponse(
+      "PHASE_CHANGE_FAILED",
+      "Failed to enter Battle Phase",
+      500,
+      { error: error instanceof Error ? error.message : String(error) }
+    );
+  }
+});
+
+/**
+ * POST /api/agents/games/actions/enter-main2
+ * Enter Main Phase 2 from Battle Phase
+ * Requires API key authentication
+ */
+export const enterMain2 = authHttpAction(async (ctx, request, auth) => {
+  // Handle CORS preflight
+  if (request.method === "OPTIONS") {
+    return corsPreflightResponse();
+  }
+
+  if (request.method !== "POST") {
+    return errorResponse("METHOD_NOT_ALLOWED", "Only POST method is allowed", 405);
+  }
+
+  try {
+    const body = await parseJsonBody<{
+      gameId: string;
+    }>(request);
+
+    if (body instanceof Response) return body;
+
+    const validation = validateRequiredFields(body, ["gameId"]);
+    if (validation) return validation;
+
+    // Look up game state
+    const getStateArgs = { gameId: body.gameId, userId: auth.userId };
+    const state: any = await runGameQuery(ctx, "gameplay.games.queries.getGameStateForPlayerInternal", getStateArgs);
+
+    if (!state) {
+      return errorResponse("GAME_NOT_FOUND", "Game not found", 404);
+    }
+
+    // Verify it's the player's turn
+    if (state.currentTurnPlayerId !== auth.userId) {
+      return errorResponse("NOT_YOUR_TURN", "It's not your turn", 403);
+    }
+
+    // Verify we're in battle phase
+    if (state.currentPhase !== "battle") {
+      return errorResponse(
+        "INVALID_PHASE",
+        "Can only enter Main Phase 2 from Battle Phase",
+        400
+      );
+    }
+
+    // Update phase to main2
+    await ctx.runMutation(
+      internal.gameplay.gameEngine.phases.advanceToMainPhase2Internal,
+      {
+        gameId: body.gameId,
+        userId: auth.userId,
+      }
+    );
+
+    return successResponse({
+      success: true,
+      phase: "main2",
+      message: "Entered Main Phase 2",
+    });
+  } catch (error) {
+    return errorResponse(
+      "PHASE_CHANGE_FAILED",
+      "Failed to enter Main Phase 2",
+      500,
+      { error: error instanceof Error ? error.message : String(error) }
+    );
+  }
+});
+
+/**
+ * POST /api/agents/games/actions/end-turn
+ * End your turn and pass to opponent
+ * Requires API key authentication
+ */
+export const endPlayerTurn = authHttpAction(async (ctx, request, auth) => {
+  // Handle CORS preflight
+  if (request.method === "OPTIONS") {
+    return corsPreflightResponse();
+  }
+
+  if (request.method !== "POST") {
+    return errorResponse("METHOD_NOT_ALLOWED", "Only POST method is allowed", 405);
+  }
+
+  try {
+    const body = await parseJsonBody<{
+      gameId: string;
+    }>(request);
+
+    if (body instanceof Response) return body;
+
+    const validation = validateRequiredFields(body, ["gameId"]);
+    if (validation) return validation;
+
+    // Execute end turn via internal mutation that accepts gameId string
+    const result: any = await ctx.runMutation(
+      internal.gameplay.gameEngine.turns.endTurnInternal,
+      {
+        gameId: body.gameId,
+        userId: auth.userId,
       }
     );
 

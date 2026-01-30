@@ -75,6 +75,7 @@ import type * as gameplay_effectSystem_parser from "../gameplay/effectSystem/par
 import type * as gameplay_effectSystem_selectionHandler from "../gameplay/effectSystem/selectionHandler.js";
 import type * as gameplay_effectSystem_types from "../gameplay/effectSystem/types.js";
 import type * as gameplay_gameEngine_index from "../gameplay/gameEngine/index.js";
+import type * as gameplay_gameEngine_phases from "../gameplay/gameEngine/phases.js";
 import type * as gameplay_gameEngine_positions from "../gameplay/gameEngine/positions.js";
 import type * as gameplay_gameEngine_selectionEffects from "../gameplay/gameEngine/selectionEffects.js";
 import type * as gameplay_gameEngine_spellsTraps from "../gameplay/gameEngine/spellsTraps.js";
@@ -249,6 +250,7 @@ declare const fullApi: ApiFromModules<{
   "gameplay/effectSystem/selectionHandler": typeof gameplay_effectSystem_selectionHandler;
   "gameplay/effectSystem/types": typeof gameplay_effectSystem_types;
   "gameplay/gameEngine/index": typeof gameplay_gameEngine_index;
+  "gameplay/gameEngine/phases": typeof gameplay_gameEngine_phases;
   "gameplay/gameEngine/positions": typeof gameplay_gameEngine_positions;
   "gameplay/gameEngine/selectionEffects": typeof gameplay_gameEngine_selectionEffects;
   "gameplay/gameEngine/spellsTraps": typeof gameplay_gameEngine_spellsTraps;

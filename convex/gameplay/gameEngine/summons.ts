@@ -8,7 +8,7 @@
  */
 
 import { v } from "convex/values";
-import { mutation } from "../../_generated/server";
+import { internalMutation, mutation } from "../../_generated/server";
 import { requireAuthMutation } from "../../lib/convexAuth";
 import { ErrorCode, createError } from "../../lib/errorCodes";
 import { moveCard } from "../../lib/gameHelpers";
@@ -648,6 +648,156 @@ export const flipSummon = mutation({
       cardFlipped: card.name,
       position: args.newPosition,
       flipEffect: flipEffectResult.message,
+    };
+  },
+});
+
+/**
+ * Normal Summon (Internal)
+ *
+ * Internal mutation for API-based summon.
+ * Accepts gameId string and userId for story mode support.
+ */
+export const normalSummonInternal = internalMutation({
+  args: {
+    gameId: v.string(),
+    userId: v.id("users"),
+    cardId: v.string(),
+    position: v.union(v.literal("attack"), v.literal("defense")),
+    tributeCardIds: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    // 1. Find game state by gameId
+    const gameState = await ctx.db
+      .query("gameStates")
+      .withIndex("by_game_id", (q) => q.eq("gameId", args.gameId))
+      .first();
+
+    if (!gameState) {
+      throw createError(ErrorCode.GAME_STATE_NOT_FOUND, {
+        reason: "Game not found",
+        gameId: args.gameId,
+      });
+    }
+
+    // 2. Get lobby
+    const lobby = await ctx.db.get(gameState.lobbyId);
+    if (!lobby) {
+      throw createError(ErrorCode.NOT_FOUND_LOBBY);
+    }
+
+    // 3. Validate it's the current player's turn
+    if (lobby.currentTurnPlayerId !== args.userId) {
+      throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
+    }
+
+    // 4. Get user info
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw createError(ErrorCode.NOT_FOUND_USER);
+    }
+    const username = user.username ?? user.name ?? "Unknown";
+
+    const isHost = args.userId === gameState.hostId;
+    const hand = isHost ? gameState.hostHand : gameState.opponentHand;
+    const board = isHost ? gameState.hostBoard : gameState.opponentBoard;
+
+    // 5. Check if already summoned
+    const alreadySummoned = isHost
+      ? gameState.hostNormalSummonedThisTurn
+      : gameState.opponentNormalSummonedThisTurn;
+
+    if (alreadySummoned) {
+      throw createError(ErrorCode.GAME_INVALID_MOVE, {
+        reason: "You have already Normal Summoned this turn",
+      });
+    }
+
+    // 6. Find the card in hand
+    const cardIdAsId = args.cardId as any;
+    if (!hand.includes(cardIdAsId)) {
+      throw createError(ErrorCode.GAME_INVALID_MOVE, {
+        reason: "Card not in hand",
+        cardId: args.cardId,
+      });
+    }
+
+    // 7. Get card details from cardDefinitions table
+    const card = await ctx.db
+      .query("cardDefinitions")
+      .filter((q) => q.eq(q.field("_id"), cardIdAsId))
+      .first();
+
+    if (!card) {
+      throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
+        reason: "Card not found",
+        cardId: args.cardId,
+      });
+    }
+
+    // 8. Validate monster zone has space
+    validateMonsterZone(board, 5);
+
+    // 9. Remove card from hand
+    const newHand = hand.filter((c: any) => c !== cardIdAsId);
+
+    // 10. Add card to board
+    const positionValue = args.position === "attack" ? 1 : -1;
+
+    // Parse ability for protection flags
+    let protectionFlags: any = {};
+    const parsedAbility = getCardAbility(card);
+    const firstEffect = parsedAbility?.effects[0];
+    if (firstEffect?.protection) {
+      protectionFlags = {
+        cannotBeDestroyedByBattle: firstEffect.protection.cannotBeDestroyedByBattle,
+        cannotBeDestroyedByEffects: firstEffect.protection.cannotBeDestroyedByEffects,
+        cannotBeTargeted: firstEffect.protection.cannotBeTargeted,
+      };
+    }
+
+    const newBoardCard = {
+      cardId: cardIdAsId,
+      position: positionValue,
+      attack: card.attack || 0,
+      defense: card.defense || 0,
+      hasAttacked: false,
+      isFaceDown: false,
+      ...protectionFlags,
+    };
+
+    const newBoard = [...board, newBoardCard];
+
+    // 11. Update game state
+    await ctx.db.patch(gameState._id, {
+      [isHost ? "hostHand" : "opponentHand"]: newHand,
+      [isHost ? "hostBoard" : "opponentBoard"]: newBoard,
+      [isHost ? "hostNormalSummonedThisTurn" : "opponentNormalSummonedThisTurn"]: true,
+    });
+
+    // 12. Record summon event
+    await recordEventHelper(ctx, {
+      lobbyId: gameState.lobbyId,
+      gameId: args.gameId,
+      turnNumber: lobby.turnNumber ?? 0,
+      eventType: "normal_summon",
+      playerId: args.userId,
+      playerUsername: username,
+      description: `${username} Normal Summoned ${card.name} in ${args.position} position`,
+      metadata: {
+        cardId: args.cardId,
+        cardName: card.name,
+        position: args.position,
+        attack: card.attack,
+        defense: card.defense,
+      },
+    });
+
+    return {
+      success: true,
+      cardSummoned: card.name,
+      position: args.position,
+      tributesUsed: 0,
     };
   },
 });

@@ -54,6 +54,8 @@ export const API_ENDPOINTS = {
   ACTION_CHAIN_RESPONSE: '/api/agents/games/actions/chain-response',
   ACTION_END_TURN: '/api/agents/games/actions/end-turn',
   ACTION_SURRENDER: '/api/agents/games/actions/surrender',
+  ACTION_ENTER_BATTLE: '/api/agents/games/actions/enter-battle',
+  ACTION_ENTER_MAIN2: '/api/agents/games/actions/enter-main2',
 
   // Matchmaking
   MATCHMAKING_ENTER: '/api/agents/matchmaking/enter',

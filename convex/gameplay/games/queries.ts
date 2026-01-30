@@ -1070,3 +1070,113 @@ export const getCurrentPhaseInfo = query({
     };
   },
 });
+
+/**
+ * Get game state by gameId string (internal - for API key auth)
+ * Looks up the game by gameId string instead of lobbyId
+ */
+export const getGameStateForPlayerInternal = internalQuery({
+  args: {
+    gameId: v.string(),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    // First, find the game state by gameId string
+    const gameState = await ctx.db
+      .query("gameStates")
+      .withIndex("by_game_id", (q) => q.eq("gameId", args.gameId))
+      .first();
+
+    if (!gameState) {
+      return null;
+    }
+
+    // Get the lobby
+    const lobby = await ctx.db.get(gameState.lobbyId);
+    if (!lobby) {
+      return null;
+    }
+
+    // Verify user is in this game
+    if (lobby.hostId !== args.userId && lobby.opponentId !== args.userId) {
+      return null;
+    }
+
+    // Return null if game is not active
+    if (lobby.status !== "active") {
+      return null;
+    }
+
+    // Determine if user is host
+    const isHost = lobby.hostId === args.userId;
+
+    // Helper to fetch card data
+    const getCardData = async (cardId: Id<"cardDefinitions">) => {
+      return await ctx.db.get(cardId);
+    };
+
+    // Get player's hand with card data
+    const myHandRaw = isHost ? gameState.hostHand : gameState.opponentHand;
+    const myHandData = await Promise.all(
+      myHandRaw.map(async (cardId) => await getCardData(cardId))
+    );
+    const myHand = myHandData.filter((c): c is Doc<"cardDefinitions"> => c !== null);
+
+    // Get player's board with card data
+    const myBoardRaw = isHost ? gameState.hostBoard : gameState.opponentBoard;
+    const myBoardData = await Promise.all(
+      myBoardRaw.map(async (boardCard) => {
+        const cardData = await getCardData(boardCard.cardId);
+        if (!cardData) return null;
+        return {
+          ...cardData,
+          currentAttack: boardCard.attack,
+          currentDefense: boardCard.defense,
+          position: boardCard.position,
+          hasAttacked: boardCard.hasAttacked,
+          isFaceDown: boardCard.isFaceDown,
+        };
+      })
+    );
+    const myBoard = myBoardData.filter(Boolean);
+
+    // Get opponent's board with card data
+    const opponentBoardRaw = isHost ? gameState.opponentBoard : gameState.hostBoard;
+    const opponentBoardData = await Promise.all(
+      opponentBoardRaw.map(async (boardCard) => {
+        const cardData = await getCardData(boardCard.cardId);
+        if (!cardData) return null;
+        return {
+          ...cardData,
+          currentAttack: boardCard.attack,
+          currentDefense: boardCard.defense,
+          position: boardCard.position,
+          hasAttacked: boardCard.hasAttacked,
+          isFaceDown: boardCard.isFaceDown,
+        };
+      })
+    );
+    const opponentBoard = opponentBoardData.filter(Boolean);
+
+    return {
+      lobbyId: lobby._id,
+      gameId: gameState.gameId,
+      currentPhase: gameState.currentPhase,
+      turnNumber: lobby.turnNumber || 1,
+      currentTurnPlayerId: lobby.currentTurnPlayerId,
+      hostId: lobby.hostId,
+      opponentId: lobby.opponentId,
+      myLifePoints: isHost ? gameState.hostLifePoints : gameState.opponentLifePoints,
+      opponentLifePoints: isHost ? gameState.opponentLifePoints : gameState.hostLifePoints,
+      hand: myHand,
+      myBoard,
+      opponentBoard,
+      myDeckCount: isHost ? gameState.hostDeck?.length || 0 : gameState.opponentDeck?.length || 0,
+      opponentDeckCount: isHost ? gameState.opponentDeck?.length || 0 : gameState.hostDeck?.length || 0,
+      myGraveyardCount: isHost ? gameState.hostGraveyard?.length || 0 : gameState.opponentGraveyard?.length || 0,
+      opponentGraveyardCount: isHost ? gameState.opponentGraveyard?.length || 0 : gameState.hostGraveyard?.length || 0,
+      opponentHandCount: isHost ? gameState.opponentHand?.length || 0 : gameState.hostHand?.length || 0,
+      normalSummonedThisTurn: isHost ? gameState.hostNormalSummonedThisTurn : gameState.opponentNormalSummonedThisTurn,
+    };
+  },
+});

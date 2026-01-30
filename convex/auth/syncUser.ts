@@ -12,8 +12,9 @@ export const createOrGetUser = mutation({
   },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
+    console.log("[AUTH DEBUG] createOrGetUser identity:", JSON.stringify(identity));
     if (!identity) {
-      throw new Error("Not authenticated");
+      throw new Error("Not authenticated - getUserIdentity returned null");
     }
 
     const privyId = identity.subject; // did:privy:xxx

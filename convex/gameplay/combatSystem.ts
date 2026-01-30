@@ -17,7 +17,7 @@
 
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
-import { mutation } from "../_generated/server";
+import { internalMutation, mutation } from "../_generated/server";
 import type { MutationCtx } from "../_generated/server";
 import { getCardAbility, getCardFirstEffect } from "../lib/abilityHelpers";
 import { requireAuthMutation } from "../lib/convexAuth";
@@ -1399,6 +1399,261 @@ export const continueAttackAfterReplay = mutation({
         gameEnded: sbaResult.gameEnded,
         winnerId: sbaResult.winnerId,
         destroyedCards: sbaResult.allDestroyedCards,
+      },
+    };
+  },
+});
+
+/**
+ * Declare Attack (Internal)
+ *
+ * Internal mutation for API-based attack.
+ * Accepts gameId string for story mode support.
+ */
+export const declareAttackInternal = internalMutation({
+  args: {
+    gameId: v.string(),
+    userId: v.id("users"),
+    attackerCardId: v.string(),
+    targetCardId: v.optional(v.string()), // undefined = direct attack
+  },
+  handler: async (ctx, args) => {
+    // 1. Find game state by gameId
+    const gameState = await ctx.db
+      .query("gameStates")
+      .withIndex("by_game_id", (q) => q.eq("gameId", args.gameId))
+      .first();
+
+    if (!gameState) {
+      throw createError(ErrorCode.GAME_STATE_NOT_FOUND, {
+        reason: "Game not found",
+        gameId: args.gameId,
+      });
+    }
+
+    // 2. Get lobby
+    const lobby = await ctx.db.get(gameState.lobbyId);
+    if (!lobby) {
+      throw createError(ErrorCode.NOT_FOUND_LOBBY);
+    }
+
+    // 3. Validate it's the current player's turn
+    if (lobby.currentTurnPlayerId !== args.userId) {
+      throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
+    }
+
+    // 4. Get user info
+    const user = await ctx.db.get(args.userId);
+    const username = user?.username ?? user?.name ?? "Unknown";
+
+    // 5. Validate in Battle Phase
+    const currentPhase = gameState.currentPhase;
+    if (currentPhase !== "battle" && currentPhase !== "battle_start") {
+      throw createError(ErrorCode.GAME_INVALID_MOVE, {
+        reason: "Can only attack during Battle Phase",
+        currentPhase,
+      });
+    }
+
+    const isHost = args.userId === gameState.hostId;
+    const myBoard = isHost ? gameState.hostBoard : gameState.opponentBoard;
+    const opponentBoard = isHost ? gameState.opponentBoard : gameState.hostBoard;
+
+    // 6. Find attacker on board
+    const attackerCardIdAsId = args.attackerCardId as Id<"cardDefinitions">;
+    const attackerIndex = myBoard.findIndex((bc) => bc.cardId === attackerCardIdAsId);
+    if (attackerIndex === -1) {
+      throw createError(ErrorCode.GAME_INVALID_MOVE, {
+        reason: "Attacker not found on your field",
+        cardId: args.attackerCardId,
+      });
+    }
+
+    const attackerBoardCard = myBoard[attackerIndex];
+    if (!attackerBoardCard) {
+      throw createError(ErrorCode.GAME_INVALID_MOVE, {
+        reason: "Attacker board card not found",
+        cardId: args.attackerCardId,
+      });
+    }
+
+    // 7. Validate attacker can attack
+    if (attackerBoardCard.hasAttacked) {
+      throw createError(ErrorCode.GAME_INVALID_MOVE, {
+        reason: "This monster has already attacked this turn",
+      });
+    }
+
+    if (attackerBoardCard.position !== 1) {
+      throw createError(ErrorCode.GAME_INVALID_MOVE, {
+        reason: "Monster must be in Attack Position to attack",
+      });
+    }
+
+    if (attackerBoardCard.isFaceDown) {
+      throw createError(ErrorCode.GAME_INVALID_MOVE, {
+        reason: "Face-down monsters cannot attack",
+      });
+    }
+
+    // 8. Get attacker card data
+    const attackerCard = await ctx.db.get(attackerCardIdAsId);
+    if (!attackerCard) {
+      throw createError(ErrorCode.VALIDATION_INVALID_INPUT, {
+        reason: "Attacker card not found",
+      });
+    }
+
+    const attackerAtk = attackerBoardCard.attack;
+    let attackType: "direct" | "monster" = "direct";
+    let targetBoardCard: any = null;
+    let targetCard: Doc<"cardDefinitions"> | null = null;
+    let damage = 0;
+    let destroyed: string[] = [];
+
+    // 9. Handle target
+    if (args.targetCardId) {
+      // Attack specific monster
+      attackType = "monster";
+      const targetCardIdAsId = args.targetCardId as Id<"cardDefinitions">;
+      const targetIndex = opponentBoard.findIndex((bc) => bc.cardId === targetCardIdAsId);
+
+      if (targetIndex === -1) {
+        throw createError(ErrorCode.GAME_INVALID_MOVE, {
+          reason: "Target not found on opponent's field",
+        });
+      }
+
+      targetBoardCard = opponentBoard[targetIndex];
+      targetCard = await ctx.db.get(targetCardIdAsId);
+
+      // Calculate battle result
+      const targetValue = targetBoardCard.position === 1
+        ? targetBoardCard.attack // ATK position - use ATK
+        : targetBoardCard.defense; // DEF position - use DEF
+
+      if (targetBoardCard.position === 1) {
+        // Attack vs Attack
+        if (attackerAtk > targetValue) {
+          damage = attackerAtk - targetValue;
+          destroyed.push(targetCard?.name || "Monster");
+          // Remove target from board
+          const newOpponentBoard = opponentBoard.filter((_: any, i: number) => i !== targetIndex);
+          await ctx.db.patch(gameState._id, {
+            [isHost ? "opponentBoard" : "hostBoard"]: newOpponentBoard,
+            [isHost ? "opponentLifePoints" : "hostLifePoints"]:
+              (isHost ? gameState.opponentLifePoints : gameState.hostLifePoints) - damage,
+          });
+        } else if (attackerAtk < targetValue) {
+          damage = targetValue - attackerAtk;
+          destroyed.push(attackerCard.name);
+          // Remove attacker from board
+          const newMyBoard = myBoard.filter((_: any, i: number) => i !== attackerIndex);
+          await ctx.db.patch(gameState._id, {
+            [isHost ? "hostBoard" : "opponentBoard"]: newMyBoard,
+            [isHost ? "hostLifePoints" : "opponentLifePoints"]:
+              (isHost ? gameState.hostLifePoints : gameState.opponentLifePoints) - damage,
+          });
+        } else {
+          // Tie - both destroyed
+          destroyed.push(attackerCard.name, targetCard?.name || "Monster");
+          const newMyBoard = myBoard.filter((_: any, i: number) => i !== attackerIndex);
+          const newOpponentBoard = opponentBoard.filter((_: any, i: number) => i !== targetIndex);
+          await ctx.db.patch(gameState._id, {
+            [isHost ? "hostBoard" : "opponentBoard"]: newMyBoard,
+            [isHost ? "opponentBoard" : "hostBoard"]: newOpponentBoard,
+          });
+        }
+      } else {
+        // Attack vs Defense
+        if (attackerAtk > targetValue) {
+          destroyed.push(targetCard?.name || "Monster");
+          const newOpponentBoard = opponentBoard.filter((_: any, i: number) => i !== targetIndex);
+          await ctx.db.patch(gameState._id, {
+            [isHost ? "opponentBoard" : "hostBoard"]: newOpponentBoard,
+          });
+        } else if (attackerAtk < targetValue) {
+          damage = targetValue - attackerAtk;
+          await ctx.db.patch(gameState._id, {
+            [isHost ? "hostLifePoints" : "opponentLifePoints"]:
+              (isHost ? gameState.hostLifePoints : gameState.opponentLifePoints) - damage,
+          });
+        }
+        // Tie in defense = nothing happens
+      }
+    } else {
+      // Direct attack
+      if (opponentBoard.length > 0) {
+        throw createError(ErrorCode.GAME_INVALID_MOVE, {
+          reason: "Cannot direct attack when opponent has monsters",
+        });
+      }
+      damage = attackerAtk;
+      await ctx.db.patch(gameState._id, {
+        [isHost ? "opponentLifePoints" : "hostLifePoints"]:
+          (isHost ? gameState.opponentLifePoints : gameState.hostLifePoints) - damage,
+      });
+    }
+
+    // 10. Mark attacker as having attacked
+    const updatedMyBoard = [...myBoard];
+    if (updatedMyBoard[attackerIndex]) {
+      updatedMyBoard[attackerIndex] = { ...updatedMyBoard[attackerIndex], hasAttacked: true };
+      await ctx.db.patch(gameState._id, {
+        [isHost ? "hostBoard" : "opponentBoard"]: updatedMyBoard,
+      });
+    }
+
+    // 11. Record attack event
+    await recordEventHelper(ctx, {
+      lobbyId: gameState.lobbyId,
+      gameId: args.gameId,
+      turnNumber: lobby.turnNumber ?? 0,
+      eventType: "attack_declared",
+      playerId: args.userId,
+      playerUsername: username,
+      description: attackType === "direct"
+        ? `${attackerCard.name} attacked directly for ${damage} damage!`
+        : `${attackerCard.name} attacked ${targetCard?.name || "Monster"}`,
+      metadata: {
+        attackerCardId: args.attackerCardId,
+        attackerName: attackerCard.name,
+        targetCardId: args.targetCardId,
+        targetName: targetCard?.name,
+        attackType,
+        damage,
+        destroyed,
+      },
+    });
+
+    // 12. Check for game end
+    const refreshedState = await ctx.db.get(gameState._id);
+    const opponentLp = isHost ? refreshedState?.opponentLifePoints : refreshedState?.hostLifePoints;
+    const myLp = isHost ? refreshedState?.hostLifePoints : refreshedState?.opponentLifePoints;
+
+    let gameEnded = false;
+    let winnerId = null;
+
+    if (opponentLp !== undefined && opponentLp <= 0) {
+      gameEnded = true;
+      winnerId = args.userId;
+    } else if (myLp !== undefined && myLp <= 0) {
+      gameEnded = true;
+      winnerId = isHost ? gameState.opponentId : gameState.hostId;
+    }
+
+    return {
+      success: true,
+      attackType,
+      attackerName: attackerCard.name,
+      targetName: targetCard?.name,
+      damage,
+      destroyed,
+      gameEnded,
+      winnerId,
+      newLifePoints: {
+        my: myLp,
+        opponent: opponentLp,
       },
     };
   },

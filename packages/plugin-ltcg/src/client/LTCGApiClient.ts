@@ -380,6 +380,28 @@ export class LTCGApiClient {
   }
 
   /**
+   * Enter Battle Phase from Main Phase 1
+   * POST /api/agents/games/actions/enter-battle
+   */
+  async enterBattlePhase(gameId: string): Promise<{ success: true; phase: string }> {
+    return this.request<{ success: true; phase: string }>(API_ENDPOINTS.ACTION_ENTER_BATTLE, {
+      method: 'POST',
+      body: JSON.stringify({ gameId }),
+    });
+  }
+
+  /**
+   * Enter Main Phase 2 from Battle Phase
+   * POST /api/agents/games/actions/enter-main2
+   */
+  async enterMainPhase2(gameId: string): Promise<{ success: true; phase: string }> {
+    return this.request<{ success: true; phase: string }>(API_ENDPOINTS.ACTION_ENTER_MAIN2, {
+      method: 'POST',
+      body: JSON.stringify({ gameId }),
+    });
+  }
+
+  /**
    * Declare an attack
    * POST /api/agents/games/actions/attack
    */

@@ -6,7 +6,7 @@
  */
 
 import { v } from "convex/values";
-import { mutation } from "../../_generated/server";
+import { internalMutation, mutation } from "../../_generated/server";
 import { requireAuthMutation } from "../../lib/convexAuth";
 import { ErrorCode, createError } from "../../lib/errorCodes";
 import {
@@ -242,6 +242,212 @@ export const endTurn = mutation({
     return {
       success: true,
       newTurnPlayer: nextPlayer?.username || "Unknown",
+      newTurnNumber: nextTurnNumber,
+    };
+  },
+});
+
+/**
+ * End Turn (Internal)
+ *
+ * Internal mutation for API-based end turn.
+ * Accepts gameId string instead of lobbyId for story mode support.
+ * More permissive - allows ending turn from any main phase.
+ */
+export const endTurnInternal = internalMutation({
+  args: {
+    gameId: v.string(),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    // 1. Find game state by gameId
+    const gameState = await ctx.db
+      .query("gameStates")
+      .withIndex("by_game_id", (q) => q.eq("gameId", args.gameId))
+      .first();
+
+    if (!gameState) {
+      throw createError(ErrorCode.GAME_STATE_NOT_FOUND, {
+        reason: "Game not found",
+        gameId: args.gameId,
+      });
+    }
+
+    // 2. Get lobby
+    const lobby = await ctx.db.get(gameState.lobbyId);
+    if (!lobby) {
+      throw createError(ErrorCode.NOT_FOUND_LOBBY);
+    }
+
+    // 3. Validate it's the current player's turn
+    if (lobby.currentTurnPlayerId !== args.userId) {
+      throw createError(ErrorCode.GAME_NOT_YOUR_TURN);
+    }
+
+    // 4. Get user info
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw createError(ErrorCode.NOT_FOUND_USER);
+    }
+
+    // 5. For story mode, allow ending from any main phase
+    // Auto-advance to end phase if needed
+    if (gameState.currentPhase === "main1" || gameState.currentPhase === "main2") {
+      await ctx.db.patch(gameState._id, {
+        currentPhase: "end",
+      });
+    }
+
+    const isHost = args.userId === gameState.hostId;
+
+    // 6. Enforce hand size limit via state-based actions
+    const sbaResult = await checkStateBasedActions(ctx, gameState.lobbyId, {
+      skipHandLimit: false,
+      turnNumber: lobby.turnNumber,
+    });
+
+    if (sbaResult.gameEnded) {
+      return {
+        success: true,
+        gameEnded: true,
+        winnerId: sbaResult.winnerId,
+        newTurnPlayer: undefined,
+        newTurnNumber: undefined,
+      };
+    }
+
+    // 7. Clear temporary modifiers
+    await clearTemporaryModifiers(ctx, gameState, "end");
+
+    // 8. Clear "this turn" flags
+    const playerBoard = isHost ? gameState.hostBoard : gameState.opponentBoard;
+    const opponentBoard = isHost ? gameState.opponentBoard : gameState.hostBoard;
+
+    const resetPlayerBoard = playerBoard.map((card) => ({
+      ...card,
+      hasAttacked: false,
+    }));
+
+    const resetOpponentBoard = opponentBoard.map((card) => ({
+      ...card,
+      hasAttacked: false,
+    }));
+
+    // 9. Record turn_end event
+    const username = user.username ?? user.name ?? "Unknown";
+    await recordEventHelper(ctx, {
+      lobbyId: gameState.lobbyId,
+      gameId: args.gameId,
+      turnNumber: lobby.turnNumber ?? 0,
+      eventType: "turn_end",
+      playerId: args.userId,
+      playerUsername: username,
+      description: `${username}'s turn ended`,
+      metadata: {
+        turnNumber: lobby.turnNumber ?? 0,
+      },
+    });
+
+    // 10. Switch to next player
+    const nextPlayerId = isHost ? gameState.opponentId : gameState.hostId;
+    const nextTurnNumber = (lobby.turnNumber ?? 0) + 1;
+
+    await ctx.db.patch(gameState.lobbyId, {
+      currentTurnPlayerId: nextPlayerId,
+      turnNumber: nextTurnNumber,
+    });
+
+    // 11. Reset normal summon flags
+    await ctx.db.patch(gameState._id, {
+      [isHost ? "hostBoard" : "opponentBoard"]: resetPlayerBoard,
+      [isHost ? "opponentBoard" : "hostBoard"]: resetOpponentBoard,
+      hostNormalSummonedThisTurn: false,
+      opponentNormalSummonedThisTurn: false,
+    });
+
+    // 12. Record turn_start event for new turn
+    const nextPlayer = await ctx.db.get(nextPlayerId);
+    await recordEventHelper(ctx, {
+      lobbyId: gameState.lobbyId,
+      gameId: args.gameId,
+      turnNumber: nextTurnNumber,
+      eventType: "turn_start",
+      playerId: nextPlayerId,
+      playerUsername: nextPlayer?.username || "AI Opponent",
+      description: `${nextPlayer?.username || "AI Opponent"}'s turn ${nextTurnNumber}`,
+      metadata: {
+        turnNumber: nextTurnNumber,
+      },
+    });
+
+    // 12.5. Reset OPT effects
+    const gameStateForOPT = await ctx.db.get(gameState._id);
+    if (gameStateForOPT) {
+      await ctx.db.patch(gameStateForOPT._id, {
+        currentTurnPlayerId: nextPlayerId,
+        turnNumber: nextTurnNumber,
+      });
+      const updatedGameState = await ctx.db.get(gameStateForOPT._id);
+      if (updatedGameState) {
+        await resetOPTEffects(ctx, updatedGameState, nextPlayerId);
+      }
+    }
+
+    // 13. Auto-execute Draw Phase and advance to Main Phase 1
+    const shouldSkipDraw = nextTurnNumber === 1 && nextPlayerId === lobby.hostId;
+    const refreshedGameState = await ctx.db.get(gameState._id);
+    if (!refreshedGameState) {
+      throw createError(ErrorCode.GAME_STATE_NOT_FOUND, {
+        reason: "Game state not found after turn transition",
+      });
+    }
+
+    if (!shouldSkipDraw) {
+      const drawnCards = await drawCards(ctx, refreshedGameState, nextPlayerId, 1);
+
+      if (drawnCards.length === 0) {
+        const deckOutResult = await checkDeckOutCondition(
+          ctx,
+          gameState.lobbyId,
+          nextPlayerId,
+          nextTurnNumber
+        );
+        if (deckOutResult.gameEnded) {
+          return {
+            success: true,
+            gameEnded: true,
+            winnerId: deckOutResult.winnerId,
+            newTurnPlayer: nextPlayer?.username || "AI Opponent",
+            newTurnNumber: nextTurnNumber,
+            endReason: "deck_out",
+          };
+        }
+      }
+    }
+
+    // Auto-advance to Main Phase 1
+    await ctx.db.patch(refreshedGameState._id, {
+      currentPhase: "main1",
+    });
+
+    await recordEventHelper(ctx, {
+      lobbyId: gameState.lobbyId,
+      gameId: args.gameId,
+      turnNumber: nextTurnNumber,
+      eventType: "phase_changed",
+      playerId: nextPlayerId,
+      playerUsername: nextPlayer?.username || "AI Opponent",
+      description: `${nextPlayer?.username || "AI Opponent"} entered Main Phase 1`,
+      metadata: {
+        previousPhase: "end",
+        newPhase: "main1",
+        cardDrawn: !shouldSkipDraw,
+      },
+    });
+
+    return {
+      success: true,
+      newTurnPlayer: nextPlayer?.username || "AI Opponent",
       newTurnNumber: nextTurnNumber,
     };
   },

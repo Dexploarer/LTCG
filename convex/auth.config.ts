@@ -8,6 +8,9 @@
  * See: https://docs.privy.io/authentication/user-authentication/access-tokens
  */
 
+// Privy App ID - hardcoded for now to debug auth issues
+const PRIVY_APP_ID = "cml0fnzn501t7lc0buoz8kt74";
+
 export default {
   providers: [
     {
@@ -17,9 +20,9 @@ export default {
       // ES256 (ECDSA with P-256 curve)
       algorithm: "ES256",
       // Privy App ID - must match the "aud" claim in JWTs
-      applicationID: process.env["PRIVY_APP_ID"],
+      applicationID: PRIVY_APP_ID,
       // Use Privy's public JWKS endpoint (supports key rotation)
-      jwks: `https://auth.privy.io/api/v1/apps/${process.env["PRIVY_APP_ID"]}/jwks.json`,
+      jwks: `https://auth.privy.io/api/v1/apps/${PRIVY_APP_ID}/jwks.json`,
     },
   ],
 };

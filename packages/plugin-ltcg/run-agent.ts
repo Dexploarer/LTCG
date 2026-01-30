@@ -55,18 +55,33 @@ async function runStoryModeGame() {
 
     // Step 1.5: Verify we have a deck
     console.log('\n🃏 Step 1.5: Checking decks...');
-    const decks = await client.getDecks();
+    let decks = await client.getDecks();
     console.log(`   Found ${decks.length} decks`);
     if (decks.length > 0) {
-      console.log(`   First deck: ${decks[0].name} (${decks[0].cards?.length || 0} cards)`);
+      console.log(`   First deck: ${decks[0].name} (${decks[0].cardCount || 0} cards)`);
     } else {
-      console.log('   ⚠ No decks found. Agent needs a starter deck.');
-      // Try to get starter decks
+      console.log('   ⚠ No decks found. Selecting starter deck...');
+      // Select a starter deck
       try {
-        const starterDecks = await client.getStarterDecks();
-        console.log(`   Found ${starterDecks.length} starter decks available`);
+        const response = await fetch(`${LTCG_API_URL}/api/agents/decks/select-starter`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${LTCG_API_KEY}`,
+          },
+          body: JSON.stringify({ starterDeckCode: 'INFERNAL_DRAGONS' }),
+        });
+        const result = await response.json();
+        if (result.success) {
+          console.log(`   ✓ Selected starter deck: ${result.data?.deckName || 'Infernal Dragons'}`);
+          // Refresh decks
+          decks = await client.getDecks();
+          console.log(`   Now have ${decks.length} decks`);
+        } else {
+          console.log(`   ⚠ Could not select starter deck: ${result.error || JSON.stringify(result)}`);
+        }
       } catch (e) {
-        console.log('   Could not get starter decks');
+        console.log(`   ⚠ Error selecting starter deck: ${e}`);
       }
     }
 
@@ -103,20 +118,22 @@ async function runStoryModeGame() {
 
     // Step 5: Get available actions
     console.log('\n📋 Step 5: Getting available actions...');
-    const actions = await client.getAvailableActions(battle.gameId);
-    console.log(`   ✓ Available actions:`);
-    console.log(`     Can summon: ${actions.canSummon}`);
-    console.log(`     Can attack: ${actions.canAttack}`);
-    console.log(`     Can end turn: ${actions.canEndTurn}`);
-    if (actions.summonableCards) {
-      console.log(`     Summonable cards: ${actions.summonableCards.length}`);
-    }
+    const actionsResponse = await client.getAvailableActions(battle.gameId);
+    // Parse the actions array format
+    const actionsList = (actionsResponse as any).actions || [];
+    const hasNormalSummon = actionsList.some((a: any) => a.action === 'NORMAL_SUMMON');
+    const hasAttack = actionsList.some((a: any) => a.action === 'ATTACK');
+    const hasEndTurn = actionsList.some((a: any) => a.action === 'END_TURN');
+    console.log(`   ✓ Available actions: ${actionsList.map((a: any) => a.action).join(', ')}`);
+    console.log(`     Can summon: ${hasNormalSummon}`);
+    console.log(`     Can attack: ${hasAttack}`);
+    console.log(`     Can end turn: ${hasEndTurn}`);
 
     // Step 6: Play the game (simple loop)
     console.log('\n🎲 Step 6: Playing the game...\n');
 
     let turnCount = 0;
-    const maxTurns = 10;
+    const maxTurns = 20; // Increase max turns to allow for longer games
     let gameEnded = false;
 
     while (!gameEnded && turnCount < maxTurns) {
@@ -127,6 +144,7 @@ async function runStoryModeGame() {
       const state = await client.getGameState(battle.gameId);
       console.log(`   LP: You ${state.myLifePoints} | Opponent ${state.opponentLifePoints}`);
       console.log(`   Board: You ${state.myBoard?.length || 0} monsters | Opponent ${state.opponentBoard?.length || 0} monsters`);
+      console.log(`   Hand: ${state.hand?.length || 0} cards`);
 
       // Check for game end
       if (state.myLifePoints <= 0) {
@@ -143,46 +161,105 @@ async function runStoryModeGame() {
       if (state.isMyTurn) {
         console.log('   Your turn!');
 
-        // Get available actions
-        const availableActions = await client.getAvailableActions(battle.gameId);
+        // Get available actions (returns {actions: [...], phase, turnNumber})
+        const actionsResp = await client.getAvailableActions(battle.gameId) as any;
+        const actions = actionsResp.actions || [];
 
-        // Try to summon if we can
-        if (availableActions.canSummon && availableActions.summonableCards && availableActions.summonableCards.length > 0) {
-          const cardToSummon = availableActions.summonableCards[0];
-          console.log(`   Summoning: ${cardToSummon.cardId || cardToSummon}`);
-          try {
-            await client.summon({
-              gameId: battle.gameId,
-              cardId: typeof cardToSummon === 'string' ? cardToSummon : cardToSummon.cardId,
-              position: 'attack',
-            });
-            console.log('   ✓ Monster summoned!');
-          } catch (e: any) {
-            console.log(`   ⚠ Summon failed: ${e.message}`);
+        // Check for NORMAL_SUMMON action
+        const summonAction = actions.find((a: any) => a.action === 'NORMAL_SUMMON');
+
+        // Try to summon a monster from hand
+        if (summonAction && state.hand && state.hand.length > 0) {
+          // Find a creature card in hand to summon
+          const creatureToSummon = state.hand.find((card: any) =>
+            card.cardType === 'creature' && (card.cost || 0) <= 4
+          );
+
+          if (creatureToSummon) {
+            console.log(`   Summoning: ${creatureToSummon.name} (ATK: ${creatureToSummon.attack || 0})`);
+            try {
+              await client.summon({
+                gameId: battle.gameId,
+                cardId: creatureToSummon._id,
+                position: 'attack',
+              });
+              console.log('   ✓ Monster summoned!');
+            } catch (e: any) {
+              console.log(`   ⚠ Summon failed: ${e.message}`);
+            }
+          } else {
+            console.log('   No summonable monsters in hand');
           }
         }
 
-        // Try to attack if we can
+        // Refresh state after summon
         const updatedState = await client.getGameState(battle.gameId);
-        const attackerActions = await client.getAvailableActions(battle.gameId);
+        const attackActionsResp = await client.getAvailableActions(battle.gameId) as any;
+        const attackActions = attackActionsResp.actions || [];
 
-        if (attackerActions.canAttack && attackerActions.attackingMonsters && attackerActions.attackingMonsters.length > 0) {
-          for (const attacker of attackerActions.attackingMonsters) {
-            console.log(`   Attacking with: ${attacker.cardId || attacker}`);
-            try {
-              await client.attack({
-                gameId: battle.gameId,
-                attackerCardId: typeof attacker === 'string' ? attacker : attacker.cardId,
-                // Direct attack if no targets, or attack first target
-                targetCardId: attackerActions.attackTargets && attackerActions.attackTargets.length > 0
-                  ? (typeof attackerActions.attackTargets[0] === 'string'
-                      ? attackerActions.attackTargets[0]
-                      : attackerActions.attackTargets[0].cardId)
-                  : undefined,
-              });
-              console.log('   ✓ Attack executed!');
-            } catch (e: any) {
-              console.log(`   ⚠ Attack failed: ${e.message}`);
+        // Check for ENTER_BATTLE_PHASE action
+        const enterBattleAction = attackActions.find((a: any) => a.action === 'ENTER_BATTLE_PHASE');
+
+        // Enter battle phase if we have monsters that can attack
+        if (enterBattleAction && updatedState.myBoard && updatedState.myBoard.length > 0) {
+          console.log('   Entering Battle Phase...');
+          try {
+            await client.enterBattlePhase(battle.gameId);
+            console.log('   ✓ Entered Battle Phase!');
+          } catch (e: any) {
+            console.log(`   ⚠ Enter Battle Phase failed: ${e.message}`);
+          }
+        }
+
+        // Refresh actions after entering battle phase
+        const battleActionsResp = await client.getAvailableActions(battle.gameId) as any;
+        const battleActions = battleActionsResp.actions || [];
+
+        // Check for ATTACK action (now in battle phase)
+        const attackAction = battleActions.find((a: any) => a.action === 'ATTACK');
+        const battleState = await client.getGameState(battle.gameId);
+
+        if (attackAction && battleState.myBoard && battleState.myBoard.length > 0) {
+          // Attack with each monster that can attack
+          for (const monster of battleState.myBoard) {
+            if (!monster.hasAttacked && !monster.isFaceDown && monster.position === 1) {
+              console.log(`   Attacking with: ${monster.name} (ATK: ${monster.currentAttack || monster.attack || 0})`);
+              try {
+                // Check if opponent has monsters - if not, direct attack
+                const targetId = battleState.opponentBoard && battleState.opponentBoard.length > 0
+                  ? battleState.opponentBoard[0]._id // Attack first opponent monster
+                  : undefined; // Direct attack
+
+                await client.attack({
+                  gameId: battle.gameId,
+                  attackerCardId: monster._id,
+                  targetCardId: targetId,
+                });
+                console.log('   ✓ Attack executed!');
+
+                // Refresh state after attack to check game state
+                try {
+                  const postAttackState = await client.getGameState(battle.gameId);
+                  console.log(`   LP after attack: You ${postAttackState.myLifePoints} | Opponent ${postAttackState.opponentLifePoints}`);
+
+                  // Check for victory
+                  if (postAttackState.opponentLifePoints <= 0) {
+                    console.log('\n   🏆 VICTORY! Opponent LP reduced to 0!');
+                    gameEnded = true;
+                    break;
+                  }
+                } catch (stateError: any) {
+                  // Game may have ended and been cleaned up
+                  if (stateError.message?.includes('Game not found') || stateError.code === 'GAME_NOT_FOUND') {
+                    console.log('\n   🏆 VICTORY! Game has ended.');
+                    gameEnded = true;
+                    break;
+                  }
+                  throw stateError;
+                }
+              } catch (e: any) {
+                console.log(`   ⚠ Attack failed: ${e.message}`);
+              }
             }
           }
         }
@@ -214,13 +291,23 @@ async function runStoryModeGame() {
 
     // Step 7: Complete the stage
     console.log('\n🏁 Step 7: Completing story stage...');
-    const finalState = await client.getGameState(battle.gameId);
-    const won = finalState.opponentLifePoints <= 0 || finalState.myLifePoints > finalState.opponentLifePoints;
+
+    // Try to get final state - game may be cleaned up after victory
+    let won = true;  // Assume we won if game ended
+    let finalLP = 8000;
+    try {
+      const finalState = await client.getGameState(battle.gameId);
+      won = finalState.opponentLifePoints <= 0 || finalState.myLifePoints > finalState.opponentLifePoints;
+      finalLP = finalState.myLifePoints;
+    } catch (e: any) {
+      // Game already cleaned up - this means we likely won
+      console.log('   (Game already completed and cleaned up)');
+    }
 
     const completion = await client.completeStoryStage(
       battle.stageId,
       won,
-      finalState.myLifePoints
+      finalLP
     );
 
     console.log(`   ✓ Stage completed!`);

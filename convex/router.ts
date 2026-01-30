@@ -173,6 +173,20 @@ http.route({
   handler: games.attackMonster,
 });
 
+// POST /api/agents/games/actions/enter-battle - Enter Battle Phase
+http.route({
+  path: "/api/agents/games/actions/enter-battle",
+  method: "POST",
+  handler: games.enterBattlePhase,
+});
+
+// POST /api/agents/games/actions/enter-main2 - Enter Main Phase 2
+http.route({
+  path: "/api/agents/games/actions/enter-main2",
+  method: "POST",
+  handler: games.enterMain2,
+});
+
 // POST /api/agents/games/actions/end-turn - End turn
 http.route({
   path: "/api/agents/games/actions/end-turn",
@@ -295,6 +309,13 @@ http.route({
   path: "/api/agents/decks/create",
   method: "POST",
   handler: decks.createDeck,
+});
+
+// POST /api/agents/decks/select-starter - Select starter deck for existing agent
+http.route({
+  path: "/api/agents/decks/select-starter",
+  method: "POST",
+  handler: decks.selectStarterDeck,
 });
 
 // ============================================================================
