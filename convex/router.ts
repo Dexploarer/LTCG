@@ -55,6 +55,13 @@ http.route({
   handler: agents.rateLimit,
 });
 
+// GET /api/agents/wallet - Get agent's HD wallet info
+http.route({
+  path: "/api/agents/wallet",
+  method: "GET",
+  handler: agents.wallet,
+});
+
 // ============================================================================
 // Game State Endpoints (Read-only)
 // ============================================================================

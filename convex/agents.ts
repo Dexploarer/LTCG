@@ -111,10 +111,8 @@ export async function validateApiKeyInternal(
       const isValid = verifyApiKey(apiKey, keyRecord.keyHash);
       console.log("[API_KEY_DEBUG] bcrypt compareSync result:", isValid);
       if (isValid) {
-        // Update last used timestamp
-        await ctx.db.patch(keyRecord._id, {
-          lastUsedAt: Date.now(),
-        });
+        // Note: lastUsedAt update removed - queries are read-only in Convex
+        // This can be tracked separately via a mutation if needed
 
         // Get the agent to ensure it's still active
         const agent = await ctx.db.get(keyRecord.agentId);

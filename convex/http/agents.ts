@@ -174,6 +174,62 @@ export const me = authHttpAction(async (_ctx, request, auth) => {
 });
 
 /**
+ * GET /api/agents/wallet
+ * Get agent's non-custodial HD wallet information
+ * Requires API key authentication
+ */
+export const wallet = authHttpAction(async (ctx, request, auth) => {
+  // Handle CORS preflight
+  if (request.method === "OPTIONS") {
+    return corsPreflightResponse();
+  }
+
+  if (request.method !== "GET") {
+    return errorResponse("METHOD_NOT_ALLOWED", "Only GET method is allowed", 405);
+  }
+
+  try {
+    // Get agent with wallet info
+    const agent = await ctx.runQuery(internal.wallet.updateAgentWallet.getAgent, {
+      agentId: auth.agentId,
+    });
+
+    if (!agent) {
+      return errorResponse("AGENT_NOT_FOUND", "Agent not found", 404);
+    }
+
+    // Check if agent has wallet
+    const hasWallet = !!(agent.walletAddress && agent.walletId);
+
+    if (!hasWallet) {
+      return successResponse({
+        hasWallet: false,
+        wallet: null,
+      });
+    }
+
+    // Return wallet info (no private keys - just public data)
+    return successResponse({
+      hasWallet: true,
+      wallet: {
+        address: agent.walletAddress,
+        chainType: agent.walletChainType || "solana",
+        walletIndex: agent.walletIndex || 1,
+        createdAt: agent.walletCreatedAt || agent._creationTime,
+        // Balance not included - fetch separately via Solana RPC if needed
+      },
+    });
+  } catch (error) {
+    return errorResponse(
+      "WALLET_FETCH_FAILED",
+      "Failed to fetch wallet information",
+      500,
+      { error: error instanceof Error ? error.message : String(error) }
+    );
+  }
+});
+
+/**
  * GET /api/agents/rate-limit
  * Get current rate limit status
  * Requires API key authentication
