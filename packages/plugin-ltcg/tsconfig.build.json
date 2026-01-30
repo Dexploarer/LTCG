@@ -6,14 +6,17 @@
     "sourceMap": true,
     "inlineSources": true,
     "declaration": true,
-    "jsx": "react-jsx"
+    "declarationMap": true,
+    "jsx": "react-jsx",
+    "noEmit": false,
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "allowImportingTsExtensions": false,
+    "skipLibCheck": true
   },
   "include": [
-    "src/index.ts",
-    "src/plugin.ts",
-    "src/character.ts",
-    "src/frontend/**/*.ts",
-    "src/frontend/**/*.tsx"
+    "src/**/*.ts",
+    "src/**/*.tsx"
   ],
   "exclude": [
     "node_modules",

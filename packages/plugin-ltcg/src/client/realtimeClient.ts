@@ -18,7 +18,7 @@ import type { GameStateResponse, GameEvent } from '../types/api';
  */
 export interface IConvexClient {
   setAuth(fetchToken: () => Promise<string | null | undefined>): void;
-  clearAuth(): void;
+  clearAuth?(): void;
   onUpdate<T>(query: any, args: any, callback: (result: T) => void): () => void;
   query<T>(query: any, args: any): Promise<T>;
   close(): void;
@@ -122,7 +122,7 @@ export class ConvexRealtimeClient {
    */
   clearAuth() {
     this.authToken = undefined;
-    this.client.clearAuth();
+    this.client.clearAuth?.();
 
     if (this.debug) {
       console.log('[ConvexRealtimeClient] Authentication token cleared');

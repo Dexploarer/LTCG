@@ -12,6 +12,10 @@ async function cleanBuild(outdir = 'dist') {
     await rm(outdir, { recursive: true, force: true });
     console.log(`✓ Cleaned ${outdir} directory`);
   }
+  // Clean incremental build cache to ensure declarations are regenerated
+  if (existsSync('tsconfig.build.tsbuildinfo')) {
+    await rm('tsconfig.build.tsbuildinfo', { force: true });
+  }
 }
 
 async function build() {
@@ -81,6 +85,13 @@ async function build() {
     ]);
 
     if (!buildResult.success) {
+      console.error('✗ JavaScript build failed');
+      return false;
+    }
+
+    if (!tscResult.success) {
+      console.error('✗ TypeScript declaration generation failed');
+      console.error('  Fix type errors before publishing. Run: bun run type-check');
       return false;
     }
 

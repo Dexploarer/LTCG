@@ -49,18 +49,57 @@ export {
 export { ltcgEvaluators } from './evaluators';
 export { emotionalStateEvaluator, strategyEvaluator } from './evaluators';
 
-// Services - Background services and lifecycle management
-export { LTCGRealtimeService } from './services/LTCGRealtimeService';
+// Webhooks - Real-time event handling
+export * from './webhooks';
 
-// Clients - API and real-time connections
+// Services - Real-time updates and autonomous gameplay
+export { LTCGPollingService } from './services/LTCGPollingService';
+export { TurnOrchestrator } from './services/TurnOrchestrator';
+
+// Clients - API connections
 export { LTCGApiClient } from './client/LTCGApiClient';
-export { ConvexRealtimeClient } from './client/realtimeClient';
-export * from './client/events';
 export * from './client/errors';
 
 // Types - TypeScript definitions
 export * from './types/api';
-export * from './types/game';
+// Re-export game types excluding duplicates that are already in api.ts
+export {
+  type Id,
+  type GamePhase,
+  type TurnPlayer,
+  type GameStatus,
+  type CardType,
+  type MonsterPosition,
+  type SpellType,
+  type TrapType,
+  type MonsterAttribute,
+  type MonsterRace,
+  type GameState,
+  type PlayerGameState,
+  type OpponentGameState,
+  type Card,
+  // Note: MonsterCard, CardInHand, CardInGraveyard, Target are already exported from api.ts
+  type SpellCard,
+  type TrapCard,
+  type MonsterOnBoard,
+  type SpellTrapOnBoard,
+  type CardAbility,
+  type AbilityCost,
+  type CardEffect,
+  type GameAction,
+  type SummonAction,
+  type AttackAction,
+  type SpellActivationAction,
+  type BattleResult,
+  type DamageEvent,
+  type ChainLink,
+  type ChainState,
+  type BoardAnalysis,
+  type Threat,
+  type AttackOpportunity,
+  type StrategyRecommendation,
+  type DecisionContext,
+} from './types/game';
 export * from './types/plugin';
 
 // Configuration

@@ -91,7 +91,7 @@ export const trashTalkAction: Action = {
       const trashTalkLevel = runtime.getSetting('LTCG_TRASH_TALK_LEVEL') || 'mild';
 
       // Determine game context for trash talk
-      const advantage = boardAnalysis?.advantage || 'EVEN';
+      const advantage: string = (boardAnalysis?.advantage as string) || 'EVEN';
       const myLP = gameState.hostPlayer.lifePoints;
       const oppLP = gameState.opponentPlayer.lifePoints;
       const turnNumber = gameState.turnNumber;
@@ -242,7 +242,7 @@ Your trash talk (just the message, no quotes or labels):`;
 /**
  * Get example trash talk based on level and game situation
  */
-function getTrashTalkExamples(level: string, advantage: string) {
+function getTrashTalkExamples(level: string, advantage: string): string {
   if (level === 'mild') {
     if (advantage === 'STRONG_ADVANTAGE' || advantage === 'SLIGHT_ADVANTAGE') {
       return `- "This is looking good for me!"

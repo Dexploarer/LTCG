@@ -16,6 +16,7 @@ import type {
 } from '@elizaos/core';
 import { logger, ModelType } from '@elizaos/core';
 import { LTCGApiClient } from '../client/LTCGApiClient';
+import { extractJsonFromLlmResponse } from '../utils/safeParseJson';
 import { gameStateProvider } from '../providers/gameStateProvider';
 import { handProvider } from '../providers/handProvider';
 import type { CardInHand, GameStateResponse } from '../types/api';
@@ -157,7 +158,7 @@ Respond with JSON: { "handIndex": <index>, "reasoning": "<brief explanation>" }`
       });
 
       // Parse LLM decision
-      const parsed = JSON.parse(decision);
+      const parsed = extractJsonFromLlmResponse(decision, { handIndex: 0, zone: 'monster' });
       const selectedCard = settableCards[parsed.handIndex];
 
       if (!selectedCard) {
@@ -165,7 +166,7 @@ Respond with JSON: { "handIndex": <index>, "reasoning": "<brief explanation>" }`
       }
 
       // Determine zone based on card type
-      const zone = selectedCard.type === 'monster' ? 'monster' : 'spell-trap';
+      const zone = selectedCard.type === 'monster' ? 'monster' : 'spellTrap';
 
       // Make API call
       const result = await client.setCard({

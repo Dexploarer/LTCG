@@ -16,6 +16,7 @@ import type {
 } from '@elizaos/core';
 import { logger, ModelType } from '@elizaos/core';
 import { LTCGApiClient } from '../client/LTCGApiClient';
+import { extractJsonFromLlmResponse } from '../utils/safeParseJson';
 import type { StarterDeck } from '../types/api';
 
 export const registerAgentAction: Action = {
@@ -151,7 +152,7 @@ Respond with JSON: { "deckIndex": <index> }`;
           maxTokens: 50,
         });
 
-        const parsed = JSON.parse(decision);
+        const parsed = extractJsonFromLlmResponse(decision, { deckIndex: 0 });
         if (parsed.deckIndex >= 0 && parsed.deckIndex < starterDecks.length) {
           selectedDeck = starterDecks[parsed.deckIndex];
         }
@@ -171,11 +172,20 @@ Respond with JSON: { "deckIndex": <index> }`;
       runtime.setSetting('LTCG_AGENT_ID', result.data.agentId);
       runtime.setSetting('LTCG_USER_ID', result.data.userId);
 
+      // Store wallet address if returned (non-custodial HD wallet)
+      if (result.data.walletAddress) {
+        runtime.setSetting('LTCG_WALLET_ADDRESS', result.data.walletAddress);
+      }
+
+      const walletInfo = result.data.walletAddress
+        ? `\nSolana Wallet: ${result.data.walletAddress}`
+        : '';
+
       const responseText = `Successfully registered agent "${agentName}"!
 
 Agent ID: ${result.data.agentId}
 User ID: ${result.data.userId}
-API Key Prefix: ${result.data.keyPrefix}***
+API Key Prefix: ${result.data.keyPrefix}***${walletInfo}
 
 Starter Deck: ${selectedDeck.name} (${selectedDeck.archetype})
 
@@ -197,12 +207,14 @@ Your API key has been saved. You can now start playing games!`;
           agentName,
           starterDeck: selectedDeck.name,
           keyPrefix: result.data.keyPrefix,
+          walletAddress: result.data.walletAddress,
         },
         data: {
           actionName: 'REGISTER_AGENT',
           agentId: result.data.agentId,
           userId: result.data.userId,
           starterDeck: selectedDeck,
+          walletAddress: result.data.walletAddress,
         },
       };
     } catch (error) {

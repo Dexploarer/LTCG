@@ -22,6 +22,7 @@ export interface RegisterAgentResponse {
     agentId: string;
     apiKey: string; // Only shown once
     keyPrefix: string;
+    walletAddress?: string; // Solana HD wallet address (non-custodial)
   };
 }
 
@@ -33,6 +34,34 @@ export interface AgentProfile {
   wins: number;
   losses: number;
   createdAt: number;
+  // HD Wallet info (non-custodial, Privy-managed)
+  walletAddress?: string;
+  walletChainType?: 'solana';
+  walletCreatedAt?: number;
+}
+
+// ============================================================================
+// Wallet Types (Non-custodial HD wallets via Privy)
+// ============================================================================
+
+export interface WalletInfo {
+  address: string;
+  chainType: 'solana';
+  walletIndex: number; // HD derivation index
+  createdAt: number;
+  // Balance info (optional, fetched separately)
+  balance?: {
+    lamports: number;
+    sol: number;
+  };
+}
+
+export interface WalletStatusResponse {
+  success: true;
+  data: {
+    hasWallet: boolean;
+    wallet?: WalletInfo;
+  };
 }
 
 export interface RateLimitStatus {
@@ -106,6 +135,7 @@ export interface MonsterCard {
   canAttack: boolean;
   canChangePosition: boolean;
   summonedThisTurn: boolean;
+  faceUp?: boolean; // Whether the monster is face-up
 }
 
 export interface SpellTrapCard {
@@ -114,6 +144,8 @@ export interface SpellTrapCard {
   name: string;
   faceUp: boolean;
   type: 'spell' | 'trap';
+  cardType?: string; // Alternative field for card type
+  description?: string; // Card effect description
 }
 
 export interface CardInGraveyard {
@@ -153,6 +185,11 @@ export interface SetCardRequest {
   gameId: string;
   handIndex: number;
   zone: 'monster' | 'spellTrap';
+}
+
+export interface SetSpellTrapRequest {
+  gameId: string;
+  cardId: string;
 }
 
 export interface ActivateSpellRequest {
@@ -341,6 +378,23 @@ export enum ApiErrorCode {
   CARD_NOT_FOUND = 'CARD_NOT_FOUND',
   INVALID_TARGET = 'INVALID_TARGET',
 
+  // Monster position errors
+  CANNOT_FLIP_THIS_TURN = 'CANNOT_FLIP_THIS_TURN',
+  CANNOT_CHANGE_POSITION = 'CANNOT_CHANGE_POSITION',
+  ALREADY_CHANGED_POSITION = 'ALREADY_CHANGED_POSITION',
+  WRONG_POSITION = 'WRONG_POSITION',
+
+  // Spell/Trap errors
+  TRAP_NOT_READY = 'TRAP_NOT_READY',
+  CARD_NOT_IN_ZONE = 'CARD_NOT_IN_ZONE',
+  CARD_ALREADY_FACE_UP = 'CARD_ALREADY_FACE_UP',
+  ZONE_FULL = 'ZONE_FULL',
+  INVALID_CARD_TYPE = 'INVALID_CARD_TYPE',
+  SET_SPELL_TRAP_FAILED = 'SET_SPELL_TRAP_FAILED',
+
+  // Attack errors
+  ALREADY_ATTACKED = 'ALREADY_ATTACKED',
+
   // Matchmaking errors
   LOBBY_NOT_FOUND = 'LOBBY_NOT_FOUND',
   LOBBY_FULL = 'LOBBY_FULL',
@@ -350,4 +404,6 @@ export enum ApiErrorCode {
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   INTERNAL_ERROR = 'INTERNAL_ERROR',
   NETWORK_ERROR = 'NETWORK_ERROR',
+  METHOD_NOT_ALLOWED = 'METHOD_NOT_ALLOWED',
+  NOT_A_PLAYER = 'NOT_A_PLAYER',
 }

@@ -16,6 +16,7 @@ import type {
 } from '@elizaos/core';
 import { logger, ModelType } from '@elizaos/core';
 import { LTCGApiClient } from '../client/LTCGApiClient';
+import { extractJsonFromLlmResponse } from '../utils/safeParseJson';
 import { gameStateProvider } from '../providers/gameStateProvider';
 import { boardAnalysisProvider } from '../providers/boardAnalysisProvider';
 import type { GameStateResponse, MonsterCard } from '../types/api';
@@ -147,7 +148,7 @@ Respond with JSON: { "attackerIndex": <index>, "targetIndex": <index or null for
       });
 
       // Parse LLM decision
-      const parsed = JSON.parse(decision);
+      const parsed = extractJsonFromLlmResponse(decision, { attackerIndex: 0, targetIndex: null });
       const attacker = attackers[parsed.attackerIndex];
 
       if (!attacker) {
@@ -157,8 +158,8 @@ Respond with JSON: { "attackerIndex": <index>, "targetIndex": <index or null for
       // Make API call
       const result = await client.attack({
         gameId: gameState.gameId,
-        attackerIndex: attacker.boardIndex,
-        targetIndex: parsed.targetIndex !== null ? parsed.targetIndex : undefined,
+        attackerBoardIndex: attacker.boardIndex,
+        targetBoardIndex: parsed.targetIndex !== null ? parsed.targetIndex : undefined,
       });
 
       // Callback to user

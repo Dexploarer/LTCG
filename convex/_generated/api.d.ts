@@ -19,6 +19,7 @@ import type * as admin_mutations from "../admin/mutations.js";
 import type * as admin_roles from "../admin/roles.js";
 import type * as admin_shopSetup from "../admin/shopSetup.js";
 import type * as agents from "../agents.js";
+import type * as agents_webhooks from "../agents/webhooks.js";
 import type * as auth from "../auth.js";
 import type * as auth_syncUser from "../auth/syncUser.js";
 import type * as cards from "../cards.js";
@@ -191,6 +192,7 @@ declare const fullApi: ApiFromModules<{
   "admin/roles": typeof admin_roles;
   "admin/shopSetup": typeof admin_shopSetup;
   agents: typeof agents;
+  "agents/webhooks": typeof agents_webhooks;
   auth: typeof auth;
   "auth/syncUser": typeof auth_syncUser;
   cards: typeof cards;

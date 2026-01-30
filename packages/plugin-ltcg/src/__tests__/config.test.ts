@@ -28,7 +28,7 @@ describe('Plugin Configuration Schema', () => {
   it('should accept valid configuration', async () => {
     const validConfig = {
       LTCG_API_KEY: 'valid-api-key',
-      CONVEX_URL: 'https://example.convex.cloud',
+      LTCG_CALLBACK_URL: 'https://example.com/webhook',
     };
 
     if (initPlugin) {
@@ -75,9 +75,9 @@ describe('Plugin Configuration Schema', () => {
     }
   });
 
-  it('should reject invalid LTCG_BASE_URL configuration', async () => {
+  it('should reject invalid LTCG_API_URL configuration', async () => {
     const invalidConfig = {
-      LTCG_BASE_URL: 'not-a-valid-url', // Invalid URL format
+      LTCG_API_URL: 'not-a-valid-url', // Invalid URL format
     };
 
     if (initPlugin) {
@@ -87,7 +87,7 @@ describe('Plugin Configuration Schema', () => {
       } catch (e) {
         error = e as Error;
       }
-      // Should throw because LTCG_BASE_URL must be a valid URL
+      // Should throw because LTCG_API_URL must be a valid URL
       expect(error).not.toBeNull();
       expect(error?.message).toContain('Invalid LTCG plugin configuration');
     }
@@ -96,20 +96,20 @@ describe('Plugin Configuration Schema', () => {
   it('should set environment variables from valid config', async () => {
     const testConfig = {
       LTCG_API_KEY: 'test-api-key',
-      CONVEX_URL: 'https://test.convex.cloud',
+      LTCG_CALLBACK_URL: 'https://test.example.com/webhook',
     };
 
     if (initPlugin) {
       // Ensure env variables don't exist beforehand
       delete process.env.LTCG_API_KEY;
-      delete process.env.CONVEX_URL;
+      delete process.env.LTCG_CALLBACK_URL;
 
       // Initialize with config
       await initPlugin(testConfig, createMockRuntime());
 
       // Verify environment variables were set
       expect(process.env.LTCG_API_KEY).toBe('test-api-key');
-      expect(process.env.CONVEX_URL).toBe('https://test.convex.cloud');
+      expect(process.env.LTCG_CALLBACK_URL).toBe('https://test.example.com/webhook');
     }
   });
 
@@ -133,18 +133,20 @@ describe('Plugin Configuration Schema', () => {
 
   it('should handle zod validation errors gracefully', async () => {
     // Create a mock of zod's parseAsync that throws a ZodError
+    // Using Zod 4 API with invalid_format for URL validation errors
     const mockZodError = new z.ZodError([
       {
-        code: z.ZodIssueCode.invalid_string,
-        validation: 'url',
-        message: 'LTCG_BASE_URL must be a valid URL',
-        path: ['LTCG_BASE_URL'],
+        code: z.ZodIssueCode.invalid_format,
+        format: 'url',
+        message: 'LTCG_API_URL must be a valid URL',
+        path: ['LTCG_API_URL'],
+        input: 'not-a-valid-url',
       },
     ]);
 
     // Create a simple schema for mocking
     const schema = z.object({
-      LTCG_BASE_URL: z.string().url(),
+      LTCG_API_URL: z.string().url(),
     });
 
     // Mock the parseAsync function

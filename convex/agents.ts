@@ -353,6 +353,7 @@ export const registerAgentInternal = internalMutation({
     profilePictureUrl: v.optional(v.string()),
     socialLink: v.optional(v.string()),
     starterDeckCode: v.string(),
+    callbackUrl: v.optional(v.string()), // Webhook URL for real-time notifications
   },
   handler: async (ctx, args) => {
     // For HTTP API registrations, create a system user for the agent
@@ -396,6 +397,10 @@ export const registerAgentInternal = internalMutation({
       },
       createdAt: Date.now(),
       isActive: true,
+      // Webhook configuration
+      callbackUrl: args.callbackUrl,
+      webhookEnabled: !!args.callbackUrl,
+      webhookFailCount: 0,
     });
 
     // Generate and store API key

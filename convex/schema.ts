@@ -227,11 +227,19 @@ export default defineSchema({
     walletAddress: v.optional(v.string()), // Solana public address (non-custodial)
     walletChainType: v.optional(v.string()), // 'solana'
     walletCreatedAt: v.optional(v.number()), // Wallet creation timestamp
+
+    // Webhook callback configuration for real-time notifications
+    callbackUrl: v.optional(v.string()), // Agent's public URL for receiving webhooks
+    webhookSecret: v.optional(v.string()), // Shared secret for signing webhooks (hashed)
+    webhookEnabled: v.optional(v.boolean()), // Whether to send webhooks (default: true if URL set)
+    lastWebhookAt: v.optional(v.number()), // Last successful webhook timestamp
+    webhookFailCount: v.optional(v.number()), // Consecutive failures (auto-disable after threshold)
   })
     .index("by_user", ["userId"])
     .index("by_name", ["name"])
     .index("by_wallet", ["walletAddress"])
-    .index("by_privy_user", ["privyUserId"]),
+    .index("by_privy_user", ["privyUserId"])
+    .index("by_callback", ["callbackUrl"]),
 
   // API keys for agents (hashed, never store plaintext)
   apiKeys: defineTable({

@@ -16,6 +16,7 @@ import type {
 } from '@elizaos/core';
 import { logger, ModelType } from '@elizaos/core';
 import { LTCGApiClient } from '../client/LTCGApiClient';
+import { extractJsonFromLlmResponse } from '../utils/safeParseJson';
 import type { Lobby } from '../types/api';
 
 export const findGameAction: Action = {
@@ -135,7 +136,7 @@ Respond with JSON: { "lobbyIndex": <index> }`;
           maxTokens: 100,
         });
 
-        const parsed = JSON.parse(decision);
+        const parsed = extractJsonFromLlmResponse(decision, { lobbyIndex: 0 });
         const selectedLobby = lobbies[parsed.lobbyIndex];
 
         if (!selectedLobby) {

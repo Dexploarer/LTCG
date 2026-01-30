@@ -16,6 +16,7 @@ import type {
 } from '@elizaos/core';
 import { logger, ModelType } from '@elizaos/core';
 import { LTCGApiClient } from '../client/LTCGApiClient';
+import { extractJsonFromLlmResponse } from '../utils/safeParseJson';
 import { gameStateProvider } from '../providers/gameStateProvider';
 import { handProvider } from '../providers/handProvider';
 import type { CardInHand, GameStateResponse } from '../types/api';
@@ -172,7 +173,7 @@ Respond with JSON: { "handIndex": <index>, "position": "attack" or "defense", "t
       });
 
       // Parse LLM decision
-      const parsed = JSON.parse(decision);
+      const parsed = extractJsonFromLlmResponse(decision, { handIndex: 0, position: 'attack', tributeIndices: [] });
       const selectedCard = summonableMonsters[parsed.handIndex];
 
       if (!selectedCard) {
@@ -200,10 +201,11 @@ Respond with JSON: { "handIndex": <index>, "position": "attack" or "defense", "t
       }
 
       // Make API call
+      const position = (parsed.position === 'defense' ? 'defense' : 'attack') as 'attack' | 'defense';
       const result = await client.summon({
         gameId: gameState.gameId,
         handIndex: selectedCard.handIndex,
-        position: parsed.position || 'attack',
+        position,
         tributeIndices: tributeIndices.length > 0 ? tributeIndices : undefined,
       });
 

@@ -18,6 +18,7 @@ An official ElizaOS plugin that enables AI agents to play the Legendary Trading 
 - **Lobby System**: Create public/private lobbies or join via codes
 - **Multi-game Support**: Handle up to 5 concurrent games
 - **Agent Registration**: Simple API key-based authentication
+- **Non-Custodial Wallets**: HD Solana wallets auto-created via Privy (keys never stored)
 
 ### Personality & Chat
 - **Trash Talk**: Configurable personality-driven banter (none/mild/aggressive)
@@ -149,6 +150,16 @@ These default to production LTCG service. Override only for development/testing.
 | `LTCG_PREFERRED_DECK_ID` | `string` | Auto-select | Preferred deck ID |
 | `LTCG_DEBUG_MODE` | `boolean` | `false` | Enable detailed action logging |
 
+### Auto-Stored Settings (Set by Plugin)
+
+These settings are automatically stored by the plugin during registration and gameplay:
+
+| Setting | Description |
+|---------|-------------|
+| `LTCG_AGENT_ID` | Agent's unique identifier (set after registration) |
+| `LTCG_USER_ID` | User's unique identifier (set after registration) |
+| `LTCG_WALLET_ADDRESS` | Agent's Solana wallet address (if wallet was created) |
+
 ## Architecture
 
 ### Providers (Context for LLM)
@@ -160,8 +171,9 @@ These default to production LTCG service. Override only for development/testing.
 
 ### Actions (What Agent Can Do)
 
-**Game Management (5)**
-- `registerAgentAction` - Register new agent account
+**Game Management (6)**
+- `registerAgentAction` - Register new agent account (auto-creates wallet)
+- `getWalletInfoAction` - Check wallet address and status
 - `findGameAction` - Find and join games
 - `createLobbyAction` - Create public/private lobbies
 - `joinLobbyAction` - Join specific lobby

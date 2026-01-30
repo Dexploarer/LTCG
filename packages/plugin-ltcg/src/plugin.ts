@@ -16,25 +16,43 @@ import {
   type State,
   logger,
 } from '@elizaos/core';
+
+// Re-export core types for plugin consumers
+export type {
+  Action,
+  ActionResult,
+  Content,
+  GenerateTextParams,
+  HandlerCallback,
+  IAgentRuntime,
+  Memory,
+  Provider,
+  ProviderResult,
+  State,
+};
+export { ModelType, Service };
 import { z } from 'zod';
 
 // Import LTCG actions, providers, and evaluators
 import { ltcgActions } from './actions';
 import { ltcgProviders } from './providers';
 import { ltcgEvaluators } from './evaluators';
-import { LTCGRealtimeService } from './services/LTCGRealtimeService';
+import { webhookRoutes } from './webhooks';
+import { LTCGPollingService } from './services/LTCGPollingService';
+import { TurnOrchestrator } from './services/TurnOrchestrator';
 
 /**
  * Define the configuration schema for the LTCG plugin
  *
  * Required:
  * - LTCG_API_KEY: Authentication key for LTCG API
- * - CONVEX_URL: Convex backend URL for real-time updates
  *
  * Optional:
- * - LTCG_BASE_URL: Override API base URL (defaults to production)
+ * - LTCG_API_URL: Override API base URL (defaults to production)
+ * - LTCG_CALLBACK_URL: Agent's public URL for receiving webhooks
+ * - LTCG_WEBHOOK_SECRET: Secret for verifying webhook signatures
  * - LTCG_AUTO_MATCHMAKING: Automatically find and join games (true/false)
- * - LTCG_DEBUG_MODE: Enable debug logging for real-time client (true/false)
+ * - LTCG_DEBUG_MODE: Enable debug logging (true/false)
  */
 const configSchema = z.object({
   LTCG_API_KEY: z
@@ -47,19 +65,23 @@ const configSchema = z.object({
       }
       return val;
     }),
-  CONVEX_URL: z
+  LTCG_API_URL: z
     .string()
-    .min(1, 'CONVEX_URL is required for real-time game updates')
+    .url('LTCG_API_URL must be a valid URL')
+    .optional(),
+  LTCG_CALLBACK_URL: z
+    .string()
+    .url('LTCG_CALLBACK_URL must be a valid URL for receiving webhooks')
     .optional()
     .transform((val) => {
       if (!val) {
-        console.warn('Warning: CONVEX_URL is not provided - real-time updates will not work');
+        console.warn('Warning: LTCG_CALLBACK_URL not provided - using polling fallback for game updates');
       }
       return val;
     }),
-  LTCG_BASE_URL: z
+  LTCG_WEBHOOK_SECRET: z
     .string()
-    .url('LTCG_BASE_URL must be a valid URL')
+    .min(16, 'LTCG_WEBHOOK_SECRET should be at least 16 characters')
     .optional(),
   LTCG_AUTO_MATCHMAKING: z
     .string()
@@ -78,8 +100,9 @@ const plugin: Plugin = {
   priority: -1000,
   config: {
     LTCG_API_KEY: process.env.LTCG_API_KEY,
-    CONVEX_URL: process.env.CONVEX_URL,
-    LTCG_BASE_URL: process.env.LTCG_BASE_URL,
+    LTCG_API_URL: process.env.LTCG_API_URL,
+    LTCG_CALLBACK_URL: process.env.LTCG_CALLBACK_URL,
+    LTCG_WEBHOOK_SECRET: process.env.LTCG_WEBHOOK_SECRET,
     LTCG_AUTO_MATCHMAKING: process.env.LTCG_AUTO_MATCHMAKING,
     LTCG_DEBUG_MODE: process.env.LTCG_DEBUG_MODE,
   },
@@ -94,10 +117,12 @@ const plugin: Plugin = {
       }
 
       // Log configuration status (without sensitive data)
+      const usePolling = !validatedConfig.LTCG_CALLBACK_URL;
       logger.info({
         hasApiKey: !!validatedConfig.LTCG_API_KEY,
-        hasConvexUrl: !!validatedConfig.CONVEX_URL,
+        hasCallbackUrl: !!validatedConfig.LTCG_CALLBACK_URL,
         autoMatchmaking: validatedConfig.LTCG_AUTO_MATCHMAKING,
+        realtimeMode: usePolling ? 'polling' : 'webhooks',
       }, 'LTCG plugin configured');
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -111,54 +136,65 @@ const plugin: Plugin = {
     }
   },
   models: {
-    [ModelType.TEXT_SMALL]: async (_runtime, { prompt }: GenerateTextParams) => {
+    [ModelType.TEXT_SMALL]: async (_runtime: IAgentRuntime, { prompt }: GenerateTextParams) => {
       return 'Test response for small model';
     },
-    [ModelType.TEXT_LARGE]: async (_runtime, { prompt }: GenerateTextParams) => {
+    [ModelType.TEXT_LARGE]: async (_runtime: IAgentRuntime, { prompt }: GenerateTextParams) => {
       return 'Test response for large model';
     },
   },
   routes: [
+    // Health check endpoint
     {
-      name: 'helloworld',
-      path: '/helloworld',
+      name: 'ltcg-health',
+      path: '/ltcg/health',
       type: 'GET',
       handler: async (_req: RouteRequest, res: RouteResponse) => {
-        res.json({ message: 'Hello World!' });
+        res.json({
+          status: 'ok',
+          plugin: 'ltcg',
+          version: '1.0.0',
+          timestamp: Date.now(),
+        });
       },
     },
+    // Webhook routes for real-time game events
+    ...webhookRoutes,
   ],
   events: {
     MESSAGE_RECEIVED: [
-      async (params) => {
+      async (params: Record<string, unknown>) => {
         logger.info('MESSAGE_RECEIVED event received');
         // print the keys
         logger.info({ keys: Object.keys(params) }, 'MESSAGE_RECEIVED param keys');
       },
     ],
     VOICE_MESSAGE_RECEIVED: [
-      async (params) => {
+      async (params: Record<string, unknown>) => {
         logger.info('VOICE_MESSAGE_RECEIVED event received');
         // print the keys
         logger.info({ keys: Object.keys(params) }, 'VOICE_MESSAGE_RECEIVED param keys');
       },
     ],
     WORLD_CONNECTED: [
-      async (params) => {
+      async (params: Record<string, unknown>) => {
         logger.info('WORLD_CONNECTED event received');
         // print the keys
         logger.info({ keys: Object.keys(params) }, 'WORLD_CONNECTED param keys');
       },
     ],
     WORLD_JOINED: [
-      async (params) => {
+      async (params: Record<string, unknown>) => {
         logger.info('WORLD_JOINED event received');
         // print the keys
         logger.info({ keys: Object.keys(params) }, 'WORLD_JOINED param keys');
       },
     ],
   },
-  services: [LTCGRealtimeService],
+  // Services for autonomous gameplay:
+  // - TurnOrchestrator: Makes LLM-driven gameplay decisions
+  // - LTCGPollingService: Polls for updates when no webhook URL is configured
+  services: [TurnOrchestrator, LTCGPollingService],
   actions: ltcgActions,
   providers: ltcgProviders,
   evaluators: ltcgEvaluators,

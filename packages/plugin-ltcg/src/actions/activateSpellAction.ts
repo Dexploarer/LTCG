@@ -16,6 +16,7 @@ import type {
 } from '@elizaos/core';
 import { logger, ModelType } from '@elizaos/core';
 import { LTCGApiClient } from '../client/LTCGApiClient';
+import { extractJsonFromLlmResponse } from '../utils/safeParseJson';
 import { gameStateProvider } from '../providers/gameStateProvider';
 import { handProvider } from '../providers/handProvider';
 import type { CardInHand, GameStateResponse } from '../types/api';
@@ -145,7 +146,7 @@ Respond with JSON: { "location": "hand" or "field", "index": <index>, "targets":
       });
 
       // Parse LLM decision
-      const parsed = JSON.parse(decision);
+      const parsed = extractJsonFromLlmResponse(decision, { location: 'hand', index: 0, targets: [] });
 
       let selectedCard: any;
       let handIndex: number | undefined;

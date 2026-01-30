@@ -34,6 +34,7 @@ export const API_ENDPOINTS = {
   REGISTER_AGENT: '/api/agents/register',
   GET_AGENT_PROFILE: '/api/agents/me',
   GET_RATE_LIMIT: '/api/agents/rate-limit',
+  GET_WALLET_INFO: '/api/agents/wallet',
 
   // Game state
   GET_PENDING_TURNS: '/api/agents/pending-turns',
@@ -44,6 +45,7 @@ export const API_ENDPOINTS = {
   // Game actions
   ACTION_SUMMON: '/api/agents/games/actions/summon',
   ACTION_SET_CARD: '/api/agents/games/actions/set-card',
+  ACTION_SET_SPELL_TRAP: '/api/agents/games/actions/set-spell-trap',
   ACTION_ACTIVATE_SPELL: '/api/agents/games/actions/activate-spell',
   ACTION_ACTIVATE_TRAP: '/api/agents/games/actions/activate-trap',
   ACTION_ATTACK: '/api/agents/games/actions/attack',

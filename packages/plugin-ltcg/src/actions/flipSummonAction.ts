@@ -16,6 +16,7 @@ import type {
 } from '@elizaos/core';
 import { logger, ModelType } from '@elizaos/core';
 import { LTCGApiClient } from '../client/LTCGApiClient';
+import { extractJsonFromLlmResponse } from '../utils/safeParseJson';
 import { gameStateProvider } from '../providers/gameStateProvider';
 import { boardAnalysisProvider } from '../providers/boardAnalysisProvider';
 import type { GameStateResponse, MonsterCard } from '../types/api';
@@ -154,7 +155,7 @@ Respond with JSON: { "monsterIndex": <index>, "reasoning": "<brief explanation>"
       });
 
       // Parse LLM decision
-      const parsed = JSON.parse(decision);
+      const parsed = extractJsonFromLlmResponse(decision, { monsterIndex: 0, reasoning: '' });
       const selectedMonster = faceDownMonsters[parsed.monsterIndex];
 
       if (!selectedMonster) {

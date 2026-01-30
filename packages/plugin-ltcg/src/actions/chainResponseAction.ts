@@ -16,6 +16,7 @@ import type {
 } from '@elizaos/core';
 import { logger, ModelType } from '@elizaos/core';
 import { LTCGApiClient } from '../client/LTCGApiClient';
+import { extractJsonFromLlmResponse } from '../utils/safeParseJson';
 import { gameStateProvider } from '../providers/gameStateProvider';
 import { handProvider } from '../providers/handProvider';
 import { boardAnalysisProvider } from '../providers/boardAnalysisProvider';
@@ -181,7 +182,7 @@ Respond with JSON: { "shouldChain": true/false, "location": "hand"/"field", "car
       });
 
       // Parse LLM decision
-      const parsed = JSON.parse(decision);
+      const parsed = extractJsonFromLlmResponse(decision, { shouldChain: false, cardIndex: 0, targets: [], reasoning: '', location: 'field' });
 
       if (!parsed.shouldChain) {
         // Agent decided not to chain

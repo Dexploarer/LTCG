@@ -16,6 +16,7 @@ import type {
 } from '@elizaos/core';
 import { logger, ModelType } from '@elizaos/core';
 import { LTCGApiClient } from '../client/LTCGApiClient';
+import { extractJsonFromLlmResponse } from '../utils/safeParseJson';
 import { gameStateProvider } from '../providers/gameStateProvider';
 import type { GameStateResponse } from '../types/api';
 
@@ -127,7 +128,7 @@ Respond with JSON: { "confirm": true or false }`;
             maxTokens: 20,
           });
 
-          const parsed = JSON.parse(decision);
+          const parsed = extractJsonFromLlmResponse(decision, { confirm: false });
           if (!parsed.confirm) {
             await callback({
               text: 'Surrender cancelled. Continuing the game.',
@@ -148,10 +149,10 @@ Respond with JSON: { "confirm": true or false }`;
       const result = await client.surrender({ gameId });
 
       // Clear game ID from runtime state
-      await runtime.delete('LTCG_CURRENT_GAME_ID');
+      await runtime.delete?.('LTCG_CURRENT_GAME_ID');
 
       // Also clear lobby ID if present
-      await runtime.delete('LTCG_CURRENT_LOBBY_ID');
+      await runtime.delete?.('LTCG_CURRENT_LOBBY_ID');
 
       await callback({
         text: `Surrendered the game. ${result.message}`,
@@ -178,8 +179,8 @@ Respond with JSON: { "confirm": true or false }`;
 
       // Even if API call failed, try to clean up state
       try {
-        await runtime.delete('LTCG_CURRENT_GAME_ID');
-        await runtime.delete('LTCG_CURRENT_LOBBY_ID');
+        await runtime.delete?.('LTCG_CURRENT_GAME_ID');
+        await runtime.delete?.('LTCG_CURRENT_LOBBY_ID');
       } catch (cleanupError) {
         logger.error({ cleanupError }, 'Failed to clean up state after surrender error');
       }

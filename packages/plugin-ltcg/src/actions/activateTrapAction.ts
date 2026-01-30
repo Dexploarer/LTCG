@@ -16,6 +16,7 @@ import type {
 } from '@elizaos/core';
 import { logger, ModelType } from '@elizaos/core';
 import { LTCGApiClient } from '../client/LTCGApiClient';
+import { extractJsonFromLlmResponse } from '../utils/safeParseJson';
 import { gameStateProvider } from '../providers/gameStateProvider';
 import { boardAnalysisProvider } from '../providers/boardAnalysisProvider';
 import type { GameStateResponse, SpellTrapCard, GameEvent } from '../types/api';
@@ -158,7 +159,7 @@ Respond with JSON: { "shouldActivate": true/false, "trapIndex": <index if activa
       });
 
       // Parse LLM decision
-      const parsed = JSON.parse(decision);
+      const parsed = extractJsonFromLlmResponse(decision, { shouldActivate: false, trapIndex: 0, targets: [], reasoning: '' });
 
       if (!parsed.shouldActivate) {
         // Agent decided not to activate trap

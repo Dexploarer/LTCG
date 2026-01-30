@@ -10,23 +10,40 @@ describe('Plugin Routes', () => {
     }
   });
 
-  it('should have a route for /helloworld', () => {
+  it('should have a route for /ltcg/health', () => {
     if (plugin.routes) {
-      const helloWorldRoute = plugin.routes.find((route) => route.path === '/helloworld');
-      expect(helloWorldRoute).toBeDefined();
+      const healthRoute = plugin.routes.find((route) => route.path === '/ltcg/health');
+      expect(healthRoute).toBeDefined();
 
-      if (helloWorldRoute) {
-        expect(helloWorldRoute.type).toBe('GET');
-        expect(typeof helloWorldRoute.handler).toBe('function');
+      if (healthRoute) {
+        expect(healthRoute.type).toBe('GET');
+        expect(typeof healthRoute.handler).toBe('function');
       }
     }
   });
 
-  it('should handle route requests correctly', async () => {
+  it('should have webhook routes', () => {
     if (plugin.routes) {
-      const helloWorldRoute = plugin.routes.find((route) => route.path === '/helloworld');
+      const gameWebhookRoute = plugin.routes.find((route) => route.path === '/ltcg/webhook/game');
+      const webhookHealthRoute = plugin.routes.find((route) => route.path === '/ltcg/webhook/health');
 
-      if (helloWorldRoute && helloWorldRoute.handler) {
+      expect(gameWebhookRoute).toBeDefined();
+      expect(webhookHealthRoute).toBeDefined();
+
+      if (gameWebhookRoute) {
+        expect(gameWebhookRoute.type).toBe('POST');
+      }
+      if (webhookHealthRoute) {
+        expect(webhookHealthRoute.type).toBe('GET');
+      }
+    }
+  });
+
+  it('should handle health route requests correctly', async () => {
+    if (plugin.routes) {
+      const healthRoute = plugin.routes.find((route) => route.path === '/ltcg/health');
+
+      if (healthRoute && healthRoute.handler) {
         // Create mock request and response objects
         const mockReq = {};
         const mockRes = {
@@ -37,13 +54,13 @@ describe('Plugin Routes', () => {
         const mockRuntime = {} as any;
 
         // Call the route handler
-        await helloWorldRoute.handler(mockReq, mockRes, mockRuntime);
+        await healthRoute.handler(mockReq, mockRes, mockRuntime);
 
         // Verify response
         expect(mockRes.json).toHaveBeenCalledTimes(1);
-        expect(mockRes.json).toHaveBeenCalledWith({
-          message: 'Hello World!',
-        });
+        const callArgs = (mockRes.json as any).mock.calls[0][0];
+        expect(callArgs.status).toBe('ok');
+        expect(callArgs.plugin).toBe('ltcg');
       }
     }
   });

@@ -47,6 +47,11 @@ export const emotionalStateEvaluator: Evaluator = {
     ],
   ],
 
+  validate: async (_runtime: IAgentRuntime, _message: Memory, _state: State): Promise<boolean> => {
+    // Always validate - emotional state check runs on all messages
+    return true;
+  },
+
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,
@@ -218,11 +223,13 @@ function shouldAllowResponse(
   // Check if action is filtered for this emotional state
   if (emotionalState.shouldFilter.includes(intendedAction)) {
     // Check character personality - some characters are defiant
-    const personality = runtime.character?.bio || '';
+    const bio = runtime.character?.bio;
+    const personality = Array.isArray(bio) ? bio.join(' ') : (bio || '');
+    const personalityLower = personality.toLowerCase();
     const isDefiant =
-      personality.toLowerCase().includes('defiant') ||
-      personality.toLowerCase().includes('never gives up') ||
-      personality.toLowerCase().includes('trash talk');
+      personalityLower.includes('defiant') ||
+      personalityLower.includes('never gives up') ||
+      personalityLower.includes('trash talk');
 
     // Allow defiant characters to trash talk even when losing
     if (intendedAction === 'TRASH_TALK' && isDefiant) {

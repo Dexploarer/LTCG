@@ -18,6 +18,7 @@ import { createLobbyAction } from './createLobbyAction';
 import { joinLobbyAction } from './joinLobbyAction';
 import { surrenderAction } from './surrenderAction';
 import { registerAgentAction } from './registerAgentAction';
+import { getWalletInfoAction } from './getWalletInfoAction';
 import { trashTalkAction } from './trashTalkAction';
 import { reactToPlayAction } from './reactToPlayAction';
 import { ggAction } from './ggAction';
@@ -54,6 +55,7 @@ import { sendChatMessageAction } from './sendChatMessageAction';
 export const ltcgActions = [
   // Game Management Actions
   registerAgentAction,
+  getWalletInfoAction,
   findGameAction,
   createLobbyAction,
   joinLobbyAction,
@@ -81,6 +83,7 @@ export const ltcgActions = [
 export {
   // Game Management
   registerAgentAction,
+  getWalletInfoAction,
   findGameAction,
   createLobbyAction,
   joinLobbyAction,

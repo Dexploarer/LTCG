@@ -16,6 +16,7 @@ import type {
 } from '@elizaos/core';
 import { logger, ModelType } from '@elizaos/core';
 import { LTCGApiClient } from '../client/LTCGApiClient';
+import { extractJsonFromLlmResponse } from '../utils/safeParseJson';
 
 export const createLobbyAction: Action = {
   name: 'CREATE_LOBBY',
@@ -109,7 +110,7 @@ Respond with JSON: { "deckIndex": <index> }`;
             maxTokens: 50,
           });
 
-          const parsed = JSON.parse(decision);
+          const parsed = extractJsonFromLlmResponse(decision, { deckIndex: 0 });
           deckId = decks[parsed.deckIndex].deckId;
         }
       }
@@ -135,7 +136,7 @@ Respond with JSON: { "mode": "ranked" or "casual" }`;
           maxTokens: 20,
         });
 
-        const parsed = JSON.parse(decision);
+        const parsed = extractJsonFromLlmResponse(decision, { mode: 'casual' });
         mode = parsed.mode === 'ranked' ? 'ranked' : 'casual';
       }
 
@@ -162,7 +163,7 @@ Respond with JSON: { "isPrivate": true or false }`;
           maxTokens: 20,
         });
 
-        const parsed = JSON.parse(decision);
+        const parsed = extractJsonFromLlmResponse(decision, { isPrivate: false });
         isPrivate = parsed.isPrivate === true;
       }
 

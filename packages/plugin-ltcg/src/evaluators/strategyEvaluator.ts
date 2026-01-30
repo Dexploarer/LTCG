@@ -48,6 +48,11 @@ export const strategyEvaluator: Evaluator = {
     ],
   ],
 
+  validate: async (_runtime: IAgentRuntime, _message: Memory, _state: State): Promise<boolean> => {
+    // Always validate strategy - check runs on all gameplay messages
+    return true;
+  },
+
   handler: async (
     runtime: IAgentRuntime,
     message: Memory,

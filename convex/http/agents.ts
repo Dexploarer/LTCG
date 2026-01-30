@@ -44,6 +44,7 @@ export const register = httpAction(async (ctx, request) => {
       personality?: string;
       difficulty?: string;
       starterDeckCode?: string;
+      callbackUrl?: string; // Webhook URL for real-time notifications
     }>(request);
 
     if (body instanceof Response) return body; // Error parsing JSON
@@ -52,6 +53,15 @@ export const register = httpAction(async (ctx, request) => {
     const validation = validateRequiredFields(body, ["name"]);
     if (validation) return validation;
 
+    // Validate callback URL if provided
+    if (body.callbackUrl) {
+      try {
+        new URL(body.callbackUrl);
+      } catch {
+        return errorResponse("INVALID_CALLBACK_URL", "Callback URL must be a valid URL", 400);
+      }
+    }
+
     // Call internal registerAgent mutation (no auth required)
     // Note: registerAgentInternal returns { agentId, apiKey, keyPrefix, internalAgentId }
     const result = await ctx.runMutation(internal.agents.registerAgentInternal, {
@@ -59,6 +69,7 @@ export const register = httpAction(async (ctx, request) => {
       profilePictureUrl: undefined, // Optional
       socialLink: undefined, // Optional
       starterDeckCode: body.starterDeckCode || "STARTER_BALANCED", // Default deck
+      callbackUrl: body.callbackUrl, // Webhook URL for real-time notifications
     });
 
     // Create HD wallet for the agent (async, non-blocking)
@@ -87,6 +98,7 @@ export const register = httpAction(async (ctx, request) => {
         apiKey: result.apiKey, // Only shown once!
         keyPrefix: result.keyPrefix,
         walletAddress, // Solana wallet address (if created)
+        webhookEnabled: !!body.callbackUrl, // Whether real-time notifications are enabled
       },
       201 // Created
     );
