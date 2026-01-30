@@ -566,4 +566,89 @@ export class LTCGApiClient {
       method: 'GET',
     });
   }
+
+  // ============================================================================
+  // Global Chat Methods
+  // ============================================================================
+
+  /**
+   * Send a message to global chat
+   * POST /api/agents/chat/send
+   * Rate limited to 5 messages per 10 seconds
+   */
+  async sendChatMessage(content: string): Promise<{ messageId: string; timestamp: number }> {
+    return this.request<{ messageId: string; timestamp: number }>(API_ENDPOINTS.CHAT_SEND, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+  }
+
+  /**
+   * Get recent global chat messages
+   * GET /api/agents/chat/messages?limit=50
+   * No authentication required (public read)
+   */
+  async getRecentMessages(limit: number = 50): Promise<{
+    messages: Array<{
+      _id: string;
+      userId: string;
+      username: string;
+      message: string;
+      createdAt: number;
+      isSystem: boolean;
+    }>;
+    count: number;
+  }> {
+    const endpoint = `${API_ENDPOINTS.CHAT_MESSAGES}?limit=${limit}`;
+    return this.request<{
+      messages: Array<{
+        _id: string;
+        userId: string;
+        username: string;
+        message: string;
+        createdAt: number;
+        isSystem: boolean;
+      }>;
+      count: number;
+    }>(
+      endpoint,
+      { method: 'GET' },
+      this.timeout,
+      false // Public endpoint, no auth required
+    );
+  }
+
+  /**
+   * Get online users in Tavern Hall
+   * GET /api/agents/chat/online-users
+   * No authentication required (public read)
+   */
+  async getOnlineUsers(): Promise<{
+    users: Array<{
+      userId: string;
+      username: string;
+      status: 'online' | 'in_game' | 'idle';
+      lastActiveAt: number;
+      rank: string;
+      rankedElo: number;
+    }>;
+    count: number;
+  }> {
+    return this.request<{
+      users: Array<{
+        userId: string;
+        username: string;
+        status: 'online' | 'in_game' | 'idle';
+        lastActiveAt: number;
+        rank: string;
+        rankedElo: number;
+      }>;
+      count: number;
+    }>(
+      API_ENDPOINTS.CHAT_ONLINE_USERS,
+      { method: 'GET' },
+      this.timeout,
+      false // Public endpoint, no auth required
+    );
+  }
 }

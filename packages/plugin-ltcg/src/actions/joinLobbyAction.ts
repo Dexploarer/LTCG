@@ -25,7 +25,7 @@ export const joinLobbyAction: Action = {
   validate: async (runtime: IAgentRuntime, message: Memory, state: State): Promise<boolean> => {
     try {
       // Check if already in a game
-      const currentGameId = await runtime.get('LTCG_CURRENT_GAME_ID');
+      const currentGameId = state.values.LTCG_CURRENT_GAME_ID;
       if (currentGameId) {
         logger.debug('Agent already in a game');
         return false;
@@ -122,7 +122,7 @@ export const joinLobbyAction: Action = {
       });
 
       // Store game ID in runtime state
-      await runtime.set('LTCG_CURRENT_GAME_ID', result.gameId);
+      state.values.LTCG_CURRENT_GAME_ID = result.gameId;
 
       const responseText = `Successfully joined game with ${result.opponentName}!\nGame ID: ${result.gameId.slice(0, 8)}...`;
 

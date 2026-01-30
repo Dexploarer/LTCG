@@ -167,9 +167,9 @@ Respond with JSON: { "deckIndex": <index> }`;
 
       // Store API key in runtime settings
       // Note: In production, this should be stored securely
-      await runtime.set('LTCG_API_KEY', result.data.apiKey);
-      await runtime.set('LTCG_AGENT_ID', result.data.agentId);
-      await runtime.set('LTCG_USER_ID', result.data.userId);
+      runtime.setSetting('LTCG_API_KEY', result.data.apiKey, true); // secret=true
+      runtime.setSetting('LTCG_AGENT_ID', result.data.agentId);
+      runtime.setSetting('LTCG_USER_ID', result.data.userId);
 
       const responseText = `Successfully registered agent "${agentName}"!
 

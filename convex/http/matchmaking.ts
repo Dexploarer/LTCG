@@ -5,11 +5,10 @@
  * Used by ElizaOS agents to find and join games.
  */
 
-import { httpAction } from "../_generated/server";
-import { api } from "../_generated/api";
+// Import at runtime only (not for type checking) to avoid TS2589
+const api: any = require("../_generated/api").api;
 import {
   authHttpAction,
-  type AuthenticatedRequest,
 } from "./middleware/auth";
 import {
   successResponse,
@@ -25,7 +24,7 @@ import {
  * Create a lobby and enter matchmaking
  * Requires API key authentication
  */
-export const enter = authHttpAction(async (ctx, request, auth) => {
+export const enter = authHttpAction(async (ctx, request, _auth) => {
   // Handle CORS preflight
   if (request.method === "OPTIONS") {
     return corsPreflightResponse();
@@ -50,7 +49,7 @@ export const enter = authHttpAction(async (ctx, request, auth) => {
     if (validation) return validation;
 
     // Create lobby
-    const lobby = await ctx.runMutation(api.gameplay.games.lobby.createLobby, {
+    const lobby = await ctx.runMutation((api as any).gameplay.games.lobby.createLobby, {
       deckId: body.deckId as any, // Cast to Id type
       mode: body.mode,
       maxRatingDiff: body.maxRatingDiff,
@@ -117,7 +116,7 @@ export const lobbies = authHttpAction(async (ctx, request, auth) => {
     const mode = (modeParam || "all") as "casual" | "ranked" | "all";
 
     // Get user rating for ranked matchmaking
-    const user = await ctx.runQuery(api.core.users.getUser, {
+    const user = await ctx.runQuery((api as any).core.users.getUser, {
       userId: auth.userId,
     });
 
@@ -125,7 +124,7 @@ export const lobbies = authHttpAction(async (ctx, request, auth) => {
 
     // List waiting lobbies
     const waitingLobbies = await ctx.runQuery(
-      api.gameplay.games.queries.listWaitingLobbies,
+      (api as any).gameplay.games.queries.listWaitingLobbies,
       {
         mode,
         userRating,
@@ -133,7 +132,7 @@ export const lobbies = authHttpAction(async (ctx, request, auth) => {
     );
 
     // Format lobby data
-    const formattedLobbies = waitingLobbies.map((lobby) => ({
+    const formattedLobbies = waitingLobbies.map((lobby: any) => ({
       lobbyId: lobby._id,
       host: {
         username: lobby.hostUsername,
@@ -165,7 +164,7 @@ export const lobbies = authHttpAction(async (ctx, request, auth) => {
  * Join an existing lobby
  * Requires API key authentication
  */
-export const join = authHttpAction(async (ctx, request, auth) => {
+export const join = authHttpAction(async (ctx, request, _auth) => {
   // Handle CORS preflight
   if (request.method === "OPTIONS") {
     return corsPreflightResponse();
@@ -202,14 +201,14 @@ export const join = authHttpAction(async (ctx, request, auth) => {
 
     if (body.joinCode) {
       result = await ctx.runMutation(
-        api.gameplay.games.lobby.joinLobbyByCode,
+        (api as any).gameplay.games.lobby.joinLobbyByCode,
         {
           joinCode: body.joinCode,
           deckId: body.deckId as any,
         }
       );
     } else {
-      result = await ctx.runMutation(api.gameplay.games.lobby.joinLobby, {
+      result = await ctx.runMutation((api as any).gameplay.games.lobby.joinLobby, {
         lobbyId: body.lobbyId as any,
         deckId: body.deckId as any,
       });
@@ -267,7 +266,7 @@ export const join = authHttpAction(async (ctx, request, auth) => {
  * Leave/cancel current lobby
  * Requires API key authentication
  */
-export const leave = authHttpAction(async (ctx, request, auth) => {
+export const leave = authHttpAction(async (ctx, request, _auth) => {
   // Handle CORS preflight
   if (request.method === "OPTIONS") {
     return corsPreflightResponse();
@@ -288,7 +287,7 @@ export const leave = authHttpAction(async (ctx, request, auth) => {
     if (validation) return validation;
 
     // Cancel lobby
-    await ctx.runMutation(api.gameplay.games.lobby.cancelLobby, {
+    await ctx.runMutation((api as any).gameplay.games.lobby.cancelLobby, {
       lobbyId: body.lobbyId as any,
     });
 

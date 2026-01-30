@@ -71,125 +71,6 @@ const configSchema = z.object({
     .optional(),
 });
 
-/**
- * Example HelloWorld action
- * This demonstrates the simplest possible action structure
- */
-/**
- * Represents an action that responds with a simple hello world message.
- *
- * @typedef {Object} Action
- * @property {string} name - The name of the action
- * @property {string[]} similes - The related similes of the action
- * @property {string} description - Description of the action
- * @property {Function} validate - Validation function for the action
- * @property {Function} handler - The function that handles the action
- * @property {Object[]} examples - Array of examples for the action
- */
-const helloWorldAction: Action = {
-  name: 'HELLO_WORLD',
-  similes: ['GREET', 'SAY_HELLO'],
-  description: 'Responds with a simple hello world message',
-
-  validate: async (_runtime: IAgentRuntime, _message: Memory, _state: State): Promise<boolean> => {
-    // Always valid
-    return true;
-  },
-
-  handler: async (
-    _runtime: IAgentRuntime,
-    message: Memory,
-    _state: State,
-    _options: any,
-    callback: HandlerCallback,
-    _responses: Memory[]
-  ): Promise<ActionResult> => {
-    try {
-      logger.info('Handling HELLO_WORLD action');
-
-      // Simple response content
-      const responseContent: Content = {
-        text: 'hello world!',
-        actions: ['HELLO_WORLD'],
-        source: message.content.source,
-      };
-
-      // Call back with the hello world message
-      await callback(responseContent);
-
-      return {
-        text: 'Sent hello world greeting',
-        values: {
-          success: true,
-          greeted: true,
-        },
-        data: {
-          actionName: 'HELLO_WORLD',
-          messageId: message.id,
-          timestamp: Date.now(),
-        },
-        success: true,
-      };
-    } catch (error) {
-      logger.error({ error }, 'Error in HELLO_WORLD action:');
-
-      return {
-        text: 'Failed to send hello world greeting',
-        values: {
-          success: false,
-          error: 'GREETING_FAILED',
-        },
-        data: {
-          actionName: 'HELLO_WORLD',
-          error: error instanceof Error ? error.message : String(error),
-        },
-        success: false,
-        error: error instanceof Error ? error : new Error(String(error)),
-      };
-    }
-  },
-
-  examples: [
-    [
-      {
-        name: '{{name1}}',
-        content: {
-          text: 'Can you say hello?',
-        },
-      },
-      {
-        name: '{{name2}}',
-        content: {
-          text: 'hello world!',
-          actions: ['HELLO_WORLD'],
-        },
-      },
-    ],
-  ],
-};
-
-/**
- * Example Hello World Provider
- * This demonstrates the simplest possible provider implementation
- */
-const helloWorldProvider: Provider = {
-  name: 'HELLO_WORLD_PROVIDER',
-  description: 'A simple example provider',
-
-  get: async (
-    _runtime: IAgentRuntime,
-    _message: Memory,
-    _state: State
-  ): Promise<ProviderResult> => {
-    return {
-      text: 'I am a provider',
-      values: {},
-      data: {},
-    };
-  },
-};
-
-
 const plugin: Plugin = {
   name: 'ltcg',
   description: 'LTCG card game plugin - enables AI agents to play the Legendary Trading Card Game with full gameplay capabilities, real-time updates, and customizable personalities',
@@ -230,24 +111,11 @@ const plugin: Plugin = {
     }
   },
   models: {
-    [ModelType.TEXT_SMALL]: async (
-      _runtime,
-      { prompt, stopSequences = [] }: GenerateTextParams
-    ) => {
-      return 'Never gonna give you up, never gonna let you down, never gonna run around and desert you...';
+    [ModelType.TEXT_SMALL]: async (_runtime, { prompt }: GenerateTextParams) => {
+      return 'Test response for small model';
     },
-    [ModelType.TEXT_LARGE]: async (
-      _runtime,
-      {
-        prompt,
-        stopSequences = [],
-        maxTokens = 8192,
-        temperature = 0.7,
-        frequencyPenalty = 0.7,
-        presencePenalty = 0.7,
-      }: GenerateTextParams
-    ) => {
-      return 'Never gonna make you cry, never gonna say goodbye, never gonna tell a lie and hurt you...';
+    [ModelType.TEXT_LARGE]: async (_runtime, { prompt }: GenerateTextParams) => {
+      return 'Test response for large model';
     },
   },
   routes: [
@@ -256,10 +124,7 @@ const plugin: Plugin = {
       path: '/helloworld',
       type: 'GET',
       handler: async (_req: RouteRequest, res: RouteResponse) => {
-        // send a response
-        res.json({
-          message: 'Hello World!',
-        });
+        res.json({ message: 'Hello World!' });
       },
     },
   ],
@@ -294,9 +159,9 @@ const plugin: Plugin = {
     ],
   },
   services: [LTCGRealtimeService],
-  actions: [helloWorldAction, ...ltcgActions],
-  providers: [helloWorldProvider, ...ltcgProviders],
-  evaluators: [...ltcgEvaluators],
+  actions: ltcgActions,
+  providers: ltcgProviders,
+  evaluators: ltcgEvaluators,
 };
 
 export default plugin;

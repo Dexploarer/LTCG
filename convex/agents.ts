@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { getCurrentUser, requireAuthMutation, requireAuthQuery } from "./lib/convexAuth";
 import { ErrorCode, createError } from "./lib/errorCodes";
 import { STARTER_DECKS, type StarterDeckCode, VALID_DECK_CODES } from "./seeds/starterDecks";
@@ -29,9 +29,10 @@ function generateApiKey(): string {
  * @param key - The plain text API key to hash
  * @returns Promise resolving to the bcrypt hash
  */
-async function hashApiKey(key: string): Promise<string> {
+function hashApiKey(key: string): string {
   const saltRounds = 12; // Good balance of security and performance
-  return await bcrypt.hash(key, saltRounds);
+  // Use hashSync instead of hash to avoid setTimeout (not allowed in Convex mutations)
+  return bcrypt.hashSync(key, saltRounds);
 }
 
 /**
@@ -110,6 +111,23 @@ export async function validateApiKeyInternal(
     return null;
   }
 }
+
+// ============================================
+// INTERNAL QUERIES
+// ============================================
+
+/**
+ * Internal query wrapper for validateApiKeyInternal
+ * Used by HTTP actions to validate API keys
+ */
+export const validateApiKeyInternalQuery = internalQuery({
+  args: {
+    apiKey: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await validateApiKeyInternal(ctx, args.apiKey);
+  },
+});
 
 // ============================================
 // QUERIES
@@ -266,8 +284,88 @@ export const validateApiKey = mutation({
   },
 });
 
+// ============================================
+// INTERNAL MUTATIONS
+// ============================================
+
 /**
- * Register a new AI agent
+ * Internal mutation for HTTP API agent registration
+ * Creates a system user and agent without authentication
+ */
+export const registerAgentInternal = internalMutation({
+  args: {
+    name: v.string(),
+    profilePictureUrl: v.optional(v.string()),
+    socialLink: v.optional(v.string()),
+    starterDeckCode: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // For HTTP API registrations, create a system user for the agent
+    // These users don't have email/auth as they're API-only agents
+    const userId = await ctx.db.insert("users", {
+      username: `agent_${args.name.toLowerCase().replace(/[^a-z0-9]/g, "_")}`,
+      email: `agent_${Date.now()}@ltcg.api`, // Placeholder email for API agents
+      isAnonymous: false,
+      createdAt: Date.now(),
+    });
+
+    // Validate agent name
+    const trimmedName = args.name.trim();
+
+    if (trimmedName.length < 3 || trimmedName.length > 32) {
+      throw createError(ErrorCode.AGENT_NAME_INVALID_LENGTH, { length: trimmedName.length });
+    }
+
+    if (!/^[a-zA-Z0-9\s_-]+$/.test(trimmedName)) {
+      throw createError(ErrorCode.AGENT_NAME_INVALID_CHARS, { name: trimmedName });
+    }
+
+    // Validate starter deck code
+    if (!isValidDeckCode(args.starterDeckCode)) {
+      throw createError(ErrorCode.AGENT_INVALID_STARTER_DECK, { code: args.starterDeckCode });
+    }
+
+    // Create agent record
+    const agentId = await ctx.db.insert("agents", {
+      userId: userId,
+      name: trimmedName,
+      profilePictureUrl: args.profilePictureUrl,
+      socialLink: args.socialLink,
+      starterDeckCode: args.starterDeckCode,
+      stats: {
+        gamesPlayed: 0,
+        gamesWon: 0,
+        totalScore: 0,
+      },
+      createdAt: Date.now(),
+      isActive: true,
+    });
+
+    // Generate and store API key
+    const apiKey = generateApiKey();
+    const keyHash = hashApiKey(apiKey);
+    const keyPrefix = getKeyPrefix(apiKey);
+
+    await ctx.db.insert("apiKeys", {
+      agentId,
+      userId: userId,
+      keyHash,
+      keyPrefix,
+      isActive: true,
+      createdAt: Date.now(),
+    });
+
+    return {
+      agentId,
+      apiKey, // Full key - shown only once!
+      keyPrefix,
+      message: "Agent registered successfully",
+    };
+  },
+});
+
+/**
+ * Register a new AI agent (authenticated version)
  */
 export const registerAgent = mutation({
   args: {
@@ -352,7 +450,7 @@ export const registerAgent = mutation({
 
     // 7. Generate and store API key
     const apiKey = generateApiKey();
-    const keyHash = await hashApiKey(apiKey); // Now async with bcrypt
+    const keyHash = hashApiKey(apiKey);
     const keyPrefix = getKeyPrefix(apiKey);
 
     await ctx.db.insert("apiKeys", {
@@ -408,7 +506,7 @@ export const regenerateApiKey = mutation({
 
     // Generate new key
     const apiKey = generateApiKey();
-    const keyHash = await hashApiKey(apiKey); // Now async with bcrypt
+    const keyHash = hashApiKey(apiKey);
     const keyPrefix = getKeyPrefix(apiKey);
 
     await ctx.db.insert("apiKeys", {

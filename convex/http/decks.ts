@@ -5,7 +5,8 @@
  * Used by ElizaOS agents to browse cards and manage decks.
  */
 
-import { api } from "../_generated/api";
+// Import at runtime only (not for type checking) to avoid TS2589
+const api: any = require("../_generated/api").api;
 import {
   authHttpAction,
 } from "./middleware/auth";

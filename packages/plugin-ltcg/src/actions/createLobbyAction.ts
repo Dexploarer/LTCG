@@ -25,14 +25,14 @@ export const createLobbyAction: Action = {
   validate: async (runtime: IAgentRuntime, message: Memory, state: State): Promise<boolean> => {
     try {
       // Check if already in a game
-      const currentGameId = await runtime.get('LTCG_CURRENT_GAME_ID');
+      const currentGameId = state.values.LTCG_CURRENT_GAME_ID;
       if (currentGameId) {
         logger.debug('Agent already in a game');
         return false;
       }
 
       // Check if already in a lobby
-      const currentLobbyId = await runtime.get('LTCG_CURRENT_LOBBY_ID');
+      const currentLobbyId = state.values.LTCG_CURRENT_LOBBY_ID;
       if (currentLobbyId) {
         logger.debug('Agent already in a lobby');
         return false;
@@ -174,7 +174,7 @@ Respond with JSON: { "isPrivate": true or false }`;
       });
 
       // Store lobby ID in runtime state
-      await runtime.set('LTCG_CURRENT_LOBBY_ID', result.lobbyId);
+      state.values.LTCG_CURRENT_LOBBY_ID = result.lobbyId;
 
       // Build response text
       let responseText = `Created ${mode} lobby (${isPrivate ? 'Private' : 'Public'})!`;

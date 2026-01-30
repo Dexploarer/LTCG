@@ -79,6 +79,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           flow: params["flow"],
           // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures (TS4111)
           email: params["email"],
+          // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures (TS4111)
+          name: params["name"],
         });
         // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures (TS4111)
         const flow = params["flow"] as string;
@@ -88,11 +90,18 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           console.log("📝 Creating new user profile");
 
           // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures (TS4111)
-          const name = params["name"] as string;
+          const name = (params["name"] as string) || "";
           // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures (TS4111)
           const email = params["email"] as string;
 
           // SECURITY: Validate username format server-side
+          // If name is empty or invalid, throw error early
+          if (!name) {
+            throw new ConvexError({
+              code: "MISSING_USERNAME",
+              message: "Username is required for signup",
+            });
+          }
           validateUsername(name);
 
           // SECURITY: Normalize email to lowercase

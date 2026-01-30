@@ -66,6 +66,11 @@ export const API_ENDPOINTS = {
   CREATE_DECK: '/api/agents/decks/create',
   GET_CARDS: '/api/agents/cards',
   GET_CARD: '/api/agents/cards/:id',
+
+  // Global Chat
+  CHAT_SEND: '/api/agents/chat/send',
+  CHAT_MESSAGES: '/api/agents/chat/messages',
+  CHAT_ONLINE_USERS: '/api/agents/chat/online-users',
 } as const;
 
 /**

@@ -216,16 +216,17 @@ export function GameLobby() {
     }
   };
 
-  // Auto-redirect to game board when user has an active lobby (waiting or active)
-  useEffect(() => {
-    if (
-      myActiveLobby &&
-      (myActiveLobby.status === "waiting" || myActiveLobby.status === "active") &&
-      !spectatingGameId
-    ) {
-      setSpectatingGameId(myActiveLobby._id as string);
-    }
-  }, [myActiveLobby, spectatingGameId]);
+  // DISABLED: Auto-redirect was forcing users into old/stale games
+  // Instead, show a "Resume Game" button in the UI
+  // useEffect(() => {
+  //   if (
+  //     myActiveLobby &&
+  //     (myActiveLobby.status === "waiting" || myActiveLobby.status === "active") &&
+  //     !spectatingGameId
+  //   ) {
+  //     setSpectatingGameId(myActiveLobby._id as string);
+  //   }
+  // }, [myActiveLobby, spectatingGameId]);
 
   // Get current user
   const currentUser = useQuery(api.core.users.currentUser);

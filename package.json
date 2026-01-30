@@ -14,6 +14,7 @@
     "dev:convex": "convex dev",
     "dev:web": "cd apps/web && bun run dev",
     "dev:admin": "cd apps/admin && bun run dev",
+    "dev:agent": "concurrently -n convex,web,agent -c blue,magenta,green \"bun run dev:convex\" \"bun run dev:web\" \"cd packages/plugin-ltcg && bun run start\"",
     "dev:all": "concurrently -n convex,web,admin -c blue,magenta,cyan \"bun run dev:convex\" \"bun run dev:web\" \"bun run dev:admin\"",
     "build": "turbo run build",
     "build:web": "cd apps/web && bun run build",

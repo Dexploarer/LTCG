@@ -13,6 +13,9 @@
 
 import { AgentRuntime } from '@elizaos/core';
 import type { Character } from '@elizaos/core';
+import { SqlDatabaseAdapter } from '@elizaos/plugin-sql';
+import { bootstrapPlugin } from '@elizaos/plugin-bootstrap';
+import { openRouterPlugin } from '@elizaos/plugin-openrouter';
 import ltcgPlugin from '../src/plugin';
 
 /**
@@ -197,8 +200,7 @@ async function main() {
   // Validate required environment variables
   const requiredEnvVars = [
     'LTCG_API_KEY',
-    'LTCG_CONVEX_URL',
-    'OPENAI_API_KEY', // or your LLM provider
+    'OPENROUTER_API_KEY', // LLM provider for agent decision-making
   ];
 
   const missing = requiredEnvVars.filter((varName) => !process.env[varName]);
@@ -210,20 +212,32 @@ async function main() {
     process.exit(1);
   }
 
-  // Create agent runtime
+  // Create SQL database adapter for agent memory and state
+  const adapter = new SqlDatabaseAdapter({
+    connection: {
+      filename: process.env.DATABASE_PATH || './data/cardmaster.db',
+    },
+  });
+
+  // Create agent runtime with all required plugins
   const agent = new AgentRuntime({
     character,
+    databaseAdapter: adapter,
     plugins: [
+      bootstrapPlugin, // Core ElizaOS functionality
+      openRouterPlugin, // LLM provider for decision-making
       ltcgPlugin, // LTCG gameplay plugin
-      // Add other required plugins:
-      // '@elizaos/plugin-bootstrap',
-      // '@elizaos/plugin-sql',
-      // '@elizaos/plugin-openai',
     ],
     settings: {
+      // OpenRouter Configuration
+      OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+
       // LTCG Configuration - Balanced Playstyle
       LTCG_API_KEY: process.env.LTCG_API_KEY,
-      LTCG_CONVEX_URL: process.env.LTCG_CONVEX_URL,
+      // Note: LTCG_API_URL and LTCG_CONVEX_URL default to production
+      // Override only if needed for development/testing:
+      // LTCG_API_URL: process.env.LTCG_API_URL,
+      // LTCG_CONVEX_URL: process.env.LTCG_CONVEX_URL,
 
       // Strategy Settings (balanced approach)
       LTCG_PLAY_STYLE: 'balanced',
@@ -284,9 +298,18 @@ main().catch((error) => {
  *
  * 1. Set up your .env file:
  *    ```bash
+ *    # Required - Get your API key by registering an agent at the LTCG platform
  *    LTCG_API_KEY=ltcg_your_key_here
- *    LTCG_CONVEX_URL=https://your-deployment.convex.cloud
- *    OPENAI_API_KEY=sk-your-openai-key
+ *
+ *    # Required - OpenRouter API key for LLM decision-making
+ *    OPENROUTER_API_KEY=sk-or-your-key-here
+ *
+ *    # Optional - Database location (defaults to ./data/cardmaster.db)
+ *    DATABASE_PATH=./data/cardmaster.db
+ *
+ *    # Optional - Override production URLs only if using dev/test environment
+ *    # LTCG_API_URL=http://localhost:3000
+ *    # LTCG_CONVEX_URL=https://your-dev-deployment.convex.cloud
  *    ```
  *
  * 2. Run the agent:
@@ -295,7 +318,9 @@ main().catch((error) => {
  *    ```
  *
  * 3. The agent will:
- *    - Connect to LTCG platform
+ *    - Connect to LTCG platform (production by default)
+ *    - Use OpenRouter for LLM-based strategic decisions
+ *    - Store game history in local SQLite database
  *    - Wait for game opportunities
  *    - Play with balanced strategy
  *    - Engage in mild trash talk
@@ -310,4 +335,5 @@ main().catch((error) => {
  *    - Change LTCG_PLAY_STYLE for different strategies
  *    - Adjust LTCG_RISK_TOLERANCE for risk-taking
  *    - Modify LTCG_TRASH_TALK_LEVEL for chat intensity
+ *    - Switch LLM provider by changing openRouterPlugin configuration
  */

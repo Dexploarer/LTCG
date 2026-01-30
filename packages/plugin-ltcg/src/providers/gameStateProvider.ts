@@ -19,12 +19,12 @@ export const gameStateProvider: Provider = {
 
   async get(runtime: IAgentRuntime, message: Memory, state: State): Promise<ProviderResult> {
     try {
-      // Get game ID from message content
-      const gameId = (message.content as any)?.gameId;
+      // Get game ID from State (set by service or action)
+      const gameId = state.values.LTCG_CURRENT_GAME_ID || (message.content as any)?.gameId;
 
       if (!gameId) {
         return {
-          text: 'No game ID provided in message context.',
+          text: 'No active game. Use FIND_GAME or JOIN_LOBBY to start playing.',
           values: { error: 'NO_GAME_ID' },
           data: {},
         };

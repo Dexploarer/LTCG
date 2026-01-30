@@ -137,6 +137,19 @@ Thumbs.db
 # Claude
 .claude/
 
+# ElizaOS
+.eliza/
+
+# Backup files
+*.bak
+*.bak[0-9]
+*.bak[0-9][0-9]
+*.backup
+*.old
+*.orig
+*_backup
+*_old
+
 # Logs
 logs/
 *.log

@@ -71,8 +71,8 @@ export const emotionalStateEvaluator: Evaluator = {
       // Analyze emotional state
       const emotionalState = analyzeEmotionalState(gameState, boardAnalysis, state);
 
-      // Store emotional state in runtime state for other actions to use
-      await runtime.set('LTCG_EMOTIONAL_STATE', emotionalState.state);
+      // Store emotional state in State object for other actions to use
+      state.values.LTCG_EMOTIONAL_STATE = emotionalState.state;
 
       // Get the intended action from message or state
       const intendedAction = (message.content as any)?.action || (state as any)?.currentAction;

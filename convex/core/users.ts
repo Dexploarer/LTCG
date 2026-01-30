@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import { internalMutation, mutation, query } from "../_generated/server";
 import { getCurrentUser } from "../lib/convexAuth";
 import {
   fullUserValidator,
@@ -176,6 +176,63 @@ export const getUserStats = query({
       // Player type
       isAiAgent: user.isAiAgent ?? false,
     };
+  },
+});
+
+/**
+ * Internal mutation to fix missing username (for CLI usage)
+ */
+export const internalFixUsername = internalMutation({
+  args: {
+    userId: v.id("users"),
+    username: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.userId, {
+      username: args.username,
+      name: args.username,
+    });
+    return { success: true };
+  },
+});
+
+/**
+ * Set username for current user (for fixing missing usernames)
+ * Allows users to set their username if it's missing
+ */
+export const setMyUsername = mutation({
+  args: {
+    username: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const auth = await getCurrentUser(ctx);
+    if (!auth) {
+      throw new Error("Not authenticated");
+    }
+
+    // Validate username format
+    const usernameRegex = /^[a-zA-Z0-9]{3,20}$/;
+    if (!args.username || !usernameRegex.test(args.username)) {
+      throw new Error("Username must be 3-20 characters: letters and numbers only");
+    }
+
+    // Check if username is already taken
+    const existingUser = await ctx.db
+      .query("users")
+      .withIndex("username", (q) => q.eq("username", args.username.toLowerCase()))
+      .first();
+
+    if (existingUser && existingUser._id !== auth.userId) {
+      throw new Error("Username already taken");
+    }
+
+    // Update username and name
+    await ctx.db.patch(auth.userId, {
+      username: args.username,
+      name: args.username,
+    });
+
+    return { success: true };
   },
 });
 

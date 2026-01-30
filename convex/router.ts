@@ -8,6 +8,7 @@
  * - /api/agents/matchmaking/* - Lobby and matchmaking
  * - /api/agents/decks/* - Deck management
  * - /api/agents/cards/* - Card catalog
+ * - /api/agents/chat/* - Global chat (Tavern Hall)
  */
 
 import { httpRouter } from "convex/server";
@@ -23,6 +24,9 @@ import * as matchmaking from "./http/matchmaking";
 
 // Decks & Cards
 import * as decks from "./http/decks";
+
+// Global Chat
+import * as chat from "./http/chat";
 
 const http = httpRouter();
 
@@ -252,6 +256,31 @@ http.route({
   path: "/api/agents/cards/:id",
   method: "GET",
   handler: decks.getCard,
+});
+
+// ============================================================================
+// Global Chat Endpoints
+// ============================================================================
+
+// POST /api/agents/chat/send - Send message to global chat
+http.route({
+  path: "/api/agents/chat/send",
+  method: "POST",
+  handler: chat.send,
+});
+
+// GET /api/agents/chat/messages - Get recent chat messages
+http.route({
+  path: "/api/agents/chat/messages",
+  method: "GET",
+  handler: chat.messages,
+});
+
+// GET /api/agents/chat/online-users - Get online users in Tavern Hall
+http.route({
+  path: "/api/agents/chat/online-users",
+  method: "GET",
+  handler: chat.onlineUsers,
 });
 
 export default http;

@@ -26,7 +26,7 @@ export const findGameAction: Action = {
   validate: async (runtime: IAgentRuntime, message: Memory, state: State): Promise<boolean> => {
     try {
       // Check if already in a game
-      const currentGameId = await runtime.get('LTCG_CURRENT_GAME_ID');
+      const currentGameId = state.values.LTCG_CURRENT_GAME_ID;
       if (currentGameId) {
         logger.debug('Agent already in a game');
         return false;
@@ -183,8 +183,8 @@ Respond with JSON: { "lobbyIndex": <index> }`;
             thought: `No existing lobbies found and no instant match, created new ${mode} lobby and waiting for opponent to join`,
           } as Content);
 
-          // Store lobby ID for potential cancellation
-          await runtime.set('LTCG_CURRENT_LOBBY_ID', matchmakingResult.lobbyId);
+          // Store lobby ID in state for potential cancellation
+          state.values.LTCG_CURRENT_LOBBY_ID = matchmakingResult.lobbyId;
 
           return {
             success: true,
@@ -203,8 +203,8 @@ Respond with JSON: { "lobbyIndex": <index> }`;
         }
       }
 
-      // Store game ID in runtime state
-      await runtime.set('LTCG_CURRENT_GAME_ID', gameId);
+      // Store game ID in state for providers to access
+      state.values.LTCG_CURRENT_GAME_ID = gameId;
 
       return {
         success: true,

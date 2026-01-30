@@ -13,6 +13,9 @@
 
 import { AgentRuntime } from '@elizaos/core';
 import type { Character } from '@elizaos/core';
+import { SqlDatabaseAdapter } from '@elizaos/plugin-sql';
+import { bootstrapPlugin } from '@elizaos/plugin-bootstrap';
+import { openRouterPlugin } from '@elizaos/plugin-openrouter';
 import ltcgPlugin from '../src/plugin';
 
 /**
@@ -236,7 +239,7 @@ async function main() {
   console.log('🛡️  Starting LTCG Control Agent...\n');
 
   // Validate environment
-  const requiredEnvVars = ['LTCG_API_KEY', 'LTCG_CONVEX_URL', 'OPENAI_API_KEY'];
+  const requiredEnvVars = ['LTCG_API_KEY', 'OPENROUTER_API_KEY'];
   const missing = requiredEnvVars.filter((varName) => !process.env[varName]);
 
   if (missing.length > 0) {
@@ -246,20 +249,29 @@ async function main() {
     process.exit(1);
   }
 
+  // Create SQL database adapter
+  const adapter = new SqlDatabaseAdapter({
+    connection: {
+      filename: process.env.DATABASE_PATH || './data/mindcontroller.db',
+    },
+  });
+
   // Create control agent
   const agent = new AgentRuntime({
     character,
+    databaseAdapter: adapter,
     plugins: [
+      bootstrapPlugin,
+      openRouterPlugin,
       ltcgPlugin,
-      // Add required plugins:
-      // '@elizaos/plugin-bootstrap',
-      // '@elizaos/plugin-sql',
-      // '@elizaos/plugin-openai',
     ],
     settings: {
+      // OpenRouter Configuration
+      OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+
       // LTCG Configuration - CONTROL MODE
       LTCG_API_KEY: process.env.LTCG_API_KEY,
-      LTCG_CONVEX_URL: process.env.LTCG_CONVEX_URL,
+      // URLs default to production - override only if needed
 
       // Strategy Settings - Maximum Control
       LTCG_PLAY_STYLE: 'control',

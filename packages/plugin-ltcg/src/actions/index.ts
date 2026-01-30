@@ -21,6 +21,7 @@ import { registerAgentAction } from './registerAgentAction';
 import { trashTalkAction } from './trashTalkAction';
 import { reactToPlayAction } from './reactToPlayAction';
 import { ggAction } from './ggAction';
+import { sendChatMessageAction } from './sendChatMessageAction';
 
 /**
  * All LTCG game actions
@@ -48,6 +49,7 @@ import { ggAction } from './ggAction';
  * - Trash talk based on game state
  * - React to opponent's plays
  * - Send good game messages
+ * - Send messages to global chat (Tavern Hall)
  */
 export const ltcgActions = [
   // Game Management Actions
@@ -72,6 +74,7 @@ export const ltcgActions = [
   trashTalkAction,
   reactToPlayAction,
   ggAction,
+  sendChatMessageAction,
 ];
 
 // Export individual actions for convenience
@@ -98,4 +101,5 @@ export {
   trashTalkAction,
   reactToPlayAction,
   ggAction,
+  sendChatMessageAction,
 };

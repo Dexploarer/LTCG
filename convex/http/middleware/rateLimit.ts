@@ -107,9 +107,9 @@ export async function checkRateLimit(
  * TODO: Implement with actual database query
  */
 async function getMinuteUsage(
-  ctx: any,
-  apiKeyId: string,
-  since: number
+  _ctx: any,
+  _apiKeyId: string,
+  _since: number
 ): Promise<number> {
   // Placeholder implementation
   // In production, query apiKeyUsage table:
@@ -129,9 +129,9 @@ async function getMinuteUsage(
  * TODO: Implement with actual database query
  */
 async function getDailyUsage(
-  ctx: any,
-  apiKeyId: string,
-  since: number
+  _ctx: any,
+  _apiKeyId: string,
+  _since: number
 ): Promise<number> {
   // Placeholder implementation
   // In production, query apiKeyUsage table:
@@ -151,9 +151,9 @@ async function getDailyUsage(
  * TODO: Implement with actual database insert
  */
 async function recordApiRequest(
-  ctx: any,
-  apiKeyId: string,
-  timestamp: number
+  _ctx: any,
+  _apiKeyId: string,
+  _timestamp: number
 ): Promise<void> {
   // Placeholder implementation
   // In production, insert into apiKeyUsage table:

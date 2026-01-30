@@ -97,6 +97,7 @@ import type * as games from "../games.js";
 import type * as globalChat from "../globalChat.js";
 import type * as http from "../http.js";
 import type * as http_agents from "../http/agents.js";
+import type * as http_chat from "../http/chat.js";
 import type * as http_decks from "../http/decks.js";
 import type * as http_games from "../http/games.js";
 import type * as http_matchmaking from "../http/matchmaking.js";
@@ -265,6 +266,7 @@ declare const fullApi: ApiFromModules<{
   globalChat: typeof globalChat;
   http: typeof http;
   "http/agents": typeof http_agents;
+  "http/chat": typeof http_chat;
   "http/decks": typeof http_decks;
   "http/games": typeof http_games;
   "http/matchmaking": typeof http_matchmaking;
