@@ -93,6 +93,7 @@ export const createMockRuntime = (): IAgentRuntime => {
       system: 'You are a helpful assistant for testing.',
     },
     getSetting: (key: string) => null,
+    setSetting: mock(async (key: string, value: any, persistent?: boolean) => {}),
     // Include real model functionality
     models: {},
     // Add real database functionality

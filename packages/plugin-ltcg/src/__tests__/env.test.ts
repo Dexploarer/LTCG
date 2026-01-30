@@ -8,7 +8,6 @@ describe('Environment Setup', () => {
       'package.json',
       'tsconfig.json',
       'tsconfig.build.json',
-      'tsup.config.ts',
       'bunfig.toml',
     ];
 
@@ -69,14 +68,13 @@ describe('Environment Setup', () => {
     expect(tsconfig.compilerOptions).toHaveProperty('esModuleInterop');
   });
 
-  it('should have a valid tsup.config.ts for building', () => {
-    const tsupConfigPath = path.join(process.cwd(), 'tsup.config.ts');
-    expect(fs.existsSync(tsupConfigPath)).toBe(true);
+  it('should have a valid build.ts for building', () => {
+    const buildTsPath = path.join(process.cwd(), 'build.ts');
+    expect(fs.existsSync(buildTsPath)).toBe(true);
 
-    const tsupConfig = fs.readFileSync(tsupConfigPath, 'utf8');
-    expect(tsupConfig).toContain('defineConfig');
-    expect(tsupConfig).toContain('entry:');
-    expect(tsupConfig).toContain('src/index.ts');
+    const buildTs = fs.readFileSync(buildTsPath, 'utf8');
+    expect(buildTs).toContain('build');
+    expect(buildTs).toContain('src/index.ts');
   });
 
   it('should have a valid README.md file', () => {
@@ -84,6 +82,6 @@ describe('Environment Setup', () => {
     expect(fs.existsSync(readmePath)).toBe(true);
 
     const readme = fs.readFileSync(readmePath, 'utf8');
-    expect(readme).toContain('# Project Starter');
+    expect(readme).toContain('# LTCG ElizaOS Plugin');
   });
 });
