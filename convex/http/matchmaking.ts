@@ -7,6 +7,7 @@
 
 // Import at runtime only (not for type checking) to avoid TS2589
 const api: any = require("../_generated/api").api;
+import { internal } from "../_generated/api";
 import {
   authHttpAction,
 } from "./middleware/auth";
@@ -24,7 +25,7 @@ import {
  * Create a lobby and enter matchmaking
  * Requires API key authentication
  */
-export const enter = authHttpAction(async (ctx, request, _auth) => {
+export const enter = authHttpAction(async (ctx, request, auth) => {
   // Handle CORS preflight
   if (request.method === "OPTIONS") {
     return corsPreflightResponse();
@@ -36,7 +37,7 @@ export const enter = authHttpAction(async (ctx, request, _auth) => {
 
   try {
     const body = await parseJsonBody<{
-      deckId: string;
+      deckId?: string;  // Optional - uses active deck if not provided
       mode: "casual" | "ranked";
       maxRatingDiff?: number;
       isPrivate?: boolean;
@@ -44,15 +45,14 @@ export const enter = authHttpAction(async (ctx, request, _auth) => {
 
     if (body instanceof Response) return body;
 
-    // Validate required fields
-    const validation = validateRequiredFields(body, ["deckId", "mode"]);
+    // Validate required fields (deckId is optional - uses active deck)
+    const validation = validateRequiredFields(body, ["mode"]);
     if (validation) return validation;
 
-    // Create lobby
-    const lobby = await ctx.runMutation((api as any).gameplay.games.lobby.createLobby, {
-      deckId: body.deckId as any, // Cast to Id type
+    // Create lobby using internal mutation with userId from API key auth
+    const lobby = await ctx.runMutation(internal.gameplay.games.lobby.createLobbyInternal, {
+      userId: auth.userId,
       mode: body.mode,
-      maxRatingDiff: body.maxRatingDiff,
       isPrivate: body.isPrivate || false,
     });
 
@@ -164,7 +164,7 @@ export const lobbies = authHttpAction(async (ctx, request, auth) => {
  * Join an existing lobby
  * Requires API key authentication
  */
-export const join = authHttpAction(async (ctx, request, _auth) => {
+export const join = authHttpAction(async (ctx, request, auth) => {
   // Handle CORS preflight
   if (request.method === "OPTIONS") {
     return corsPreflightResponse();
@@ -178,7 +178,6 @@ export const join = authHttpAction(async (ctx, request, _auth) => {
     const body = await parseJsonBody<{
       lobbyId?: string;
       joinCode?: string;
-      deckId: string;
     }>(request);
 
     if (body instanceof Response) return body;
@@ -192,31 +191,36 @@ export const join = authHttpAction(async (ctx, request, _auth) => {
       );
     }
 
-    // Validate deckId
-    const validation = validateRequiredFields(body, ["deckId"]);
-    if (validation) return validation;
+    // Join lobby using internal mutation with userId from API key auth
+    // Note: joinCode is not yet supported in internal mutation, need to look up lobby first
+    let lobbyId = body.lobbyId;
 
-    // Join lobby
-    let result;
-
-    if (body.joinCode) {
-      result = await ctx.runMutation(
-        (api as any).gameplay.games.lobby.joinLobbyByCode,
-        {
-          joinCode: body.joinCode,
-          deckId: body.deckId as any,
-        }
-      );
-    } else {
-      result = await ctx.runMutation((api as any).gameplay.games.lobby.joinLobby, {
-        lobbyId: body.lobbyId as any,
-        deckId: body.deckId as any,
+    if (body.joinCode && !lobbyId) {
+      // Look up lobby by join code
+      const lobbies = await ctx.runQuery((api as any).gameplay.games.queries.listWaitingLobbies, {
+        mode: "all" as const,
+        userRating: 1000,
       });
+      const matchingLobby = lobbies.find((l: any) => l.joinCode === body.joinCode?.toUpperCase());
+      if (!matchingLobby) {
+        return errorResponse("LOBBY_NOT_FOUND", "Invalid or expired join code", 404);
+      }
+      lobbyId = matchingLobby._id;
     }
+
+    if (!lobbyId) {
+      return errorResponse("LOBBY_NOT_FOUND", "Lobby ID required", 400);
+    }
+
+    const result = await ctx.runMutation(internal.gameplay.games.lobby.joinLobbyInternal, {
+      userId: auth.userId,
+      lobbyId: lobbyId as any,
+      joinCode: body.joinCode,
+    });
 
     // Game should be initialized now
     return successResponse({
-      gameId: result.lobbyId,
+      gameId: result.gameId,
       lobbyId: result.lobbyId,
       opponent: {
         username: result.opponentUsername,
@@ -266,7 +270,7 @@ export const join = authHttpAction(async (ctx, request, _auth) => {
  * Leave/cancel current lobby
  * Requires API key authentication
  */
-export const leave = authHttpAction(async (ctx, request, _auth) => {
+export const leave = authHttpAction(async (ctx, request, auth) => {
   // Handle CORS preflight
   if (request.method === "OPTIONS") {
     return corsPreflightResponse();
@@ -277,23 +281,15 @@ export const leave = authHttpAction(async (ctx, request, _auth) => {
   }
 
   try {
-    const body = await parseJsonBody<{
-      lobbyId: string;
-    }>(request);
-
-    if (body instanceof Response) return body;
-
-    const validation = validateRequiredFields(body, ["lobbyId"]);
-    if (validation) return validation;
-
-    // Cancel lobby
-    await ctx.runMutation((api as any).gameplay.games.lobby.cancelLobby, {
-      lobbyId: body.lobbyId as any,
+    // Cancel lobby using internal mutation with userId from API key auth
+    // Automatically finds the user's active waiting lobby
+    const result = await ctx.runMutation(internal.gameplay.games.lobby.cancelLobbyInternal, {
+      userId: auth.userId,
     });
 
     return successResponse({
       message: "Successfully left lobby",
-      lobbyId: body.lobbyId,
+      lobbyId: result.lobbyId,
     });
   } catch (error) {
     if (error instanceof Error) {
