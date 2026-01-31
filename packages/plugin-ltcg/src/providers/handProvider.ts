@@ -69,23 +69,24 @@ export const handProvider: Provider = {
       });
 
       // Structured values for template substitution
+      // Note: cardType uses 'creature' not 'monster' in the backend schema
       const values = {
         handSize: hand.length,
-        hasMonsters: hand.some((c) => c.type === 'monster'),
-        hasSpells: hand.some((c) => c.type === 'spell'),
-        hasTraps: hand.some((c) => c.type === 'trap'),
-        monsterCount: hand.filter((c) => c.type === 'monster').length,
-        spellCount: hand.filter((c) => c.type === 'spell').length,
-        trapCount: hand.filter((c) => c.type === 'trap').length,
+        hasMonsters: hand.some((c) => c.cardType === 'creature'),
+        hasSpells: hand.some((c) => c.cardType === 'spell'),
+        hasTraps: hand.some((c) => c.cardType === 'trap'),
+        monsterCount: hand.filter((c) => c.cardType === 'creature').length,
+        spellCount: hand.filter((c) => c.cardType === 'spell').length,
+        trapCount: hand.filter((c) => c.cardType === 'trap').length,
       };
 
       // Structured data for programmatic access
       const data = {
         hand,
         cardsByType: {
-          monsters: hand.filter((c) => c.type === 'monster'),
-          spells: hand.filter((c) => c.type === 'spell'),
-          traps: hand.filter((c) => c.type === 'trap'),
+          monsters: hand.filter((c) => c.cardType === 'creature'),
+          spells: hand.filter((c) => c.cardType === 'spell'),
+          traps: hand.filter((c) => c.cardType === 'trap'),
         },
       };
 
@@ -104,19 +105,20 @@ export const handProvider: Provider = {
 
 /**
  * Format a card for display
+ * Note: cardType uses 'creature' not 'monster' in the backend schema
  */
 function formatCard(card: CardInHand): string {
-  if (card.type === 'monster') {
-    const tributeText = getTributeRequirementText(card.level || 0);
+  if (card.cardType === 'creature') {
+    const tributeText = getTributeRequirementText(card.cost || 0);
     const abilityText =
       card.abilities && card.abilities.length > 0
         ? `   - Abilities: ${card.abilities.map((a: any) => a.name || a.description).join(', ')}`
         : '   - No special effects';
 
-    return `${card.name} [Monster, Level ${card.level}] ATK: ${card.atk}, DEF: ${card.def}
+    return `${card.name} [Creature, Cost ${card.cost || 0}] ATK: ${card.attack || 0}, DEF: ${card.defense || 0}
    - ${tributeText}
 ${abilityText}`;
-  } else if (card.type === 'spell') {
+  } else if (card.cardType === 'spell') {
     const effectText = card.description
       ? `   - Effect: ${card.description}`
       : card.abilities && card.abilities.length > 0
@@ -125,8 +127,7 @@ ${abilityText}`;
 
     return `${card.name} [Spell]
 ${effectText}`;
-  } else {
-    // Trap
+  } else if (card.cardType === 'trap') {
     const effectText = card.description
       ? `   - Effect: ${card.description}`
       : card.abilities && card.abilities.length > 0
@@ -135,16 +136,20 @@ ${effectText}`;
 
     return `${card.name} [Trap]
 ${effectText}`;
+  } else {
+    // Equipment or other
+    return `${card.name} [${card.cardType}]`;
   }
 }
 
 /**
- * Get tribute requirement text based on level
+ * Get tribute requirement text based on cost
+ * Cost 0-4: No tributes, Cost 5-6: 1 tribute, Cost 7+: 2 tributes
  */
-function getTributeRequirementText(level: number): string {
-  if (level <= 4) {
+function getTributeRequirementText(cost: number): string {
+  if (cost <= 4) {
     return 'No tributes required';
-  } else if (level <= 6) {
+  } else if (cost <= 6) {
     return 'Requires 1 tribute to summon';
   } else {
     return 'Requires 2 tributes to summon';

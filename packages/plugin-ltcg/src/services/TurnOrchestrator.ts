@@ -616,7 +616,7 @@ Choose wisely!`;
     // Use handIndex from decision parameters, or fall back to first monster
     let handIndex = decision.parameters?.handIndex as number | undefined;
     if (handIndex === undefined) {
-      handIndex = monsters[0].handIndex;
+      handIndex = monsters[0].handIndex ?? 0;
     }
 
     const position = (decision.parameters?.position as 'attack' | 'defense') ?? 'attack';
@@ -624,7 +624,7 @@ Choose wisely!`;
     try {
       await this.client!.summon({
         gameId,
-        handIndex,
+        handIndex: handIndex ?? 0,
         position,
       });
 

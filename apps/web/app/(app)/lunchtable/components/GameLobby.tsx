@@ -1,12 +1,11 @@
 "use client";
 
-import { GameBoard } from "@/components/game/GameBoard";
 import { useGameLobby, useMatchmaking, useSpectator } from "@/hooks";
 import { logError } from "@/lib/errorHandling";
 import { cn } from "@/lib/utils";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import {
   ChevronRight,
   Clock,
@@ -22,10 +21,10 @@ import {
   Waves,
   Zap,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CreateGameModal } from "./CreateGameModal";
 import { JoinConfirmDialog } from "./JoinConfirmDialog";
-import { SpectatorGameView } from "./SpectatorGameView";
 
 type GameStatus = "waiting" | "active";
 type TabType = "join" | "watch";
@@ -92,11 +91,11 @@ function formatWaitTime(timestamp: number): string {
 }
 
 export function GameLobby() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>("join");
   const [modeFilter, setModeFilter] = useState<GameMode>("all");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [joiningGame, setJoiningGame] = useState<GameLobbyEntry | null>(null);
-  const [spectatingGameId, setSpectatingGameId] = useState<string | null>(null);
   const [quickMatchMode, setQuickMatchMode] = useState<"casual" | "ranked">("casual");
 
   // Use custom hooks
@@ -148,9 +147,9 @@ export function GameLobby() {
       const result = await createLobby(data.mode, data.isPrivate || false);
       setIsCreateModalOpen(false);
 
-      // Redirect to game board immediately after creating
+      // Redirect to game page immediately after creating
       if (result && result.lobbyId) {
-        setSpectatingGameId(result.lobbyId as string);
+        router.push(`/game/${result.lobbyId}`);
       }
     } catch (error) {
       logError("create lobby", error);
@@ -196,7 +195,7 @@ export function GameLobby() {
   };
 
   const handleWatchGame = (gameId: string) => {
-    setSpectatingGameId(gameId);
+    router.push(`/game/${gameId}`);
   };
 
   const confirmJoin = async () => {
@@ -206,71 +205,15 @@ export function GameLobby() {
       const result = await joinLobbyAction(joiningGame.id as Id<"gameLobbies">);
       setJoiningGame(null);
 
-      // Redirect to game view after successfully joining
+      // Redirect to game page after successfully joining
       if (result && result.lobbyId) {
-        setSpectatingGameId(result.lobbyId as string);
+        router.push(`/game/${result.lobbyId}`);
       }
     } catch (error) {
       logError("join game", error);
       setJoiningGame(null);
     }
   };
-
-  // DISABLED: Auto-redirect was forcing users into old/stale games
-  // Instead, show a "Resume Game" button in the UI
-  // useEffect(() => {
-  //   if (
-  //     myActiveLobby &&
-  //     (myActiveLobby.status === "waiting" || myActiveLobby.status === "active") &&
-  //     !spectatingGameId
-  //   ) {
-  //     setSpectatingGameId(myActiveLobby._id as string);
-  //   }
-  // }, [myActiveLobby, spectatingGameId]);
-
-  // Get current user
-  const currentUser = useQuery(api.core.users.currentUser);
-
-  // Get lobby details to check if user is a player
-  const spectatingLobby = useQuery(
-    api.gameplay.games.queries.getLobbyDetails,
-    spectatingGameId ? { lobbyId: spectatingGameId as Id<"gameLobbies"> } : "skip"
-  );
-
-  // Render game view if watching/playing a game
-  if (spectatingGameId && currentUser) {
-    // Wait for lobby details to load before deciding player vs spectator
-    if (spectatingLobby === undefined) {
-      return (
-        <div className="h-screen flex items-center justify-center bg-[#0d0a09]">
-          <div className="flex flex-col items-center gap-2">
-            <Loader2 className="h-6 w-6 animate-spin text-[#d4af37]" />
-            <span className="text-xs text-[#a89f94]">Loading game...</span>
-          </div>
-        </div>
-      );
-    }
-
-    const isPlayer =
-      spectatingLobby &&
-      (spectatingLobby.hostId === currentUser._id ||
-        spectatingLobby.opponentId === currentUser._id);
-
-    if (isPlayer) {
-      // User is a player - show full game board
-      return (
-        <GameBoard lobbyId={spectatingGameId as Id<"gameLobbies">} playerId={currentUser._id} />
-      );
-    } else {
-      // User is a spectator - show spectator view
-      return (
-        <SpectatorGameView
-          lobbyId={spectatingGameId as Id<"gameLobbies">}
-          onExit={() => setSpectatingGameId(null)}
-        />
-      );
-    }
-  }
 
   return (
     <div data-testid="game-lobby" className="h-full flex flex-col">
@@ -294,7 +237,7 @@ export function GameLobby() {
               <span className="text-sm font-bold">Game in progress!</span>
               <button
                 type="button"
-                onClick={() => setSpectatingGameId(myActiveLobby._id as string)}
+                onClick={() => router.push(`/game/${myActiveLobby._id}`)}
                 className="ml-2 px-3 py-1 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-400 text-xs font-bold uppercase transition-colors"
               >
                 View Game

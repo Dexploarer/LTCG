@@ -85,7 +85,7 @@ export function CardInspectorModal({
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-sm max-h-[80vh] overflow-hidden"
+            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[calc(100%-2rem)] sm:w-full max-w-sm max-h-[90vh] overflow-hidden"
           >
             <div className="bg-background border rounded-xl shadow-2xl overflow-hidden">
               {/* Header with close button */}
@@ -113,13 +113,13 @@ export function CardInspectorModal({
               </div>
 
               {/* Scrollable content */}
-              <div className="overflow-y-auto max-h-[calc(80vh-50px)] p-3">
+              <div className="overflow-y-auto max-h-[calc(90vh-50px)] p-3 sm:p-4">
                 {/* Card image and basic info */}
-                <div className="flex gap-3 mb-3">
+                <div className="flex gap-2 sm:gap-3 mb-3">
                   {/* Card image */}
                   <div
                     className={cn(
-                      "w-20 h-28 rounded-lg border-2 overflow-hidden shrink-0",
+                      "w-16 h-24 sm:w-20 sm:h-28 rounded-lg border-2 overflow-hidden shrink-0",
                       RARITY_BORDERS[card.rarity ?? "common"] ?? RARITY_BORDERS["common"]
                     )}
                   >
@@ -140,7 +140,7 @@ export function CardInspectorModal({
 
                   {/* Basic info */}
                   <div className="flex-1 min-w-0">
-                    <h2 className="font-bold text-sm leading-tight mb-1">{card.name}</h2>
+                    <h2 className="font-bold text-xs sm:text-sm leading-tight mb-1 wrap-break-word">{card.name}</h2>
 
                     {/* Rarity */}
                     <div className="flex items-center gap-1 mb-1">

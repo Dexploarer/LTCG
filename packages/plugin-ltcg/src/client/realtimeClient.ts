@@ -456,13 +456,30 @@ export class ConvexRealtimeClient {
   private formatGameState(result: any): GameStateResponse {
     // The query returns a comprehensive game state object
     // We map it to the GameStateResponse format
-    return {
-      gameId: result.lobbyId,
-      status: result.status,
-      currentTurn: result.isHost ? 'host' : 'opponent',
-      phase: result.currentPhase,
-      turnNumber: result.turnNumber,
+    const isHost = result.isHost ?? true;
 
+    return {
+      gameId: result.lobbyId || result.gameId,
+      lobbyId: result.lobbyId || result.gameId,
+      status: result.status || 'active',
+      currentTurn: isHost ? 'host' : 'opponent',
+      currentTurnPlayer: result.currentTurnPlayerId || '',
+      isMyTurn: result.isMyTurn ?? isHost,
+      phase: result.currentPhase || 'main1',
+      turnNumber: result.turnNumber || 1,
+
+      // New format fields
+      myLifePoints: isHost ? (result.hostLifePoints || 0) : (result.opponentLifePoints || 0),
+      opponentLifePoints: isHost ? (result.opponentLifePoints || 0) : (result.hostLifePoints || 0),
+      myBoard: (isHost ? result.hostMonsters : result.opponentMonsters) || [],
+      opponentBoard: (isHost ? result.opponentMonsters : result.hostMonsters) || [],
+      myDeckCount: (isHost ? result.hostDeckCount : result.opponentDeckCount) || 0,
+      opponentDeckCount: (isHost ? result.opponentDeckCount : result.hostDeckCount) || 0,
+      myGraveyardCount: (isHost ? result.hostGraveyard?.length : result.opponentGraveyard?.length) || 0,
+      opponentGraveyardCount: (isHost ? result.opponentGraveyard?.length : result.hostGraveyard?.length) || 0,
+      opponentHandCount: (isHost ? result.opponentHandCount : result.hostHandCount) || 0,
+
+      // Legacy fields for compatibility
       hostPlayer: {
         playerId: result.hostId,
         lifePoints: result.hostLifePoints || 0,

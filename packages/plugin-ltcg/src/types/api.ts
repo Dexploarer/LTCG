@@ -76,25 +76,51 @@ export interface RateLimitStatus {
 // Game State
 // ============================================================================
 
+/**
+ * Game state response from /api/agents/games/state
+ * Note: This matches the actual API response format, with legacy fields added by normalization
+ */
 export interface GameStateResponse {
   gameId: string;
-  status: 'waiting' | 'active' | 'completed';
-  currentTurn: 'host' | 'opponent';
+  lobbyId: string;
   phase: 'draw' | 'standby' | 'main1' | 'battle' | 'main2' | 'end';
   turnNumber: number;
+  currentTurnPlayer: string;
+  isMyTurn: boolean;
+  status: 'waiting' | 'active' | 'completed'; // Added for compatibility
+  currentTurn: 'host' | 'opponent'; // Added for compatibility
 
-  // Player info
-  hostPlayer: PlayerState;
-  opponentPlayer: PlayerState;
+  // Life points
+  myLifePoints: number;
+  opponentLifePoints: number;
 
-  // Current player's hand (only visible to them)
+  // Current player's hand
   hand: CardInHand[];
 
+  // Board state - monsters/cards on field
+  myBoard: BoardCard[];
+  opponentBoard: BoardCard[];
+
+  // Card counts
+  myDeckCount: number;
+  opponentDeckCount: number;
+  myGraveyardCount: number;
+  opponentGraveyardCount: number;
+  opponentHandCount: number;
+
   // Turn restrictions
-  hasNormalSummoned: boolean;
-  canChangePosition: boolean[];
+  normalSummonedThisTurn?: boolean;
+  hasNormalSummoned?: boolean; // Alias for compatibility
+  canChangePosition?: boolean[]; // Array indexed by board position
+
+  // Legacy compatibility - always present after normalization
+  hostPlayer: PlayerState;
+  opponentPlayer: PlayerState;
 }
 
+/**
+ * @deprecated Use GameStateResponse directly with myBoard/opponentBoard
+ */
 export interface PlayerState {
   playerId: string;
   lifePoints: number;
@@ -110,18 +136,46 @@ export interface PlayerState {
   extraDeck: number; // Count only
 }
 
+/**
+ * Card in hand - uses cardType from backend schema
+ * Note: cardType values are 'creature', 'spell', 'trap', 'equipment'
+ */
 export interface CardInHand {
-  handIndex: number;
-  cardId: string;
+  _id: string;
   name: string;
-  type: 'monster' | 'spell' | 'trap';
+  cardType: 'creature' | 'spell' | 'trap' | 'equipment';
+  cost?: number;
+  attack?: number;
+  defense?: number;
+  element?: string;
+  archetype?: string;
+  description?: string;
+  abilities?: Record<string, any>[];
+  // Legacy fields for compatibility
+  handIndex?: number;
+  cardId?: string;
+  type?: 'monster' | 'spell' | 'trap';
   level?: number;
   atk?: number;
   def?: number;
-  attribute?: string;
-  race?: string;
-  description: string;
-  abilities: Record<string, any>[];
+}
+
+/**
+ * Card on the board (monster zone)
+ */
+export interface BoardCard {
+  _id: string;
+  name: string;
+  cardType: 'creature' | 'spell' | 'trap' | 'equipment';
+  attack?: number;
+  defense?: number;
+  currentAttack?: number;
+  currentDefense?: number;
+  position: 0 | 1; // 0 = defense, 1 = attack
+  hasAttacked: boolean;
+  isFaceDown: boolean;
+  element?: string;
+  cost?: number;
 }
 
 export interface MonsterCard {

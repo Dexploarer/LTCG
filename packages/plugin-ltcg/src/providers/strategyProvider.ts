@@ -100,19 +100,25 @@ interface StrategyAnalysis {
 
 /**
  * Analyze strategy based on game state
+ * Note: API returns myBoard/opponentBoard and myLifePoints/opponentLifePoints
  */
 function analyzeStrategy(gameState: GameStateResponse): StrategyAnalysis {
-  const myLP = gameState.hostPlayer.lifePoints;
-  const opponentLP = gameState.opponentPlayer.lifePoints;
-  const myMonsters = gameState.hostPlayer.monsterZone;
-  const opponentMonsters = gameState.opponentPlayer.monsterZone;
-  const myBackrow = gameState.hostPlayer.spellTrapZone;
-  const opponentBackrow = gameState.opponentPlayer.spellTrapZone;
+  // Use correct field names from API response
+  const myLP = gameState.myLifePoints;
+  const opponentLP = gameState.opponentLifePoints;
+  const myMonsters = gameState.myBoard || [];
+  const opponentMonsters = gameState.opponentBoard || [];
+  // Note: Spell/trap zones not returned separately in current API
+  const myBackrow: any[] = [];
+  const opponentBackrow: any[] = [];
+
+  // Helper to get attack value from BoardCard
+  const getAtk = (card: any) => card.currentAttack ?? card.attack ?? 0;
 
   // Evaluate game state
   const lpDiff = myLP - opponentLP;
-  const myTotalAtk = myMonsters.reduce((sum, m) => sum + m.atk, 0);
-  const opponentTotalAtk = opponentMonsters.reduce((sum, m) => sum + m.atk, 0);
+  const myTotalAtk = myMonsters.reduce((sum, m) => sum + getAtk(m), 0);
+  const opponentTotalAtk = opponentMonsters.reduce((sum, m) => sum + getAtk(m), 0);
   const monsterDiff = myMonsters.length - opponentMonsters.length;
 
   let gameStateEval: StrategyAnalysis['gameState'];
@@ -208,6 +214,7 @@ function analyzeStrategy(gameState: GameStateResponse): StrategyAnalysis {
 
 /**
  * Calculate if the game can be won this turn
+ * Note: BoardCard uses hasAttacked, position, isFaceDown instead of canAttack
  */
 function calculateCanWinThisTurn(
   myMonsters: any[],
@@ -216,7 +223,14 @@ function calculateCanWinThisTurn(
 ): boolean {
   if (opponentMonsterCount > 0) return false;
 
-  const totalDirectDamage = myMonsters.reduce((sum, m) => sum + (m.canAttack ? m.atk : 0), 0);
+  // Helper to get attack value
+  const getAtk = (card: any) => card.currentAttack ?? card.attack ?? 0;
+
+  // Can attack if: not already attacked, in attack position (1), not face-down
+  const totalDirectDamage = myMonsters.reduce((sum, m) => {
+    const canAttack = !m.hasAttacked && m.position === 1 && !m.isFaceDown;
+    return sum + (canAttack ? getAtk(m) : 0);
+  }, 0);
   return totalDirectDamage >= opponentLP;
 }
 

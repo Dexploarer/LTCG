@@ -204,7 +204,7 @@ Respond with JSON: { "handIndex": <index>, "position": "attack" or "defense", "t
       const position = (parsed.position === 'defense' ? 'defense' : 'attack') as 'attack' | 'defense';
       const result = await client.summon({
         gameId: gameState.gameId,
-        handIndex: selectedCard.handIndex,
+        handIndex: selectedCard.handIndex ?? 0,
         position,
         tributeIndices: tributeIndices.length > 0 ? tributeIndices : undefined,
       });

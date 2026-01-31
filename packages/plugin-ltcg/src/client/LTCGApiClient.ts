@@ -6,6 +6,7 @@
  */
 
 import { API_ENDPOINTS, TIMEOUTS, RETRY_CONFIG } from '../constants';
+import { normalizeGameState } from '../utils/normalizeGameState';
 import type {
   RegisterAgentRequest,
   RegisterAgentResponse,
@@ -292,9 +293,11 @@ export class LTCGApiClient {
    * GET /api/agents/games/state?gameId=xxx
    */
   async getGameState(gameId: string): Promise<GameStateResponse> {
-    return this.request<GameStateResponse>(`${API_ENDPOINTS.GET_GAME_STATE}?gameId=${gameId}`, {
+    const rawState = await this.request<GameStateResponse>(`${API_ENDPOINTS.GET_GAME_STATE}?gameId=${gameId}`, {
       method: 'GET',
     });
+    // Normalize to include legacy fields for backward compatibility
+    return normalizeGameState(rawState);
   }
 
   /**

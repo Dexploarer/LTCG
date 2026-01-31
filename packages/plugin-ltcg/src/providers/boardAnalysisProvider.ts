@@ -10,7 +10,7 @@
 
 import type { Provider, IAgentRuntime, Memory, State, ProviderResult } from '@elizaos/core';
 import { LTCGApiClient } from '../client/LTCGApiClient';
-import type { GameStateResponse, MonsterCard } from '../types/api';
+import type { GameStateResponse, BoardCard } from '../types/api';
 
 export const boardAnalysisProvider: Provider = {
   name: 'LTCG_BOARD_ANALYSIS',
@@ -61,19 +61,20 @@ export const boardAnalysisProvider: Provider = {
         advantage: analysis.advantage,
         myMonsterCount: analysis.myMonsterCount,
         opponentMonsterCount: analysis.opponentMonsterCount,
-        myStrongestAtk: analysis.myStrongestMonster?.atk || 0,
-        opponentStrongestAtk: analysis.opponentStrongestMonster?.atk || 0,
+        myStrongestAtk: analysis.myStrongestMonster?.currentAttack || analysis.myStrongestMonster?.attack || 0,
+        opponentStrongestAtk: analysis.opponentStrongestMonster?.currentAttack || analysis.opponentStrongestMonster?.attack || 0,
         opponentBackrowCount: analysis.opponentBackrowCount,
         threatLevel: analysis.threatLevel,
       };
 
       // Structured data for programmatic access
+      // Note: API returns myBoard/opponentBoard, not hostPlayer/opponentPlayer
       const data = {
         ...analysis,
-        myMonsters: gameState.hostPlayer.monsterZone.length,
-        opponentMonsters: gameState.opponentPlayer.monsterZone.length,
-        myBackrow: gameState.hostPlayer.spellTrapZone.length,
-        opponentBackrow: gameState.opponentPlayer.spellTrapZone.length,
+        myMonsters: gameState.myBoard?.length || 0,
+        opponentMonsters: gameState.opponentBoard?.length || 0,
+        myBackrow: 0, // Spell/trap zone not returned separately in current API
+        opponentBackrow: 0,
       };
 
       return { text, values, data };
@@ -97,8 +98,8 @@ interface BoardAnalysis {
   advantage: 'STRONG_ADVANTAGE' | 'SLIGHT_ADVANTAGE' | 'EVEN' | 'SLIGHT_DISADVANTAGE' | 'STRONG_DISADVANTAGE';
   myMonsterCount: number;
   opponentMonsterCount: number;
-  myStrongestMonster?: MonsterCard;
-  opponentStrongestMonster?: MonsterCard;
+  myStrongestMonster?: BoardCard;
+  opponentStrongestMonster?: BoardCard;
   opponentBackrowCount: number;
   threats: string[];
   opportunities: string[];
@@ -108,26 +109,32 @@ interface BoardAnalysis {
 
 /**
  * Analyze the board state
+ * Note: API returns myBoard/opponentBoard with BoardCard format
  */
 function analyzeBoardState(gameState: GameStateResponse): BoardAnalysis {
-  const myMonsters = gameState.hostPlayer.monsterZone;
-  const opponentMonsters = gameState.opponentPlayer.monsterZone;
-  const opponentBackrow = gameState.opponentPlayer.spellTrapZone;
+  // Use myBoard/opponentBoard from the actual API response
+  const myMonsters = gameState.myBoard || [];
+  const opponentMonsters = gameState.opponentBoard || [];
+  // Note: Spell/trap zone not returned separately in current API
+  const opponentBackrow: BoardCard[] = [];
+
+  // Helper to get attack value from BoardCard
+  const getAtk = (card: BoardCard) => card.currentAttack ?? card.attack ?? 0;
 
   // Find strongest monsters
   const myStrongestMonster =
     myMonsters.length > 0
-      ? myMonsters.reduce((strongest, monster) => (monster.atk > strongest.atk ? monster : strongest))
+      ? myMonsters.reduce((strongest, monster) => (getAtk(monster) > getAtk(strongest) ? monster : strongest))
       : undefined;
 
   const opponentStrongestMonster =
     opponentMonsters.length > 0
-      ? opponentMonsters.reduce((strongest, monster) => (monster.atk > strongest.atk ? monster : strongest))
+      ? opponentMonsters.reduce((strongest, monster) => (getAtk(monster) > getAtk(strongest) ? monster : strongest))
       : undefined;
 
   // Calculate advantage
-  const myTotalAtk = myMonsters.reduce((sum, m) => sum + m.atk, 0);
-  const opponentTotalAtk = opponentMonsters.reduce((sum, m) => sum + m.atk, 0);
+  const myTotalAtk = myMonsters.reduce((sum, m) => sum + getAtk(m), 0);
+  const opponentTotalAtk = opponentMonsters.reduce((sum, m) => sum + getAtk(m), 0);
 
   const monsterAdvantage = myMonsters.length - opponentMonsters.length;
   const atkAdvantage = myTotalAtk - opponentTotalAtk;
@@ -148,9 +155,9 @@ function analyzeBoardState(gameState: GameStateResponse): BoardAnalysis {
   // Assess threats
   const threats: string[] = [];
 
-  if (opponentStrongestMonster && myStrongestMonster && opponentStrongestMonster.atk > myStrongestMonster.atk) {
+  if (opponentStrongestMonster && myStrongestMonster && getAtk(opponentStrongestMonster) > getAtk(myStrongestMonster)) {
     threats.push(
-      `Opponent's ${opponentStrongestMonster.name} (${opponentStrongestMonster.atk} ATK) is stronger than your strongest monster`
+      `Opponent's ${opponentStrongestMonster.name} (${getAtk(opponentStrongestMonster)} ATK) is stronger than your strongest monster`
     );
   }
 
@@ -167,15 +174,19 @@ function analyzeBoardState(gameState: GameStateResponse): BoardAnalysis {
   // Assess opportunities
   const opportunities: string[] = [];
 
+  // Check for direct attack opportunity
+  // Note: BoardCard uses hasAttacked (true = already attacked this turn)
   if (opponentMonsters.length === 0 && myMonsters.length > 0) {
-    const totalDamage = myMonsters.reduce((sum, m) => sum + (m.canAttack ? m.atk : 0), 0);
+    const totalDamage = myMonsters.reduce((sum, m) => sum + (!m.hasAttacked && m.position === 1 ? getAtk(m) : 0), 0);
     opportunities.push(`Direct attack possible for ${totalDamage} damage`);
   }
 
   myMonsters.forEach((myMonster) => {
-    if (!myMonster.canAttack) return;
+    // Can attack if: not already attacked, in attack position, not face-down
+    const canAttack = !myMonster.hasAttacked && myMonster.position === 1 && !myMonster.isFaceDown;
+    if (!canAttack) return;
 
-    const canDefeatOpponents = opponentMonsters.filter((opp) => myMonster.atk > opp.atk);
+    const canDefeatOpponents = opponentMonsters.filter((opp) => getAtk(myMonster) > getAtk(opp));
 
     if (canDefeatOpponents.length > 0) {
       opportunities.push(
@@ -228,20 +239,23 @@ function analyzeBoardState(gameState: GameStateResponse): BoardAnalysis {
  * Format board analysis as human-readable text
  */
 function formatBoardAnalysis(analysis: BoardAnalysis, gameState: GameStateResponse): string {
+  // Helper to get attack value from BoardCard
+  const getAtk = (card: BoardCard) => card.currentAttack ?? card.attack ?? 0;
+
   let text = `Board Analysis:\n`;
   text += `- Advantage: ${analysis.advantage.replace(/_/g, ' ')}\n`;
 
   if (analysis.myStrongestMonster) {
-    text += `- Your Strongest: ${analysis.myStrongestMonster.name} (${analysis.myStrongestMonster.atk} ATK)\n`;
+    text += `- Your Strongest: ${analysis.myStrongestMonster.name} (${getAtk(analysis.myStrongestMonster)} ATK)\n`;
   } else {
     text += `- Your Strongest: None (no monsters on field)\n`;
   }
 
   if (analysis.opponentStrongestMonster) {
     const isThreat = analysis.myStrongestMonster
-      ? analysis.opponentStrongestMonster.atk > analysis.myStrongestMonster.atk
+      ? getAtk(analysis.opponentStrongestMonster) > getAtk(analysis.myStrongestMonster)
       : true;
-    text += `- Opponent Strongest: ${analysis.opponentStrongestMonster.name} (${analysis.opponentStrongestMonster.atk} ATK)${isThreat ? ' - THREAT!' : ''}\n`;
+    text += `- Opponent Strongest: ${analysis.opponentStrongestMonster.name} (${getAtk(analysis.opponentStrongestMonster)} ATK)${isThreat ? ' - THREAT!' : ''}\n`;
   } else {
     text += `- Opponent Strongest: None (no monsters on field)\n`;
   }

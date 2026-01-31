@@ -120,12 +120,16 @@ export const setCardAction: Action = {
       });
 
       // Use LLM to select which card to set
+      // Note: Use cardType (creature/spell/trap) and fall back to type for compatibility
       const cardOptions = settableCards
         .map(
-          (card, idx) =>
-            `${idx + 1}. ${card.name} (${card.type.toUpperCase()})${
-              card.type === 'monster' ? ` - ${card.def} DEF` : ''
-            }${card.description ? ` - ${card.description.substring(0, 100)}` : ''}`
+          (card, idx) => {
+            const cardTypeName: string = card.cardType || card.type || 'unknown';
+            const isCreature = cardTypeName === 'creature' || cardTypeName === 'monster';
+            return `${idx + 1}. ${card.name} (${cardTypeName.toUpperCase()})${
+              isCreature ? ` - ${card.defense ?? card.def ?? 0} DEF` : ''
+            }${card.description ? ` - ${card.description.substring(0, 100)}` : ''}`;
+          }
         )
         .join('\n');
 
@@ -165,13 +169,15 @@ Respond with JSON: { "handIndex": <index>, "reasoning": "<brief explanation>" }`
         throw new Error('Invalid card selection');
       }
 
-      // Determine zone based on card type
-      const zone = selectedCard.type === 'monster' ? 'monster' : 'spellTrap';
+      // Determine zone based on card type (use cardType, fall back to type)
+      const cardTypeName: string = selectedCard.cardType || selectedCard.type || 'unknown';
+      const isCreature = cardTypeName === 'creature' || cardTypeName === 'monster';
+      const zone = isCreature ? 'monster' : 'spellTrap';
 
       // Make API call
       const result = await client.setCard({
         gameId: gameState.gameId,
-        handIndex: selectedCard.handIndex,
+        handIndex: selectedCard.handIndex ?? 0,
         zone,
       });
 

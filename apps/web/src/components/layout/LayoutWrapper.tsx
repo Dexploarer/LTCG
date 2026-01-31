@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { Footer } from "./Footer";
 import { Navbar, SidebarProvider } from "./Navbar";
 
-const FULL_SCREEN_ROUTES = ["/play/", "/onboarding", "/login", "/signup"];
+const FULL_SCREEN_ROUTES = ["/play/", "/game/", "/onboarding", "/login", "/signup"];
 // Dashboard/app routes should not show the footer
 const NO_FOOTER_ROUTES = ["/lunchtable", "/binder", "/profile", "/quests", "/decks", "/shop"];
 
